@@ -1,7 +1,7 @@
 # Systivex Architectural Decisions
 
 Record of binding decisions taken at project foundation (2026-09-28) and
-extended in Phase 1 (2026-09-29).
+extended in Phase 1 and Phase 2A (2026-09-29).
 Status labels: **decided** (binding now) / **planned** (intent, not yet implemented).
 
 ## D1. Java 21 — decided
@@ -128,6 +128,35 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
 - **Rationale:** Boot 4 split several starters/modules; following the new
   coordinates keeps versions managed instead of hand-pinned.
 - **State:** Implemented in `pom.xml` (see the BOM comment there).
+
+## D15. Target microservices live apart from the control plane — decided (2026-09-29)
+
+- **Decision:** The observed system (`backend/target-services/`: gateway, order,
+  payment, inventory) is built as separate Spring Boot deployables, while
+  Systivex itself stays a modular monolith. The two sides share no code, no
+  database, and no packages — only HTTP contracts documented in
+  `ARCHITECTURE.md` §4.
+- **Rationale:** The control-plane/target-environment split is the whole point
+  of the architecture: the decider must not be the thing being changed. Separate
+  deployables make the future observation boundary real instead of notional,
+  without paying for brokers, service mesh, or orchestration before anything
+  needs them.
+- **State:** Implemented: 4 services, fixed dev ports 8081–8084, verified
+  end to end. Control-plane code untouched.
+
+## D16. Plain RestClient edge, deterministic stateless targets — decided (2026-09-29)
+
+- **Decision:** Service-to-service calls use plain `RestClient` with
+  configuration-driven URLs; the "gateway" is an explicit forwarding controller,
+  not a gateway framework. Inventory/payment answer from fixed demo rules
+  (reject > 5 units, decline > 5000.00) with no database; failures surface as
+  422/503/502 with sanitized bodies and basic timeouts, no retry or
+  circuit-breaker libraries.
+- **Rationale:** A framework gateway and resilience machinery would hide the
+  very HTTP behavior Phase 2A exists to demonstrate. Deterministic rules make
+  tests and demos repeatable; persistence arrives per-service in Phase 2B.
+- **State:** Implemented with 23 service tests; JDK stub servers (no extra test
+  dependencies) cover downstream sides of the order/gateway boundary tests.
 
 ## Supersession rule
 

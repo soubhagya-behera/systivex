@@ -38,7 +38,7 @@ authorize → execute under control → verify**.
 | Concern | Systivex control plane | Target environment |
 |---|---|---|
 | Role | Thinks, models, gates, authorizes, verifies | Is observed and acted upon |
-| Shape | **Modular monolith** (Spring Boot) | **Future microservices** (example / managed systems) |
+| Shape | **Modular monolith** (Spring Boot) | **Microservices** (4 Spring Boot apps, Phase 2A) |
 | Reasoning | Agent + twin-grounded analysis (planned) | Application business logic |
 | Authority | Grants or denies consequential actions | Carries out only authorized actions |
 | Trust | Authoritative for decisions and audit | Untrusted until verified |
@@ -67,14 +67,36 @@ Module rules (binding for future work): modules communicate through explicit
 APIs; no cross-module persistence access; every consequential action crosses
 the policy/execution boundary (see §6).
 
-## 4. Future target microservices (deferred)
+## 4. Target microservices (Phase 2A runtime exists; observation planned)
 
-A small set of demo microservices will later serve as the **target environment**
-the twin models and the control plane acts upon. They are **deferred**:
+Four independently deployable services under `backend/target-services/` form the
+first **target environment** — the kind of system the twin will eventually model
+and the control plane will act upon. They are ordinary business services with no
+Systivex awareness in them:
 
-- Not created in this phase.
+```text
+client ──▶ gateway-service (:8081, POST /api/v1/checkout)
+               │ HTTP (RestClient, URL from config)
+               ▼
+           order-service (:8082, POST /api/v1/orders)
+               ├──▶ inventory-service (:8084, POST /internal/v1/inventory/reserve)
+               └──▶ payment-service (:8083, POST /internal/v1/payments/authorize)
+```
+
+- Each has its own pom, Maven wrapper, application class, and Actuator health.
+- Downstream URLs come from configuration (`*_URL` env vars with localhost
+  defaults), never from source. Fixed dev ports (8081–8084); control plane stays
+  on 8080.
+- Checkout is deliberately thin: validate → reserve → authorize → respond.
+  Inventory rejects quantities above a demo limit, payment declines amounts above
+  a demo limit (both 422); unreachable/erroring downstream becomes 503 at order
+  level and 502 at gateway level, with sanitized bodies throughout.
+- Stateless and database-free by decision (persistence arrives in Phase 2B);
+  the approve/reject rules are deterministic so tests and demos are repeatable.
 - No Kubernetes, no message broker, no service mesh at this stage.
-- When introduced, they remain strictly outside the control-plane trust boundary.
+- The control plane does not call, scrape, or model these services yet. They
+  remain strictly outside the control-plane trust boundary: untrusted until
+  verified, never self-authorizing, carrying only their own local logic.
 
 ## 5. System Twin concept (persistence exists; reasoning still planned)
 

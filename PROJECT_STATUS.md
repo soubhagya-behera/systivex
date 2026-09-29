@@ -5,8 +5,24 @@ whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 1 — Control-plane persistence foundation.** Phase 0 (repository
-foundation) below is kept as history.
+**Phase 2A — Target microservice runtime foundation.** Phases 0–1 below are
+kept as history.
+
+## What is complete (Phase 2A, 2026-09-29)
+
+- [x] Four standalone target services under `backend/target-services/`:
+      gateway (8081), order (8082), payment (8083), inventory (8084).
+- [x] Each on Java 21 / Spring Boot 4.1.1 / Maven, own wrapper + app class +
+      Actuator health; control plane untouched on 8080.
+- [x] Real HTTP checkout flow: gateway → order → inventory + payment
+      (RestClient, config-driven URLs), verified across live processes.
+- [x] Explicit per-service DTO contracts; deterministic stateless
+      approve/reject rules (documented as temporary until Phase 2B).
+- [x] Controlled failures: 400 validation, 422 business rejection, 503 order
+      level, 502 gateway level — no stack traces or internals on the wire.
+- [x] 23 service tests green (real-HTTP boundaries, loopback stubs for
+      downstream only); full 4-process run demonstrated success + inventory
+      rejection + inventory outage.
 
 ## What is complete (Phase 1, 2026-09-29)
 
@@ -56,9 +72,20 @@ These are **deferred by decision**, not missing by accident. Do not report them 
 - Spring AI / Ollama integration, model configuration.
 - React (JavaScript, no TypeScript) frontend; no `frontend/` directory.
 - Docker Compose or any container orchestration.
-- Target demo microservices; message brokers; Kubernetes; WebSockets;
+- Target-service databases (Phase 2B); message brokers; Kubernetes; WebSockets;
   vector databases; MCP; multi-agent architecture; cloud infrastructure.
 - Placeholder or speculative backend packages beyond `twin`.
+
+## Verification record (2026-09-29, Phase 2A)
+
+| Check | Command | Result |
+|---|---|---|
+| Tests (×4) | `./mvnw.cmd clean test` in each service dir | inventory 5, payment 5, order 7, gateway 6 — all green, no Docker needed |
+| Build (×4) | `./mvnw.cmd -q package -DskipTests` | 4 jars (~23.6 MB each) |
+| Health (×4) | `GET localhost:808{1..4}/actuator/health` (all running) | `{"status":"UP"}` on all four |
+| E2E success | `POST localhost:8081/api/v1/checkout` (all running) | `CONFIRMED` with reservationId + authorizationId |
+| E2E biz failure | same, quantity 99 | 422 `FAILED` / `INVENTORY_REJECTED` end to end |
+| E2E outage | same, inventory stopped | order 503 `DOWNSTREAM_UNAVAILABLE`, gateway 502 generic |
 
 ## Verification record (2026-09-29, Phase 1)
 
@@ -99,12 +126,13 @@ Phase 0 record (2026-09-28) is retained below for history.
 
 ## Immediate next milestone (proposed, not started)
 
-**Milestone 2 — Twin ingestion from a real source:**
+**Milestone 2B — Target-service persistence:**
 
-1. Repository connector first (read code structure into `SystemEntity` /
-   `SystemRelationship` rows) — no agents, no execution.
-2. API filtering/pagination only when a consumer needs it.
-3. Authentication on the twin API before the surface leaves the local machine.
+1. Per-service databases (PostgreSQL schemas owned by each service) replacing
+   the deterministic stateless rules — no shared database.
+2. Repository connector reading the target services into twin rows (first
+   actual observation; still no agents or execution).
+3. Authentication on any API before the surface leaves the local machine.
 
-Out of scope for Milestone 2: agents, simulation, approvals UI, brokers, K8s,
+Out of scope for Milestone 2B: agents, simulation, approvals UI, brokers, K8s,
 vector search, frontend beyond API consumption readiness.

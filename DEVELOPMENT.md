@@ -1,8 +1,9 @@
 # Systivex Development Guide
 
-Scope: **control-plane persistence foundation** (verified 2026-09-29).
-Covers `backend/` with PostgreSQL + Flyway + JPA. No cache, AI runtime,
-or frontend — none are required yet.
+Scope: **control plane (Phases 0–1) + target services (Phase 2A)**
+(verified 2026-09-29). §§1–7 cover the control plane in `backend/`;
+§8 covers the target services in `backend/target-services/`.
+No cache, AI runtime, or frontend — none are required yet.
 
 ## 1. Prerequisites
 
@@ -162,3 +163,61 @@ at the same time as the code — docs must reflect reality.
 4. Do not weaken tests to make them pass.
 5. Do not claim features work unless verified by `./mvnw test` / startup / endpoint check.
 6. Never commit `application.properties`, credentials, or machine-local settings.
+7. Keep target services free of control-plane code (and vice versa) — the only
+   link between them today is documentation.
+
+## 8. Target services (Phase 2A)
+
+Four standalone services under `backend/target-services/`. Each has its own
+`pom.xml`, Maven wrapper, and application class — build and run each from its
+own directory with the same JDK 21 setup as §1 (no database, no Docker needed).
+
+| Service | Directory | Port |
+|---|---|---|
+| gateway-service | `backend/target-services/gateway-service/` | 8081 |
+| order-service | `backend/target-services/order-service/` | 8082 |
+| payment-service | `backend/target-services/payment-service/` | 8083 |
+| inventory-service | `backend/target-services/inventory-service/` | 8084 |
+
+First run per service (same pattern for all four — example shown once):
+
+```powershell
+cd backend/target-services/order-service
+Copy-Item src/main/resources/application.example.properties src/main/resources/application.properties
+$env:JAVA_HOME="C:\Program Files\Java\jdk-21.0.10"
+$env:Path="C:\Program Files\Java\jdk-21.0.10\bin;" + $env:Path
+./mvnw.cmd test
+./mvnw.cmd -q package -DskipTests
+```
+
+The live `application.properties` is git-ignored (same convention as the
+control plane); the tracked `.example` file is the template. No secrets exist
+here — the files carry ports and localhost downstream URLs only, overridable
+via `ORDER_SERVICE_URL`, `INVENTORY_SERVICE_URL`, `PAYMENT_SERVICE_URL`.
+
+Run all four (one shell each, inventory/payment first, then order, then
+gateway — or any order; each waits on its own port):
+
+```powershell
+./mvnw.cmd spring-boot:run   # from each service directory
+```
+
+Health: `GET http://localhost:808{1..4}/actuator/health` → `{"status":"UP"}`.
+
+Checkout (verified end to end over real HTTP):
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8081/api/v1/checkout" -Method Post `
+  -Body (@{productId="SKU-1001"; quantity=1; customerId="CUST-1001"; amount=1499.00} | ConvertTo-Json) `
+  -ContentType "application/json" | ConvertTo-Json
+# -> {"orderId":"...","status":"CONFIRMED",...} with reservationId + authorizationId
+```
+
+Demo rules (stateless, temporary until Phase 2B persistence): inventory
+rejects quantity > 5 (422), payment declines amount > 5000.00 (422), dead
+downstream surfaces as 503 at order level and 502 at gateway level.
+
+Tests (23 total, no Docker, no running services required): each service has
+real-HTTP boundary tests — inventory/payment hit the live service on a random
+port; order/gateway tests run the service for real and stub only the
+downstream side with loopback stub servers.

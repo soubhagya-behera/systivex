@@ -31,15 +31,22 @@ consequential actions through explicit control-plane authorization.
   FK/unique/check constraints, `ON DELETE CASCADE`.
 - Minimal twin REST surface (`/api/v1/twin/entities`, `/api/v1/twin/relationships`)
   with DTOs, Bean Validation, and stable 400/404/409 error responses.
-- 29 tests green: service unit tests plus Testcontainers-backed migration,
-  repository, and API integration tests.
+- 29 control-plane tests green: service unit tests plus Testcontainers-backed
+  migration, repository, and API integration tests.
+- Phase 2A target environment (`backend/target-services/`): four independently
+  runnable Spring Boot services — gateway (8081) → order (8082) → inventory
+  (8084) + payment (8083) — with real HTTP calls between processes, a minimal
+  checkout flow, deterministic stateless approve/reject rules, controlled
+  400/422/502/503 error handling, and 23 service tests green. No databases,
+  no observability, no agents — just the distributed system Systivex will
+  one day observe. The control plane does not read from these services yet.
 
 **Not yet implemented** (planned architecture only):
 
-- Richer twin ingestion (code/arch/runtime connectors), Git integration, telemetry
+- Twin ingestion of the target environment, Git integration, telemetry
 - Agent orchestration, tooling, evidence model
 - Policy / risk / approval engine and controlled execution, simulation, verification
-- Cache (Redis), Spring AI / Ollama integration, frontend, target microservices
+- Target-service databases, cache (Redis), Spring AI / Ollama, frontend
 
 See [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for the phase record,
 [`ARCHITECTURE.md`](ARCHITECTURE.md) for target vs. current architecture,
@@ -60,6 +67,13 @@ Systivex/
 │       ├── main/resources/application.example.properties  # tracked safe template
 │       ├── main/resources/db/migration/V1__create_system_twin.sql
 │       └── test/java/com/soubhagya/systivex/  # unit + Testcontainers integration tests
+│   └── target-services/         # IMPLEMENTED (Phase 2A): target runtime Systivex will observe
+│       ├── gateway-service/     # :8081, forwards POST /api/v1/checkout to order
+│       ├── order-service/       # :8082, checkout orchestration over the two below
+│       ├── payment-service/     # :8083, deterministic authorization
+│       └── inventory-service/   # :8084, deterministic reservation
+│           # each: own pom/mvnw/app class; live application.properties git-ignored,
+│           # application.example.properties tracked; no databases yet
 ├── README.md                # this file
 ├── ARCHITECTURE.md          # target architecture + current status
 ├── DEVELOPMENT.md           # build / test / run instructions

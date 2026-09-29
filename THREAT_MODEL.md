@@ -1,18 +1,21 @@
 # Systivex Threat Model
 
-Scope: **foundation + persistence-phase principles** (2026-09-29). Enforcement
+Scope: **foundation + persistence + target-runtime principles** (2026-09-29). Enforcement
 mechanisms (policy engine, approvals, audit store) are **planned, not implemented** —
 these principles bind all future design so the mechanisms can be built correctly.
 
 ## 1. System under analysis (today)
 
-A single Spring Boot process on `:8080` exposing Actuator `health` plus a
+A single Spring Boot control plane on `:8080` exposing Actuator `health` plus a
 local twin CRUD API (`/api/v1/twin`), backed by PostgreSQL via Flyway migrations
-and validated JPA mappings. No user data of value yet, no agents, no execution
-capability. Credential handling is already load-bearing: the datasource password
+and validated JPA mappings. Alongside it, four Phase 2A target services on
+`:8081–:8084` (gateway → order → inventory/payment) with open local HTTP APIs
+and no persistence. No user data of value yet, no agents, no execution
+capability, and the control plane does not call the target services.
+Credential handling is already load-bearing: the datasource password
 reaches the app only through `SYSTIVEX_DB_PASSWORD`; the live
 `application.properties` is git-ignored and only the secret-free example
-template is tracked.
+template is tracked. The target services hold no credentials at all.
 
 ## 2. Trust principles (binding)
 
@@ -71,8 +74,9 @@ template is tracked.
 
 ## 3. Out-of-scope today, in-scope for design
 
-- Authentication/authorization mechanism (the twin API is currently open —
-  acceptable on a local machine, not beyond it), secret management, key rotation.
+- Authentication/authorization mechanism (the twin API and all four target
+  service APIs are currently open — acceptable on a local machine, not
+  beyond it), secret management, key rotation.
 - Twin-connector authentication and data-integrity guarantees.
 - Approval UX and delegation model; risk-classification taxonomy.
 - Execution sandboxing, blast-radius limits, rollback/verification loops.
