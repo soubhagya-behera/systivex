@@ -1,0 +1,45 @@
+{
+  // ============================================================================
+  // Systivex VS Code workspace settings — PORTABLE TEMPLATE (tracked in Git).
+  //
+  // HOW TO USE:
+  //   1. Copy this file to `settings.json` in the same `.vscode/` directory:
+  //        Copy-Item .vscode/settings.json.example .vscode/settings.json
+  //   2. Edit `settings.json` so the three JDK paths below point at YOUR local
+  //      JDK 21 installation (keep them consistent).
+  //   3. In VS Code: close existing integrated terminals (trash-can icon) and
+  //      open a new one (Ctrl+Shift+`). Verify with:
+  //        java -version
+  //        echo $env:JAVA_HOME
+  //        .\backend\mvnw.cmd -version
+  //
+  // WHY A TEMPLATE:
+  //   The real `.vscode/settings.json` contains a machine-specific absolute
+  //   JDK path (e.g. `C:\Program Files\Java\jdk-21.0.10` on the author's
+  //   Windows box) and is therefore intentionally git-ignored (see root
+  //   .gitignore: `.vscode/*` with an exception for this `.example` file).
+  //   Committing absolute local paths would break repository portability for
+  //   macOS/Linux contributors and machines with different JDK locations.
+  //   Workspace settings never touch the global %JAVA_HOME% / system PATH,
+  //   so existing Java 17 projects are unaffected.
+  // ============================================================================
+
+  // JDK that runs the VS Code Java language server. Must be 21+.
+  "java.jdt.ls.java.home": "C:\\Program Files\\Java\\jdk-21.0.10",
+
+  // Project runtime: Systivex builds and runs on JavaSE-21 by default.
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-21",
+      "path": "C:\\Program Files\\Java\\jdk-21.0.10",
+      "default": true
+    }
+  ],
+
+  // Integrated Windows terminal environment, workspace-only:
+  // JDK 21 `bin` is PREPENDED to the inherited PATH (${env:PATH} preserved).
+  "terminal.integrated.env.windows": {
+    "JAVA_HOME": "C:\\Program Files\\Java\\jdk-21.0.10",
+    "PATH": "C:\\Program Files\\Java\\jdk-21.0.10\\bin;${env:PATH}"
+  }
+}

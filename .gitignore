@@ -1,0 +1,109 @@
+# Root .gitignore — Systivex (initial foundation phase)
+# Covers Java/Maven/Spring Boot, IDEs, OS files, and local secrets.
+# backend/ keeps its own Spring-Initializr .gitignore as well; this root file
+# is the authoritative cross-project ignore list.
+
+# --- Build output ---
+target/
+out/
+build/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+
+# --- Java / Maven ---
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+.mvn/timing.properties
+.mvn/maven.config.bak
+
+# --- Spring Boot ---
+spring-shell.log
+*.log
+*.log.*
+# Local-only Spring Boot config (machine-specific). Never commit the live file;
+# commit only the safe template: application.example.properties.
+**/src/main/resources/application.properties
+!**/src/main/resources/application.example.properties
+application-local.properties
+application-local.yml
+application-local.yaml
+application-*.local.properties
+
+# --- Frontend (deferred — pre-ignored so nothing accidental is committed) ---
+# No frontend/ exists yet. When React (JavaScript, no TypeScript) lands,
+# its own .gitignore will complement these entries.
+node_modules/
+dist/
+.next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.yarn/
+package-lock.json.bak
+
+# --- IntelliJ IDEA ---
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# --- VS Code ---
+# Workspace-local settings (e.g. .vscode/settings.json) hold machine-specific
+# absolute JDK paths and stay UNTRACKED. Only the portable template is tracked.
+.vscode/*
+!.vscode/settings.json.example
+*.code-workspace
+
+# --- Eclipse / STS ---
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# --- NetBeans ---
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# --- OS-generated ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Secrets / local environment (never commit) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+secrets/
+secrets.properties
+local.properties
+*.secret
+
+# --- Misc ---
+*.tmp
+*.bak
+*.swp
+*~
+HELP.md.bak
