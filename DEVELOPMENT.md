@@ -1,8 +1,8 @@
 # Systivex Development Guide
 
-Scope: **initial repository foundation only** (verified 2026-09-28).
-Covers the existing `backend/` skeleton. Nothing here assumes a database,
-cache, AI runtime, or frontend — none are required yet.
+Scope: **control-plane persistence foundation** (verified 2026-09-29).
+Covers `backend/` with PostgreSQL + Flyway + JPA. No cache, AI runtime,
+or frontend — none are required yet.
 
 ## 1. Prerequisites
 
@@ -11,7 +11,8 @@ cache, AI runtime, or frontend — none are required yet.
 | JDK | **21** (e.g. `21.0.10 LTS`) | Required. Project compiles with `release 21`. |
 | Maven | Wrapper-provided (3.9.16 via `./mvnw`) | No separate install needed |
 | OS / shell | Windows 10/11 + PowerShell 5.1 (verified); any OS with JDK 21 works | — |
-| PostgreSQL | **Not required** in this phase | Deferred |
+| PostgreSQL | 18.x locally (`systivex` db, `systivex_app` user) | Required to run; tests use Testcontainers instead |
+| Docker | Docker Desktop (daemon running) | Required for `./mvnw test` (Testcontainers spins up PG 18) |
 | Redis | **Not required** in this phase | Deferred, only when justified |
 | Ollama / Spring AI | **Not required** in this phase | Deferred |
 | Node / React | **Not required** (no frontend yet) | Deferred |
@@ -48,14 +49,39 @@ backend/
 ├── pom.xml            # spring-boot-starter-parent 4.1.1, java.version 21
 ├── mvnw / mvnw.cmd / .mvn/wrapper/
 └── src/
-    ├── main/java/com/soubhagya/systivex/SystivexApplication.java
-    ├── main/resources/application.properties   # only spring.application.name=systivex
-    └── test/java/com/soubhagya/systivex/SystivexApplicationTests.java  # contextLoads
+    ├── main/java/com/soubhagya/systivex/
+    │   ├── SystivexApplication.java
+    │   └── twin/{model,repository,service,api}/
+    ├── main/resources/
+    │   ├── application.properties                 # LOCAL ONLY, git-ignored
+    │   ├── application.example.properties         # tracked safe template
+    │   └── db/migration/V1__create_system_twin.sql
+    └── test/java/com/soubhagya/systivex/  # unit + Testcontainers integration tests
 ```
 
 Backend coordinates: `com.soubhagya:systivex:0.0.1-SNAPSHOT`.
-Active dependencies: `spring-boot-starter-webmvc`, `spring-boot-starter-validation`,
-`spring-boot-starter-actuator` (+ `-test` starters). Do not add more without a recorded decision.
+Active dependencies: `webmvc`, `validation`, `actuator`, `data-jpa`, `flyway`
+(+ `flyway-database-postgresql`, `postgresql` driver;
+test: `webmvc-test`, `restclient-test`, `testcontainers-postgresql`).
+Do not add more without a recorded decision.
+
+## 2a. Local database setup (once per machine, never committed)
+
+The app expects PostgreSQL 18 on `localhost:5432` with database `systivex`
+and user `systivex_app` (owner of the database so Flyway can migrate).
+Create them with your admin credentials; the app password itself lives only
+in your shell session, never in a file:
+
+```powershell
+$env:SYSTIVEX_DB_PASSWORD="<your local systivex_app password>"
+```
+
+`backend/src/main/resources/application.properties` reads
+`spring.datasource.password=${SYSTIVEX_DB_PASSWORD:}` and is git-ignored —
+verify with `git check-ignore` if unsure. The tracked
+`application.example.properties` shows the same shape with no secrets.
+Flyway migrates automatically at startup; Hibernate only validates
+(`ddl-auto=validate`). Never set `update`/`create`/`create-drop` here.
 
 ## 3. Maven Wrapper commands
 
@@ -88,8 +114,10 @@ $env:Path="C:\Program Files\Java\jdk-21.0.10\bin;" + $env:Path
 ./mvnw test
 ```
 
-Expected (verified 2026-09-28): `Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`
-— `SystivexApplicationTests.contextLoads`. Build time ~7 s on the reference machine.
+Expected (verified 2026-09-29): `Tests run: 29, Failures: 0, Errors: 0` —
+service unit tests plus Testcontainers-backed migration, repository, and API
+integration tests (one shared PG 18 container per run). Docker Desktop must be
+running; the developer's local database is never touched by tests.
 
 ## 5. How to start the backend
 
@@ -97,11 +125,13 @@ Expected (verified 2026-09-28): `Tests run: 1, Failures: 0, Errors: 0, Skipped: 
 cd backend
 $env:JAVA_HOME="C:\Program Files\Java\jdk-21.0.10"
 $env:Path="C:\Program Files\Java\jdk-21.0.10\bin;" + $env:Path
+$env:SYSTIVEX_DB_PASSWORD="<your local systivex_app password>"
 ./mvnw spring-boot:run
 ```
 
 Expected startup (verified): Spring Boot `v4.1.1`, Tomcat `11.0.24` on port `8080`,
-`Started SystivexApplication in ~1.4 s`.
+Flyway migrates `V1` on first boot, Hibernate validates, then
+`Started SystivexApplication`.
 
 Health check:
 
@@ -110,12 +140,13 @@ Invoke-RestMethod -Uri "http://localhost:8080/actuator/health" | ConvertTo-Json
 # {"status":"UP","groups":["liveness","readiness"]} (shape may vary; "status":"UP" is the assertion)
 ```
 
-Only the `health` actuator endpoint is exposed under `/actuator` by default —
-this is expected at this stage. No application REST endpoints exist yet.
+Only the `health` actuator endpoint is exposed under `/actuator` by default.
+The twin API lives under `/api/v1/twin/entities` and
+`/api/v1/twin/relationships` (create/get/list, JSON, 400/404/409 on misuse).
 
 ## 6. What is NOT needed yet
 
-- No `DATABASE_URL`, no schema migration, no `docker-compose.yml`.
+- No `docker-compose.yml`; local PostgreSQL is installed directly.
 - No Redis connection, no vector database, no broker.
 - No `OLLAMA_*` configuration, no model pull.
 - No `frontend/` install or build.
@@ -125,8 +156,9 @@ at the same time as the code — docs must reflect reality.
 
 ## 7. Contribution rules for this phase
 
-1. Do not add dependencies unless required for the already-generated backend.
+1. Do not add dependencies unless required for the current phase (recorded in `DECISIONS.md`).
 2. Do not create placeholder packages or speculative modules.
-3. Do not add Docker Compose, DB/Redis/AI configuration, or frontend scaffolding.
+3. Do not add Docker Compose, Redis/AI configuration, or frontend scaffolding.
 4. Do not weaken tests to make them pass.
 5. Do not claim features work unless verified by `./mvnw test` / startup / endpoint check.
+6. Never commit `application.properties`, credentials, or machine-local settings.

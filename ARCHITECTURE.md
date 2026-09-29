@@ -48,16 +48,20 @@ being changed, and the thing being changed must never self-authorize.
 
 ## 3. Modular-monolith control plane (target)
 
-The control plane is a single Spring Boot deployment with strict module boundaries
-(target modules, **not yet created** — no placeholder packages exist today):
+The control plane is a single Spring Boot deployment with strict module boundaries.
+The `twin` module exists in outline (`model`, `repository`, `service`, `api`
+packages); the remaining target modules are **not yet created** — no placeholder
+packages exist for them by decision:
 
-- `twin` — System Twin model and connectors (planned)
+- `twin` — System Twin model and connectors (**model + persistence + minimal
+  CRUD API exist**; connectors planned)
 - `intelligence` — change impact, simulation, risk assessment (planned)
 - `policy` — policy evaluation and approval workflow (planned)
 - `execution` — controlled, auditable action dispatch (planned)
 - `verification` — post-change checks against twin + runtime (planned)
 - `observation` — code/arch/runtime ingest (planned)
-- `api` — REST + SSE surface (planned; only Actuator health exists today)
+- `api` — REST + SSE surface (initial twin CRUD exists; only Actuator health
+  existed before Phase 1)
 
 Module rules (binding for future work): modules communicate through explicit
 APIs; no cross-module persistence access; every consequential action crosses
@@ -72,7 +76,7 @@ the twin models and the control plane acts upon. They are **deferred**:
 - No Kubernetes, no message broker, no service mesh at this stage.
 - When introduced, they remain strictly outside the control-plane trust boundary.
 
-## 5. System Twin concept (planned, not implemented)
+## 5. System Twin concept (persistence exists; reasoning still planned)
 
 The System Twin is the planned authoritative model of a target system, joining:
 
@@ -82,8 +86,10 @@ The System Twin is the planned authoritative model of a target system, joining:
 - **runtime behavior** (health, metrics, traces, events).
 
 Agent reasoning must be grounded in the twin and in live backend state —
-never in LLM output alone. The twin does not exist yet; there is no twin
-package, schema, or persistence in the repository today.
+never in LLM output alone. What exists today is the persistence footing:
+`system_entity` / `system_relationship` tables (Flyway V1), JPA mappings kept
+in lockstep by `ddl-auto=validate`, and CRUD behind DTOs. No twin package
+beyond that, no schema, no connectors yet.
 
 ## 6. Trust boundaries
 
@@ -109,30 +115,50 @@ agent proposal → risk assessment → policy evaluation → (approval if high-r
 
 See `THREAT_MODEL.md` for the principles these boundaries enforce.
 
-## 7. API shape (target)
+## 7. API shape (initial REST exists)
 
-- **REST** for twin queries, change proposals, approvals, execution records (planned).
+- **REST** for twin queries, change proposals, approvals, execution records.
+  Implemented so far: twin entity/relationship CRUD under `/api/v1/twin`
+  (no filtering/pagination yet); proposals/approvals/records are still planned.
 - **SSE** for streaming long-running analysis/simulation progress (planned).
 - No WebSockets at this stage (see `DECISIONS.md`).
 
-## 8. Current implementation status (verified 2026-09-28)
+## 8. Current implementation status (verified 2026-09-29)
 
 Implemented:
 
 - `backend/`: Spring Boot 4.1.1, Java 21 (`release 21`), Maven build.
-- Dependencies: `spring-boot-starter-webmvc`, `spring-boot-starter-validation`,
-  `spring-boot-starter-actuator` (+ test starters). Nothing else.
-- One `@SpringBootApplication` class; one `contextLoads` test.
-- `application.properties` contains only `spring.application.name=systivex`.
-- Verified: `./mvnw test` → 1 test, 0 failures; `./mvnw package` → executable jar;
-  `./mvnw spring-boot:run` → Tomcat 11 on `:8080`, `GET /actuator/health` → `{"status":"UP"}`;
-  only the `health` actuator endpoint is exposed (defaults).
+- Dependencies: `webmvc`, `validation`, `actuator`, `data-jpa`,
+  `spring-boot-starter-flyway` + `flyway-database-postgresql`, `postgresql`
+  driver (+ test: `webmvc-test`, `restclient-test`, `testcontainers-postgresql`).
+  Nothing else.
+- `twin` module: `SystemEntity` / `SystemRelationship` entities (UUID keys,
+  closed enum types, JSONB metadata via native Hibernate mapping), two
+  repositories, a small transactional service, DTO-based REST controller,
+  and a narrow exception handler (400/404/409).
+- Persistence: PostgreSQL 18, Flyway `V1__create_system_twin.sql` runs at
+  startup; `spring.jpa.hibernate.ddl-auto=validate`, Hikari defaults.
+- Local config stays out of Git: live `application.properties` ignored, only
+  `application.example.properties` (password via `SYSTIVEX_DB_PASSWORD`) tracked.
+- Verified: `./mvnw clean test` → 29 tests, 0 failures (8 service unit +
+  3 migration + 6 repository + 11 API + 1 contextLoads, Testcontainers PG 18);
+  `./mvnw package -DskipTests` → executable jar; local run against PostgreSQL →
+  Flyway migrates V1, `GET /actuator/health` → `{"status":"UP"}`,
+  entity/relationship REST cycle + 400/404 paths exercised.
+
+Why PostgreSQL + Flyway + a relational graph at this stage: the records the
+control plane will eventually authorize against (twin state, proposals,
+decisions, executions) need integrity guarantees and a readable audit trail
+more than they need graph-traversal speed. Two tables with FK/unique/check
+constraints cover Phase 1; a graph store would add operational weight with no
+consumer yet (see `DECISIONS.md` D10).
 
 Intentionally absent (not bugs — deferred by decision):
 
-- Twin, intelligence, policy, execution, verification, observation modules.
-- PostgreSQL, Redis, Spring AI / Ollama, security, frontend, Docker Compose.
+- Twin connectors/ingestion, intelligence, policy, execution, verification,
+  observation modules.
+- Redis, Spring AI / Ollama, security, frontend, Docker Compose.
 - Kafka / RabbitMQ / Kubernetes / WebSockets / vector DB / MCP / multi-agent / cloud.
 
-Next architectural step (see `PROJECT_STATUS.md`): define the control-plane
-module skeleton and twin domain model — without adding infrastructure.
+Next architectural step (see `PROJECT_STATUS.md`): twin ingestion from a real
+source (repository connector first) — still without agents or execution.

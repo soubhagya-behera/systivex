@@ -1,13 +1,29 @@
 # Systivex Project Status
 
-Last verified: **2026-09-28** (Asia/Kolkata). This document must be updated
+Last verified: **2026-09-29** (Asia/Kolkata). This document must be updated
 whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 0 — Initial repository foundation only.**
+**Phase 1 — Control-plane persistence foundation.** Phase 0 (repository
+foundation) below is kept as history.
 
-## What is complete
+## What is complete (Phase 1, 2026-09-29)
+
+- [x] PostgreSQL 18 wired as primary persistence (`systivex` db, `systivex_app` user).
+- [x] Spring Data JPA + Hibernate; `ddl-auto=validate` (no schema auto-generation).
+- [x] Flyway owns the schema; `V1__create_system_twin.sql` migrates at startup.
+- [x] Twin persistence model: `SystemEntity` (7 types, JSONB metadata, UUID keys)
+      and directed `SystemRelationship` (8 types) with FK/unique/check constraints.
+- [x] `TwinService` + two repositories; DTO-based REST CRUD under `/api/v1/twin`.
+- [x] Stable error responses: 400 validation/malformed, 404 unknown id, 409 conflicts.
+- [x] 29 tests green (unit + Testcontainers migration/repository/API integration).
+- [x] Local run verified against PostgreSQL: Flyway V1 applied, health `UP`,
+      entity/relationship REST cycle exercised.
+- [x] Credentials stay out of Git: live `application.properties` ignored, password
+      via `SYSTIVEX_DB_PASSWORD`, only the safe example template tracked.
+
+## What is complete (Phase 0, 2026-09-28)
 
 - [x] Repository root created (`Systivex/`).
 - [x] Backend generated via Spring Initializr into `backend/`.
@@ -31,21 +47,31 @@ whenever the implemented state changes. Planned items are not claimed as done.
 
 These are **deferred by decision**, not missing by accident. Do not report them as regressions.
 
-- System Twin model, connectors, persistence.
-- Agent orchestration, tool mediation, simulation, risk engine.
+- Richer twin ingestion (code/arch/runtime connectors), Git integration, telemetry.
+- Agent orchestration, tool mediation, simulation, evidence model.
 - Policy / approval / controlled-execution / verification logic.
-- Observability beyond default Actuator health; no custom endpoints.
-- PostgreSQL configuration, migrations, repositories.
+- Filtering, pagination, graph traversal, bulk import on the twin API.
+- Authentication/authorization on the API.
 - Redis configuration or usage.
 - Spring AI / Ollama integration, model configuration.
-- Security architecture (authn/authz).
 - React (JavaScript, no TypeScript) frontend; no `frontend/` directory.
 - Docker Compose or any container orchestration.
 - Target demo microservices; message brokers; Kubernetes; WebSockets;
   vector databases; MCP; multi-agent architecture; cloud infrastructure.
-- Placeholder or speculative backend packages beyond the single application class.
+- Placeholder or speculative backend packages beyond `twin`.
 
-## Verification record (2026-09-28)
+## Verification record (2026-09-29, Phase 1)
+
+| Check | Command | Result |
+|---|---|---|
+| Tests | `./mvnw clean test` (from `backend/`, Docker running) | `Tests run: 29, Failures: 0, Errors: 0` — BUILD SUCCESS (~25 s) |
+| Build | `./mvnw package -DskipTests` | `systivex-0.0.1-SNAPSHOT.jar` (~55.9 MB) |
+| Migrate (local PG 18) | boot with `SYSTIVEX_DB_PASSWORD` set | `Successfully applied 1 migration ... now at version v1` |
+| JPA validation | same boot | `ddl-auto=validate` passes, no schema changes |
+| Health | `GET /actuator/health` | `{"status":"UP"}` (+ liveness/readiness groups) |
+| Twin REST | POST/GET/list entity + relationship, bad-ref, bad-body | 201/200/200, 404 on unknown id, 400 on invalid body |
+
+Phase 0 record (2026-09-28) is retained below for history.
 
 | Check | Command | Result |
 |---|---|---|
@@ -70,18 +96,15 @@ These are **deferred by decision**, not missing by accident. Do not report them 
 - **Git decision:** `settings.json` is intentionally **untracked** (absolute local
   JDK path would break portability); only `.vscode/settings.json.example` is
   tracked. Root `.gitignore` uses `.vscode/*` + `!.vscode/settings.json.example`.
-  Note: repo has no `.git` yet — the rule takes effect on `git init`.
 
 ## Immediate next milestone (proposed, not started)
 
-**Milestone 1 — Control-plane module skeleton + twin domain outline:**
+**Milestone 2 — Twin ingestion from a real source:**
 
-1. Define the modular-monolith package structure under `com.soubhagya.systivex`
-   (e.g. `twin`, `policy`, `execution`, `api`) with boundary rules — no speculative logic.
-2. Sketch the System Twin domain model (entities/relationships only, no persistence yet).
-3. Add a minimal versioned REST surface (e.g. `GET /api/v1/status`) with tests.
-4. Introduce PostgreSQL configuration + migrations only when the twin model
-   actually needs persistence — not before.
+1. Repository connector first (read code structure into `SystemEntity` /
+   `SystemRelationship` rows) — no agents, no execution.
+2. API filtering/pagination only when a consumer needs it.
+3. Authentication on the twin API before the surface leaves the local machine.
 
-Out of scope for Milestone 1: agents, simulation, approvals UI, brokers, K8s,
+Out of scope for Milestone 2: agents, simulation, approvals UI, brokers, K8s,
 vector search, frontend beyond API consumption readiness.

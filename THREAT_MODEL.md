@@ -1,15 +1,18 @@
-# Systivex Threat Model (Initial)
+# Systivex Threat Model
 
-Scope: **foundation-phase principles** (2026-09-28). Enforcement mechanisms
-(policy engine, approvals, audit store) are **planned, not implemented** —
+Scope: **foundation + persistence-phase principles** (2026-09-29). Enforcement
+mechanisms (policy engine, approvals, audit store) are **planned, not implemented** —
 these principles bind all future design so the mechanisms can be built correctly.
 
 ## 1. System under analysis (today)
 
-A single Spring Boot process exposing only Actuator `health` on `:8080`.
-No user data, no persistence, no agents, no execution capability. The attack
-surface today is the framework default surface; the principles below exist to
-constrain what gets added next.
+A single Spring Boot process on `:8080` exposing Actuator `health` plus a
+local twin CRUD API (`/api/v1/twin`), backed by PostgreSQL via Flyway migrations
+and validated JPA mappings. No user data of value yet, no agents, no execution
+capability. Credential handling is already load-bearing: the datasource password
+reaches the app only through `SYSTIVEX_DB_PASSWORD`; the live
+`application.properties` is git-ignored and only the secret-free example
+template is tracked.
 
 ## 2. Trust principles (binding)
 
@@ -68,11 +71,13 @@ constrain what gets added next.
 
 ## 3. Out-of-scope today, in-scope for design
 
-- Authentication/authorization mechanism, secret management, key rotation.
+- Authentication/authorization mechanism (the twin API is currently open —
+  acceptable on a local machine, not beyond it), secret management, key rotation.
 - Twin-connector authentication and data-integrity guarantees.
 - Approval UX and delegation model; risk-classification taxonomy.
 - Execution sandboxing, blast-radius limits, rollback/verification loops.
-- Persistence hardening and audit-log immutability (arrives with PostgreSQL).
+- Persistence hardening and audit-log immutability (tables exist now;
+  hardening still to come).
 
 Each must reference the principle(s) above when introduced; any exception
 requires a dated entry in `DECISIONS.md`.
@@ -83,3 +88,5 @@ requires a dated entry in `DECISIONS.md`.
 - LLM output concatenated into queries, shell, or config without mediation.
 - Silent policy bypasses, self-approval, or unaudited "break-glass" writes.
 - Broadening the Actuator or API surface without a recorded security review.
+- Hibernate schema auto-generation (`update`/`create`/`create-drop`) against any
+  database that matters; committed credentials in any form.

@@ -1,6 +1,7 @@
 # Systivex Architectural Decisions
 
-Record of binding decisions taken at project foundation (2026-09-28).
+Record of binding decisions taken at project foundation (2026-09-28) and
+extended in Phase 1 (2026-09-29).
 Status labels: **decided** (binding now) / **planned** (intent, not yet implemented).
 
 ## D1. Java 21 — decided
@@ -38,12 +39,14 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   avoids distributed-systems overhead before there is anything to manage.
 - **State:** Deferred; no target services exist.
 
-## D6. PostgreSQL as future primary persistence — planned
+## D6. PostgreSQL as primary persistence — decided (activated 2026-09-29)
 
-- **Decision:** PostgreSQL will be the primary system of record (twin state, proposals,
-  policy decisions, execution/verification records) when persistence is introduced.
+- **Decision:** PostgreSQL is the primary system of record (twin state first;
+  proposals, policy decisions, execution/verification records later).
 - **Rationale:** Relational integrity and auditability suit safety-critical records.
-- **State:** Deferred; no driver, no datasource, no migrations exist today.
+- **State:** Implemented in Phase 1: local PostgreSQL 18, `systivex` database,
+  `systivex_app` owner. Previously deferred; activated when the twin model
+  needed persistence, per the original intent.
 
 ## D7. Redis only when justified — decided
 
@@ -66,7 +69,8 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   is Server-Sent Events. No WebSockets at this stage.
 - **Rationale:** REST covers CRUD/authorization flows; SSE covers one-way progress
   without the lifecycle/state costs of bidirectional sockets.
-- **State:** Planned; only Actuator `health` exists today. No application REST/SSE yet.
+- **State:** Partially implemented; twin entity/relationship CRUD exists under
+  `/api/v1/twin`. Proposals/approvals/records and SSE are still planned.
 
 ## D10. No premature infrastructure — decided
 
@@ -75,8 +79,55 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   Likewise no Docker Compose, security architecture, or frontend scaffolding yet.
 - **Rationale:** Each adds ops surface, failure modes, and security scope without a
   consumer. Infrastructure follows demonstrated need and a recorded decision.
-- **State:** Enforced in this phase; `pom.xml` contains only `webmvc`, `validation`,
-  `actuator` (+ test starters).
+- **State:** Enforced in this phase; no Kafka/RabbitMQ/K8s/WebSockets/vector DB/
+  MCP/multi-agent/cloud. `pom.xml` holds only the Phase 1 persistence and web
+  set (see `DEVELOPMENT.md` §2 for the list).
+
+## D11. Flyway owns the schema; Hibernate only validates — decided (2026-09-29)
+
+- **Decision:** All schema change goes through versioned Flyway migrations under
+  `db/migration/`; `spring.jpa.hibernate.ddl-auto=validate` everywhere, including
+  local runs. `update`/`create`/`create-drop` are banned outside throwaway
+  scratch work that never touches a shared database.
+- **Rationale:** The migration history is the reviewable, replayable record of
+  what the schema is; validation keeps the JPA mapping honest without giving
+  the ORM write access to the schema.
+- **State:** Implemented: `V1__create_system_twin.sql`, validated at every
+  startup and in tests.
+
+## D12. Twin persistence model v1 — decided (2026-09-29)
+
+- **Decision:** Two tables (`system_entity`, `system_relationship`), UUID keys,
+  closed enum type sets (7 entity, 8 relationship), JSONB metadata through
+  Hibernate's native JSON mapping (no extra JSON library), FK constraints with
+  `ON DELETE CASCADE`, unique `external_ref` and `(source, target, type)`
+  triples, no-self-reference check.
+- **Rationale:** Covers what Phase 1 needs to prove (persist, link, constrain)
+  with the fewest moving parts; enums stay closed until a connector demands more.
+- **State:** Implemented with repository, service, DTO REST layer, and
+  constraint tests.
+
+## D13. Testcontainers for database tests, one container per run — decided (2026-09-29)
+
+- **Decision:** Integration tests run against throwaway PostgreSQL 18 containers
+  (single shared container per JVM via `@DynamicPropertySource`); the
+  developer's local database is never used by tests. Testcontainers stays a
+  test-scope-only dependency.
+- **Rationale:** CI-reproducible without local setup; one container avoids the
+  churn of per-class containers. Local runs still target the developer's own
+  PostgreSQL with `SYSTIVEX_DB_PASSWORD` from the environment.
+- **State:** Implemented: 21 of 29 tests run against the container.
+
+## D14. Boot 4 dependency notes — decided (2026-09-29)
+
+- **Decision:** Use `spring-boot-starter-flyway` (raw `flyway-core` alone gets no
+  auto-configuration in Boot 4); Testcontainers modules by their 2.x names
+  (`testcontainers-postgresql`, version via an imported `testcontainers-bom`
+  pinned to the release Boot 4.1.1 manages); `spring-boot-starter-restclient-test`
+  for `TestRestTemplate` in API tests.
+- **Rationale:** Boot 4 split several starters/modules; following the new
+  coordinates keeps versions managed instead of hand-pinned.
+- **State:** Implemented in `pom.xml` (see the BOM comment there).
 
 ## Supersession rule
 

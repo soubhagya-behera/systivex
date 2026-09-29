@@ -20,19 +20,26 @@ consequential actions through explicit control-plane authorization.
 
 ## Current state (honest snapshot)
 
-**Implemented** (verified 2026-09-28):
+**Implemented** (verified 2026-09-29):
 
-- Spring Boot 4.1.1 backend skeleton (`backend/`) on Java 21 / Maven.
+- Spring Boot 4.1.1 backend (`backend/`) on Java 21 / Maven.
 - Application starts; `GET /actuator/health` returns `{"status":"UP"}`.
-- Single `contextLoads` test passes.
+- PostgreSQL persistence: Spring Data JPA + Hibernate, Flyway-owned schema
+  (`ddl-auto=validate` — Hibernate never modifies the schema).
+- Initial twin persistence model: `SystemEntity` (7 closed types) and directed
+  `SystemRelationship` (8 closed types), JSONB metadata, UUID keys,
+  FK/unique/check constraints, `ON DELETE CASCADE`.
+- Minimal twin REST surface (`/api/v1/twin/entities`, `/api/v1/twin/relationships`)
+  with DTOs, Bean Validation, and stable 400/404/409 error responses.
+- 29 tests green: service unit tests plus Testcontainers-backed migration,
+  repository, and API integration tests.
 
 **Not yet implemented** (planned architecture only):
 
-- System Twin model, architecture/data/runtime connectors
-- Agent orchestration, tooling, simulation
-- Policy / risk / approval engine and controlled execution
-- Observability, verification, target microservices environment
-- Persistence (PostgreSQL), cache (Redis), Spring AI / Ollama integration, frontend
+- Richer twin ingestion (code/arch/runtime connectors), Git integration, telemetry
+- Agent orchestration, tooling, evidence model
+- Policy / risk / approval engine and controlled execution, simulation, verification
+- Cache (Redis), Spring AI / Ollama integration, frontend, target microservices
 
 See [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for the phase record,
 [`ARCHITECTURE.md`](ARCHITECTURE.md) for target vs. current architecture,
@@ -42,24 +49,30 @@ and [`DEVELOPMENT.md`](DEVELOPMENT.md) for how to build and run what exists toda
 
 ```text
 Systivex/
-├── backend/                 # IMPLEMENTED: Spring Boot control-plane skeleton
+├── backend/                 # IMPLEMENTED: Spring Boot control plane + twin persistence
 │   ├── pom.xml              # Spring Boot 4.1.1, Java 21
 │   ├── mvnw / mvnw.cmd / .mvn/
 │   └── src/
-│       ├── main/java/com/soubhagya/systivex/SystivexApplication.java
-│       ├── main/resources/application.properties
-│       └── test/java/com/soubhagya/systivex/SystivexApplicationTests.java
+│       ├── main/java/com/soubhagya/systivex/
+│       │   ├── SystivexApplication.java
+│       │   └── twin/{model,repository,service,api}/
+│       ├── main/resources/application.properties          # LOCAL ONLY, git-ignored
+│       ├── main/resources/application.example.properties  # tracked safe template
+│       ├── main/resources/db/migration/V1__create_system_twin.sql
+│       └── test/java/com/soubhagya/systivex/  # unit + Testcontainers integration tests
 ├── README.md                # this file
 ├── ARCHITECTURE.md          # target architecture + current status
 ├── DEVELOPMENT.md           # build / test / run instructions
 ├── PROJECT_STATUS.md        # phase record
 ├── DECISIONS.md             # architectural decisions
-├── THREAT_MODEL.md          # initial trust principles
+├── THREAT_MODEL.md          # trust principles
 └── .gitignore               # root ignores
 ```
 
-No `frontend/`, no `docker-compose.yml`, no database configuration — intentionally
-absent in this phase (see `DECISIONS.md`: no premature infrastructure).
+No `frontend/`, no `docker-compose.yml` — intentionally absent
+(see `DECISIONS.md`: no premature infrastructure). Database configuration exists
+but is local-only: `application.properties` is git-ignored, only the safe
+`application.example.properties` template is tracked.
 
 ## Quick start (current phase)
 
@@ -69,8 +82,9 @@ Prerequisite: **JDK 21** (`JAVA_HOME` must point to a JDK 21 installation).
 cd backend
 $env:JAVA_HOME="C:\Program Files\Java\jdk-21.0.10"
 $env:Path="C:\Program Files\Java\jdk-21.0.10\bin;" + $env:Path
-./mvnw test
-./mvnw spring-boot:run
+./mvnw test                      # needs Docker (Testcontainers PostgreSQL)
+$env:SYSTIVEX_DB_PASSWORD="<local systivex_app password>"
+./mvnw spring-boot:run           # needs local PostgreSQL, see DEVELOPMENT.md
 # then: GET http://localhost:8080/actuator/health -> {"status":"UP"}
 ```
 
@@ -95,7 +109,8 @@ Full instructions: [`DEVELOPMENT.md`](DEVELOPMENT.md).
 - Java 21, Spring Boot 4.1.1, Maven.
 - Modular monolith for the Systivex **control plane**; microservices are reserved
   for the future **target software environment**, not for Systivex itself at this stage.
-- PostgreSQL later as primary persistence; Redis only when justified; Spring AI + Ollama later.
+- PostgreSQL as primary persistence (Flyway-owned schema, Hibernate validates only);
+  Redis only when justified; Spring AI + Ollama later.
 - REST + SSE initially.
 - Do not introduce Kafka, RabbitMQ, Kubernetes, WebSockets, vector databases, MCP,
   multi-agent architecture, or cloud infrastructure at this stage.

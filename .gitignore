@@ -1,4 +1,4 @@
-# Root .gitignore — Systivex (initial foundation phase)
+# Root .gitignore — Systivex (control-plane persistence phase)
 # Covers Java/Maven/Spring Boot, IDEs, OS files, and local secrets.
 # backend/ keeps its own Spring-Initializr .gitignore as well; this root file
 # is the authoritative cross-project ignore list.
