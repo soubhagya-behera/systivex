@@ -1,7 +1,7 @@
 # Systivex Development Guide
 
-Scope: **control plane (Phases 0–1) + target services (Phase 2A)**
-(verified 2026-09-29). §§1–7 cover the control plane in `backend/`;
+Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B)**
+(verified 2026-09-30). §§1–7 cover the control plane in `backend/`;
 §8 covers the target services in `backend/target-services/`.
 No cache, AI runtime, or frontend — none are required yet.
 
@@ -12,7 +12,7 @@ No cache, AI runtime, or frontend — none are required yet.
 | JDK | **21** (e.g. `21.0.10 LTS`) | Required. Project compiles with `release 21`. |
 | Maven | Wrapper-provided (3.9.16 via `./mvnw`) | No separate install needed |
 | OS / shell | Windows 10/11 + PowerShell 5.1 (verified); any OS with JDK 21 works | — |
-| PostgreSQL | 18.x locally (`systivex` db, `systivex_app` user) | Required to run; tests use Testcontainers instead |
+| PostgreSQL | 18.x locally (`systivex` + 3 target dbs, see §8a) | Required to run; tests use Testcontainers instead |
 | Docker | Docker Desktop (daemon running) | Required for `./mvnw test` (Testcontainers spins up PG 18) |
 | Redis | **Not required** in this phase | Deferred, only when justified |
 | Ollama / Spring AI | **Not required** in this phase | Deferred |
@@ -166,34 +166,74 @@ at the same time as the code — docs must reflect reality.
 7. Keep target services free of control-plane code (and vice versa) — the only
    link between them today is documentation.
 
-## 8. Target services (Phase 2A)
+## 8. Target services (Phase 2B)
 
 Four standalone services under `backend/target-services/`. Each has its own
 `pom.xml`, Maven wrapper, and application class — build and run each from its
-own directory with the same JDK 21 setup as §1 (no database, no Docker needed).
+own directory with the same JDK 21 setup as §1. Order, payment, and inventory
+need their own PostgreSQL database (gateway stays stateless); tests use
+Testcontainers, so Docker must be running for `./mvnw.cmd test`.
 
-| Service | Directory | Port |
-|---|---|---|
-| gateway-service | `backend/target-services/gateway-service/` | 8081 |
-| order-service | `backend/target-services/order-service/` | 8082 |
-| payment-service | `backend/target-services/payment-service/` | 8083 |
-| inventory-service | `backend/target-services/inventory-service/` | 8084 |
+| Service | Directory | Port | Database / user |
+|---|---|---|---|
+| gateway-service | `backend/target-services/gateway-service/` | 8081 | — (none) |
+| order-service | `backend/target-services/order-service/` | 8082 | `order_db` / `order_app` |
+| payment-service | `backend/target-services/payment-service/` | 8083 | `payment_db` / `payment_app` |
+| inventory-service | `backend/target-services/inventory-service/` | 8084 | `inventory_db` / `inventory_app` |
 
-First run per service (same pattern for all four — example shown once):
+### 8a. Local target-database setup (once per machine, never committed)
+
+The bootstrap script `backend/target-services/create-target-databases.sql`
+creates the three databases and application users (each database owned by its
+user). It contains **no passwords** — supply one per service on the command
+line — never touches the control-plane `systivex` database, and issues no
+destructive commands. Run it as a PostgreSQL superuser (e.g. `postgres`):
+
+```powershell
+$env:PGPASSWORD = "<your local postgres superuser password, never committed>"
+& psql -h localhost -U postgres `
+  -v order_pw="<choose a local order_app password>" `
+  -v payment_pw="<choose a local payment_app password>" `
+  -v inventory_pw="<choose a local inventory_app password>" `
+  -f backend/target-services/create-target-databases.sql
+Remove-Item Env:\PGPASSWORD
+```
+
+Then export the three service passwords for every shell that runs a service
+(the live `application.properties` files are git-ignored and read them only
+from the environment — same convention as the control plane):
+
+```powershell
+$env:ORDER_DB_PASSWORD="<your local order_app password>"
+$env:PAYMENT_DB_PASSWORD="<your local payment_app password>"
+$env:INVENTORY_DB_PASSWORD="<your local inventory_app password>"
+```
+
+The tracked `application.example.properties` in each service shows the same
+shape with no secrets. Flyway migrates automatically at startup (inventory
+also seeds `SKU-1001 × 10` units of clearly-marked dev stock via `V2`);
+Hibernate only validates (`ddl-auto=validate`). Never set
+`update`/`create`/`create-drop` here.
+
+### 8b. Build, test, run (per service)
+
+First run per service (same pattern for order/payment/inventory — example
+shown once):
 
 ```powershell
 cd backend/target-services/order-service
 Copy-Item src/main/resources/application.example.properties src/main/resources/application.properties
 $env:JAVA_HOME="C:\Program Files\Java\jdk-21.0.10"
 $env:Path="C:\Program Files\Java\jdk-21.0.10\bin;" + $env:Path
-./mvnw.cmd test
+./mvnw.cmd clean test
 ./mvnw.cmd -q package -DskipTests
 ```
 
 The live `application.properties` is git-ignored (same convention as the
 control plane); the tracked `.example` file is the template. No secrets exist
-here — the files carry ports and localhost downstream URLs only, overridable
-via `ORDER_SERVICE_URL`, `INVENTORY_SERVICE_URL`, `PAYMENT_SERVICE_URL`.
+in tracked files — ports, downstream URLs, and datasource URLs/usernames are
+safe to commit; passwords arrive only via `ORDER_DB_PASSWORD`,
+`PAYMENT_DB_PASSWORD`, `INVENTORY_DB_PASSWORD`.
 
 Run all four (one shell each, inventory/payment first, then order, then
 gateway — or any order; each waits on its own port):
@@ -204,7 +244,7 @@ gateway — or any order; each waits on its own port):
 
 Health: `GET http://localhost:808{1..4}/actuator/health` → `{"status":"UP"}`.
 
-Checkout (verified end to end over real HTTP):
+Checkout (verified end to end over real HTTP against real databases):
 
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:8081/api/v1/checkout" -Method Post `
@@ -213,11 +253,17 @@ Invoke-RestMethod -Uri "http://localhost:8081/api/v1/checkout" -Method Post `
 # -> {"orderId":"...","status":"CONFIRMED",...} with reservationId + authorizationId
 ```
 
-Demo rules (stateless, temporary until Phase 2B persistence): inventory
-rejects quantity > 5 (422), payment declines amount > 5000.00 (422), dead
-downstream surfaces as 503 at order level and 502 at gateway level.
+Behavior notes (persistent, Phase 2B): inventory rejects quantities above
+stored stock (422, seeded `SKU-1001` holds 10 — so quantity 99 fails while 1
+succeeds), payment declines amounts above 5000.00 (422), dead downstream
+surfaces as 503 at order level and 502 at gateway level. Both rejections are
+recorded in their service's database. Checkout is not atomic across the three
+databases (see `ARCHITECTURE.md` §4): a FAILED order can coexist with a
+standing reservation.
 
-Tests (23 total, no Docker, no running services required): each service has
-real-HTTP boundary tests — inventory/payment hit the live service on a random
-port; order/gateway tests run the service for real and stub only the
-downstream side with loopback stub servers.
+Tests (47 total, Testcontainers PostgreSQL, no local databases touched): each
+service has real-HTTP boundary tests — inventory/payment/order boot against
+throwaway containers (Flyway-migrated, so migration startup is covered),
+order/gateway tests stub only the downstream side with loopback stub servers.
+Inventory additionally covers stock-decrease persistence, rejection paths, a
+concurrent-reserve locking test, and repository constraint behavior.

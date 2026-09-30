@@ -1,21 +1,24 @@
 # Systivex Threat Model
 
-Scope: **foundation + persistence + target-runtime principles** (2026-09-29). Enforcement
+Scope: **foundation + persistence + target-runtime principles** (2026-09-30). Enforcement
 mechanisms (policy engine, approvals, audit store) are **planned, not implemented** —
 these principles bind all future design so the mechanisms can be built correctly.
 
 ## 1. System under analysis (today)
 
 A single Spring Boot control plane on `:8080` exposing Actuator `health` plus a
-local twin CRUD API (`/api/v1/twin`), backed by PostgreSQL via Flyway migrations
-and validated JPA mappings. Alongside it, four Phase 2A target services on
-`:8081–:8084` (gateway → order → inventory/payment) with open local HTTP APIs
-and no persistence. No user data of value yet, no agents, no execution
+local twin CRUD API (`/api/v1/twin`), backed by its own PostgreSQL database
+(`systivex`) via Flyway migrations and validated JPA mappings. Alongside it,
+four Phase 2B target services on `:8081–:8084` (gateway → order → inventory/payment)
+with open local HTTP APIs, now backed by three service-owned databases
+(`order_db`, `payment_db`, `inventory_db`, each with its own application user
+that owns nothing else). No user data of value yet, no agents, no execution
 capability, and the control plane does not call the target services.
-Credential handling is already load-bearing: the datasource password
-reaches the app only through `SYSTIVEX_DB_PASSWORD`; the live
-`application.properties` is git-ignored and only the secret-free example
-template is tracked. The target services hold no credentials at all.
+Credential handling is load-bearing in both halves: every datasource password
+(control-plane `SYSTIVEX_DB_PASSWORD` plus `ORDER/PAYMENT/INVENTORY_DB_PASSWORD`)
+reaches its app only through the environment; all live `application.properties`
+files are git-ignored and only secret-free example templates are tracked. The
+gateway holds no database credentials at all.
 
 ## 2. Trust principles (binding)
 
@@ -41,6 +44,11 @@ template is tracked. The target services hold no credentials at all.
   (code, config, runtime signals) — not model output, not client assertions.
 - Reads that inform consequential decisions must come through authenticated,
   integrity-checked connectors; stale or unverifiable state blocks action, not permits it.
+- Between target services this already applies in miniature: order-service
+  never reads inventory or payment state from their databases (it cannot — no
+  grants, no shared schema), only from their HTTP responses, which it treats
+  as untrusted input validated at the boundary. Database ownership is a
+  security boundary, not just an organizational one.
 
 ### T4. The agent cannot authorize itself
 
@@ -76,7 +84,9 @@ template is tracked. The target services hold no credentials at all.
 
 - Authentication/authorization mechanism (the twin API and all four target
   service APIs are currently open — acceptable on a local machine, not
-  beyond it), secret management, key rotation.
+  beyond it), secret management, key rotation. Each service's database
+  credential is a separate local secret; compromising one application user
+  yields that service's database only.
 - Twin-connector authentication and data-integrity guarantees.
 - Approval UX and delegation model; risk-classification taxonomy.
 - Execution sandboxing, blast-radius limits, rollback/verification loops.
@@ -94,3 +104,5 @@ requires a dated entry in `DECISIONS.md`.
 - Broadening the Actuator or API surface without a recorded security review.
 - Hibernate schema auto-generation (`update`/`create`/`create-drop`) against any
   database that matters; committed credentials in any form.
+- Direct cross-service database access (even read-only) bypassing the HTTP
+  boundary; shared schemas or cross-database foreign keys between services.

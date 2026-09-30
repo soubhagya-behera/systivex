@@ -1,12 +1,42 @@
 # Systivex Project Status
 
-Last verified: **2026-09-29** (Asia/Kolkata). This document must be updated
+Last verified: **2026-09-30** (Asia/Kolkata). This document must be updated
 whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 2A — Target microservice runtime foundation.** Phases 0–1 below are
+**Phase 2B — Target-service persistence.** Phases 0–2A below are
 kept as history.
+
+## What is complete (Phase 2B, 2026-09-30)
+
+- [x] Three service-owned PostgreSQL databases, created by the tracked
+      `backend/target-services/create-target-databases.sql` (no passwords in
+      the repo): `order_db`/`order_app`, `payment_db`/`payment_app`,
+      `inventory_db`/`inventory_app`. Control-plane `systivex` untouched.
+- [x] Per-service persistence stack (Boot-managed): Spring Data JPA,
+      PostgreSQL driver, Flyway + PostgreSQL module; `ddl-auto=validate`
+      everywhere; each service migrates only its own history.
+- [x] `orders` table (PENDING → CONFIRMED/FAILED, UUID keys, CHECK
+      constraints); checkout persists PENDING first, CONFIRMED only when both
+      downstream calls succeed, FAILED otherwise — failed attempts recorded,
+      never dropped or falsely confirmed.
+- [x] `payments` table (AUTHORIZED/DECLINED, both outcomes persisted);
+      deterministic 5000.00 decline rule kept, still no provider integration.
+- [x] `inventory_items` + `inventory_reservations` (no FK between them, so
+      unknown-product attempts are recordable); reserve locks the stock row
+      (pessimistic write + `@Version`), decrements only on success, records
+      REJECTED attempts; `V2` seeds dev stock `SKU-1001 × 10`.
+- [x] Documented non-atomicity across the three databases (no distributed
+      transactions, no cross-DB writes) — see `ARCHITECTURE.md` §4, `DECISIONS.md` D17.
+- [x] 47 service tests green (Testcontainers PostgreSQL, no local DB touched):
+      order 15, payment 11, inventory 15 (incl. concurrent-reserve locking),
+      gateway 6. Full 4-process run with real databases demonstrated success
+      + inventory rejection + payment decline paths.
+- [x] Controlled failures preserved: no SQL/JDBC text, stack traces, or
+      credentials on the wire; storage outage surfaces as 503 per service.
+
+## What is complete (Phase 2A, 2026-09-29)
 
 ## What is complete (Phase 2A, 2026-09-29)
 
@@ -72,9 +102,26 @@ These are **deferred by decision**, not missing by accident. Do not report them 
 - Spring AI / Ollama integration, model configuration.
 - React (JavaScript, no TypeScript) frontend; no `frontend/` directory.
 - Docker Compose or any container orchestration.
-- Target-service databases (Phase 2B); message brokers; Kubernetes; WebSockets;
+- Cross-service database access, shared schemas, distributed transactions
+  (rejected by decision D17, not missing).
+- Message brokers; Kubernetes; WebSockets;
   vector databases; MCP; multi-agent architecture; cloud infrastructure.
 - Placeholder or speculative backend packages beyond `twin`.
+
+## Verification record (2026-09-30, Phase 2B)
+
+| Check | Command | Result |
+|---|---|---|
+| Tests (order) | `./mvnw.cmd clean test` in order-service dir (Docker running) | 15 green (6 boundary + 1 outage + 5 repository + 3 migration) |
+| Tests (payment) | same in payment-service dir | 11 green (5 boundary + 3 repository + 3 migration) |
+| Tests (inventory) | same in inventory-service dir | 15 green (6 boundary + 4 repository + 4 migration + 1 concurrent locking) |
+| Tests (gateway) | same in gateway-service dir | 6 green, unchanged |
+| Tests (control plane) | `./mvnw clean test` from `backend/` | 29 green, 0 failures — untouched |
+| Build (×4) | `./mvnw.cmd -q package -DskipTests` | 4 jars |
+| Health (×4) | `GET localhost:808{1..4}/actuator/health` (all running) | `{"status":"UP"}` on all four |
+| E2E success | `POST localhost:8081/api/v1/checkout` (all running, real DBs) | `CONFIRMED`; order CONFIRMED in order_db, stock decreased + reservation in inventory_db, authorization in payment_db |
+| E2E inventory failure | same, quantity 99 | 422 `FAILED` / `INVENTORY_REJECTED`; order FAILED in order_db, stock unchanged |
+| E2E payment failure | same, amount 6000.00 | 422 `FAILED` / `PAYMENT_DECLINED`; order FAILED, DECLINED row persisted |
 
 ## Verification record (2026-09-29, Phase 2A)
 
@@ -126,13 +173,13 @@ Phase 0 record (2026-09-28) is retained below for history.
 
 ## Immediate next milestone (proposed, not started)
 
-**Milestone 2B — Target-service persistence:**
+**Milestone 2C — Twin observation of the target environment:**
 
-1. Per-service databases (PostgreSQL schemas owned by each service) replacing
-   the deterministic stateless rules — no shared database.
-2. Repository connector reading the target services into twin rows (first
+1. Repository connector reading the target services into twin rows (first
    actual observation; still no agents or execution).
-3. Authentication on any API before the surface leaves the local machine.
+2. Authentication on any API before the surface leaves the local machine.
 
-Out of scope for Milestone 2B: agents, simulation, approvals UI, brokers, K8s,
-vector search, frontend beyond API consumption readiness.
+Out of scope: agents, simulation, approvals UI, brokers, K8s,
+vector search, frontend beyond API consumption readiness. Cross-database
+atomicity for checkout stays out unless a future decision with a concrete
+reconciliation design asks for it.

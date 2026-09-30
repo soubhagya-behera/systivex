@@ -155,8 +155,37 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
 - **Rationale:** A framework gateway and resilience machinery would hide the
   very HTTP behavior Phase 2A exists to demonstrate. Deterministic rules make
   tests and demos repeatable; persistence arrives per-service in Phase 2B.
-- **State:** Implemented with 23 service tests; JDK stub servers (no extra test
-  dependencies) cover downstream sides of the order/gateway boundary tests.
+- **State:** Superseded in Phase 2B for the persistence part (D17): the demo
+  quantity rule is replaced by real stock, but the payment amount rule stays
+  and the RestClient/no-retry/no-gateway-framework shape is unchanged.
+
+## D17. Service-owned databases, no cross-service data access — decided (2026-09-30)
+
+- **Decision:** Each target service owns exactly one PostgreSQL database
+  (`order_db`/`order_app`, `payment_db`/`payment_app`,
+  `inventory_db`/`inventory_app`), migrated by that service's own Flyway
+  history and validated by its own JPA mappings (`ddl-auto=validate`). The
+  control-plane database (`systivex`/`systivex_app`) is untouched and shares
+  nothing with them. No service reads or writes another service's tables, no
+  shared schemas, no cross-database foreign keys — not even for "read-only"
+  convenience. If order-service needs payment or inventory facts, it calls
+  those services over HTTP and treats the response as untrusted input
+  (validated DTOs, same as before).
+- **Rationale:** A shared database would quietly recouple services that HTTP
+  boundaries keep apart: one team's migration could break another service,
+  and "just this one join" becomes distributed logic with no contract. The
+  database boundary makes the service boundary real — each schema can evolve
+  with its owner, and every cross-service read stays visible as an HTTP call
+  with explicit failure modes. Separate application users (each owning only
+  its database) enforce this at the PostgreSQL level, not just by convention.
+- **State:** Implemented: `orders` in order_db; `payments` in payment_db;
+  `inventory_items` + `inventory_reservations` in inventory_db (no FK between
+  the two, so rejected attempts for unknown products are still recordable).
+  Known limitation accepted, not solved: checkout is not atomic across the
+  three databases — a FAILED order can coexist with a standing reservation.
+  Faking atomicity (cross-DB writes, a transaction coordinator) was rejected;
+  the honest PENDING → CONFIRMED/FAILED record is the foundation a future
+  reconciliation/simulation story can build on.
 
 ## Supersession rule
 

@@ -67,7 +67,7 @@ Module rules (binding for future work): modules communicate through explicit
 APIs; no cross-module persistence access; every consequential action crosses
 the policy/execution boundary (see §6).
 
-## 4. Target microservices (Phase 2A runtime exists; observation planned)
+## 4. Target microservices (Phase 2B persistent runtime; observation planned)
 
 Four independently deployable services under `backend/target-services/` form the
 first **target environment** — the kind of system the twin will eventually model
@@ -78,21 +78,48 @@ Systivex awareness in them:
 client ──▶ gateway-service (:8081, POST /api/v1/checkout)
                │ HTTP (RestClient, URL from config)
                ▼
-           order-service (:8082, POST /api/v1/orders)
-               ├──▶ inventory-service (:8084, POST /internal/v1/inventory/reserve)
-               └──▶ payment-service (:8083, POST /internal/v1/payments/authorize)
+           order-service (:8082, POST /api/v1/orders) ──▶ order_db (orders)
+               ├──▶ inventory-service (:8084, POST /internal/v1/inventory/reserve) ──▶ inventory_db
+               │         (inventory_items + inventory_reservations)
+               └──▶ payment-service (:8083, POST /internal/v1/payments/authorize) ──▶ payment_db
+                         (payments)
 ```
 
+Database ownership (binding, see `DECISIONS.md` D17):
+
+| Service | Database / user | Tables | Reads/writes other DBs? |
+|---|---|---|---|
+| order-service | `order_db` / `order_app` | `orders` (PENDING → CONFIRMED/FAILED) | Never |
+| payment-service | `payment_db` / `payment_app` | `payments` (AUTHORIZED/DECLINED, both recorded) | Never |
+| inventory-service | `inventory_db` / `inventory_app` | `inventory_items`, `inventory_reservations` | Never |
+| gateway-service | None (stateless edge) | — | N/A |
+
+The control-plane database (`systivex` / `systivex_app`) is separate and
+shares nothing with these three. Each service migrates its own schema with its
+own Flyway history (`V1` schema everywhere, plus a `V2` dev seed of
+`SKU-1001 × 10` in inventory only); Hibernate validates (`ddl-auto=validate`)
+and never migrates.
+
 - Each has its own pom, Maven wrapper, application class, and Actuator health.
-- Downstream URLs come from configuration (`*_URL` env vars with localhost
-  defaults), never from source. Fixed dev ports (8081–8084); control plane stays
-  on 8080.
-- Checkout is deliberately thin: validate → reserve → authorize → respond.
-  Inventory rejects quantities above a demo limit, payment declines amounts above
-  a demo limit (both 422); unreachable/erroring downstream becomes 503 at order
-  level and 502 at gateway level, with sanitized bodies throughout.
-- Stateless and database-free by decision (persistence arrives in Phase 2B);
-  the approve/reject rules are deterministic so tests and demos are repeatable.
+- Downstream URLs and datasource credentials come from configuration (env vars
+  with localhost defaults), never from source. Fixed dev ports (8081–8084);
+  control plane stays on 8080.
+- Checkout persists at every step: PENDING row first, then reserve, then
+  authorize, then CONFIRMED — or FAILED when any downstream step fails. Failed
+  attempts are recorded, never dropped and never falsely CONFIRMED.
+- Consistency is per-database, not global: the three services commit in their
+  own local transactions with no coordinator. A FAILED order can coexist with
+  a standing inventory reservation; a crash between the PENDING insert and the
+  final update leaves a PENDING row. This is documented behavior (the honest
+  record a future reconciliation story needs), not atomicity.
+- Inventory concurrency is handled locally: the reserve path takes a
+  row-level write lock (plus a `@Version` column) so concurrent reserves for
+  the same product serialize instead of overselling. No Redis, no broker.
+- Payment still declines amounts above 5000.00 by deterministic rule (no
+  provider integration); declines are now persisted as DECLINED rows.
+- Failures stay controlled: 400 validation, 422 business rejection, 503 order
+  level (including order-storage outage), 502 gateway level, sanitized bodies
+  throughout — no SQL text or stack traces on the wire.
 - No Kubernetes, no message broker, no service mesh at this stage.
 - The control plane does not call, scrape, or model these services yet. They
   remain strictly outside the control-plane trust boundary: untrusted until
@@ -145,7 +172,7 @@ See `THREAT_MODEL.md` for the principles these boundaries enforce.
 - **SSE** for streaming long-running analysis/simulation progress (planned).
 - No WebSockets at this stage (see `DECISIONS.md`).
 
-## 8. Current implementation status (verified 2026-09-29)
+## 8. Current implementation status (verified 2026-09-30)
 
 Implemented:
 
@@ -166,7 +193,12 @@ Implemented:
   3 migration + 6 repository + 11 API + 1 contextLoads, Testcontainers PG 18);
   `./mvnw package -DskipTests` → executable jar; local run against PostgreSQL →
   Flyway migrates V1, `GET /actuator/health` → `{"status":"UP"}`,
-  entity/relationship REST cycle + 400/404 paths exercised.
+   entity/relationship REST cycle + 400/404 paths exercised.
+- Target environment persistence (Phase 2B, see §4): the four target services
+  now run against service-owned PostgreSQL databases with per-service Flyway
+  histories, validated JPA mappings, persistent orders / payments /
+  inventory+reservations, and a checkout flow backed by real databases with a
+  documented per-database consistency model.
 
 Why PostgreSQL + Flyway + a relational graph at this stage: the records the
 control plane will eventually authorize against (twin state, proposals,
@@ -181,6 +213,8 @@ Intentionally absent (not bugs — deferred by decision):
   observation modules.
 - Redis, Spring AI / Ollama, security, frontend, Docker Compose.
 - Kafka / RabbitMQ / Kubernetes / WebSockets / vector DB / MCP / multi-agent / cloud.
+- Target-service cross-database atomicity (rejected in D17; reconciliation is
+  future work, not missing plumbing).
 
 Next architectural step (see `PROJECT_STATUS.md`): twin ingestion from a real
 source (repository connector first) — still without agents or execution.

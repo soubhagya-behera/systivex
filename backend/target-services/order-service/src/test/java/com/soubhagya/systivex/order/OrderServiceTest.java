@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.soubhagya.systivex.order.api.OrderRequest;
 import com.soubhagya.systivex.order.api.OrderResponse;
+import com.soubhagya.systivex.order.model.OrderEntity;
+import com.soubhagya.systivex.order.model.OrderStatus;
+import com.soubhagya.systivex.order.repository.OrderRepository;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -27,13 +30,15 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Order-service boundary tests over real HTTP. Downstream services are JDK
- * stub servers (no extra test dependencies); nothing here needs the real
- * inventory/payment processes running.
+ * Order-service boundary tests over real HTTP, now backed by a throwaway
+ * PostgreSQL (Flyway-migrated): every checkout also asserts the persisted
+ * order row. Downstream services stay JDK stub servers (no extra test
+ * dependencies); nothing here needs the real inventory/payment processes or
+ * the developer's local database.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
-class OrderServiceTest {
+class OrderServiceTest extends AbstractPostgresIntegrationTest {
 
     private static final String INVENTORY_SUCCESS =
             """
@@ -109,16 +114,19 @@ class OrderServiceTest {
         inventoryBody.set(INVENTORY_SUCCESS);
         paymentStatus.set(201);
         paymentBody.set(PAYMENT_SUCCESS);
+        orders.deleteAll();
     }
 
     @Autowired private TestRestTemplate rest;
+
+    @Autowired private OrderRepository orders;
 
     private OrderRequest checkoutRequest() {
         return new OrderRequest("SKU-1001", 1, "CUST-1001", new BigDecimal("1499.00"));
     }
 
     @Test
-    void successfulCheckout() {
+    void successfulCheckoutPersistsConfirmedOrder() {
         ResponseEntity<OrderResponse> response =
                 rest.postForEntity("/api/v1/orders", checkoutRequest(), OrderResponse.class);
 
@@ -128,10 +136,17 @@ class OrderServiceTest {
         assertThat(response.getBody().status()).isEqualTo("CONFIRMED");
         assertThat(response.getBody().reservationId()).isNotNull();
         assertThat(response.getBody().authorizationId()).isNotNull();
+
+        OrderEntity persisted = orders.findById(response.getBody().orderId()).orElseThrow();
+        assertThat(persisted.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(persisted.getReservationId()).isEqualTo(response.getBody().reservationId());
+        assertThat(persisted.getAuthorizationId())
+                .isEqualTo(response.getBody().authorizationId());
+        assertThat(persisted.getProductId()).isEqualTo("SKU-1001");
     }
 
     @Test
-    void inventoryRejectionFailsCheckoutWith422() {
+    void inventoryRejectionPersistsFailedOrderWith422() {
         inventoryStatus.set(422);
         inventoryBody.set(BUSINESS_FAILURE);
 
@@ -143,10 +158,16 @@ class OrderServiceTest {
         assertThat(response.getBody().status()).isEqualTo("FAILED");
         assertThat(response.getBody().reason()).isEqualTo("INVENTORY_REJECTED");
         assertThat(response.getBody().orderId()).isNotNull();
+
+        // A rejected checkout is still recorded — never silently dropped, never
+        // falsely CONFIRMED.
+        OrderEntity persisted = orders.findById(response.getBody().orderId()).orElseThrow();
+        assertThat(persisted.getStatus()).isEqualTo(OrderStatus.FAILED);
+        assertThat(persisted.getReservationId()).isNull();
     }
 
     @Test
-    void paymentDeclineFailsCheckoutWith422() {
+    void paymentDeclinePersistsFailedOrderWith422() {
         paymentStatus.set(422);
         paymentBody.set(BUSINESS_FAILURE);
 
@@ -157,6 +178,9 @@ class OrderServiceTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().status()).isEqualTo("FAILED");
         assertThat(response.getBody().reason()).isEqualTo("PAYMENT_DECLINED");
+
+        OrderEntity persisted = orders.findById(response.getBody().orderId()).orElseThrow();
+        assertThat(persisted.getStatus()).isEqualTo(OrderStatus.FAILED);
     }
 
     @Test

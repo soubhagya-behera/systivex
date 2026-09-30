@@ -3,6 +3,7 @@ package com.soubhagya.systivex.payment.api;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -37,5 +38,16 @@ public class PaymentExceptionHandler {
                 HttpStatus.UNPROCESSABLE_ENTITY.value(),
                 HttpStatus.UNPROCESSABLE_ENTITY.getReasonPhrase(),
                 ex.getMessage());
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ErrorResponse handleDatabaseFailure(DataAccessException ex) {
+        // Payment storage is unavailable. No SQL text, exception names, or
+        // connection details leave the service — just a controlled 503.
+        return new ErrorResponse(
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(),
+                "Payment storage unavailable; authorization cannot complete");
     }
 }

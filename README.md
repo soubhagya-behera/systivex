@@ -20,7 +20,7 @@ consequential actions through explicit control-plane authorization.
 
 ## Current state (honest snapshot)
 
-**Implemented** (verified 2026-09-29):
+**Implemented** (verified 2026-09-30):
 
 - Spring Boot 4.1.1 backend (`backend/`) on Java 21 / Maven.
 - Application starts; `GET /actuator/health` returns `{"status":"UP"}`.
@@ -33,20 +33,26 @@ consequential actions through explicit control-plane authorization.
   with DTOs, Bean Validation, and stable 400/404/409 error responses.
 - 29 control-plane tests green: service unit tests plus Testcontainers-backed
   migration, repository, and API integration tests.
-- Phase 2A target environment (`backend/target-services/`): four independently
+- Phase 2B target environment (`backend/target-services/`): four independently
   runnable Spring Boot services — gateway (8081) → order (8082) → inventory
-  (8084) + payment (8083) — with real HTTP calls between processes, a minimal
-  checkout flow, deterministic stateless approve/reject rules, controlled
-  400/422/502/503 error handling, and 23 service tests green. No databases,
-  no observability, no agents — just the distributed system Systivex will
-  one day observe. The control plane does not read from these services yet.
+  (8084) + payment (8083) — with real HTTP calls between processes and
+  service-owned PostgreSQL databases (`order_db`, `payment_db`,
+  `inventory_db`; gateway stateless; control-plane `systivex` separate).
+  Persistent orders (PENDING → CONFIRMED/FAILED), recorded payment
+  authorizations (AUTHORIZED/DECLINED), and real stock with locked
+  reservations (seeded `SKU-1001 × 10` for local demos). Checkout across the
+  three databases is deliberately not atomic — documented, not hidden.
+  Controlled 400/422/502/503 error handling with nothing internal on the
+  wire, and 47 service tests green (Testcontainers-backed). No
+  observability, no agents — just the persistent distributed system Systivex
+  will one day observe. The control plane does not read from these services yet.
 
 **Not yet implemented** (planned architecture only):
 
 - Twin ingestion of the target environment, Git integration, telemetry
 - Agent orchestration, tooling, evidence model
 - Policy / risk / approval engine and controlled execution, simulation, verification
-- Target-service databases, cache (Redis), Spring AI / Ollama, frontend
+- Cross-database checkout atomicity/reconciliation, cache (Redis), Spring AI / Ollama, frontend
 
 See [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for the phase record,
 [`ARCHITECTURE.md`](ARCHITECTURE.md) for target vs. current architecture,
@@ -67,13 +73,14 @@ Systivex/
 │       ├── main/resources/application.example.properties  # tracked safe template
 │       ├── main/resources/db/migration/V1__create_system_twin.sql
 │       └── test/java/com/soubhagya/systivex/  # unit + Testcontainers integration tests
-│   └── target-services/         # IMPLEMENTED (Phase 2A): target runtime Systivex will observe
-│       ├── gateway-service/     # :8081, forwards POST /api/v1/checkout to order
-│       ├── order-service/       # :8082, checkout orchestration over the two below
-│       ├── payment-service/     # :8083, deterministic authorization
-│       └── inventory-service/   # :8084, deterministic reservation
-│           # each: own pom/mvnw/app class; live application.properties git-ignored,
-│           # application.example.properties tracked; no databases yet
+│   └── target-services/         # IMPLEMENTED (Phase 2B): persistent target runtime Systivex will observe
+│       ├── create-target-databases.sql  # LOCAL-ONLY bootstrap: 3 dbs + users, no passwords inside
+│       ├── gateway-service/     # :8081, forwards POST /api/v1/checkout to order (stateless)
+│       ├── order-service/       # :8082, persisted checkout orchestration (order_db)
+│       ├── payment-service/     # :8083, recorded authorizations (payment_db)
+│       └── inventory-service/   # :8084, real stock + reservations (inventory_db, V2 dev seed)
+│           # each: own pom/mvnw/app class + Flyway history; live application.properties git-ignored,
+│           # application.example.properties tracked; datasource passwords via env only
 ├── README.md                # this file
 ├── ARCHITECTURE.md          # target architecture + current status
 ├── DEVELOPMENT.md           # build / test / run instructions

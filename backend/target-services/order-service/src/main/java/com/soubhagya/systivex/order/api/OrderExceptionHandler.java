@@ -3,6 +3,7 @@ package com.soubhagya.systivex.order.api;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -53,5 +54,18 @@ public class OrderExceptionHandler {
     public OrderResponse handleUnavailable(DownstreamUnavailableException ex) {
         return OrderResponse.failed(
                 ex.getOrderId(), "DOWNSTREAM_UNAVAILABLE", ex.getMessage(), ex.getRequest());
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public Map<String, Object> handleDatabaseFailure(
+            DataAccessException ex, HttpServletRequest request) {
+        // Order storage is unavailable. No SQL text, exception names, or
+        // connection details leave the service — just a controlled 503.
+        return Map.of(
+                "status", HttpStatus.SERVICE_UNAVAILABLE.value(),
+                "error", HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(),
+                "message", "Order storage unavailable; checkout cannot complete",
+                "path", request.getRequestURI());
     }
 }
