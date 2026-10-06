@@ -1,9 +1,9 @@
-# Systivex Phase 3A: local telemetry infrastructure (NOT application code).
+# Systivex Phase 3A + 3B-1: local telemetry infrastructure (NOT application code).
 #
 # Scoped strictly to observability collection. The Java services are NOT
 # containerized here — they run locally via ./mvnw spring-boot:run and ship
-# telemetry to this collector. No dashboards, no log store, no trace store
-# in this phase (those arrive in Phase 3B).
+# telemetry to this collector. No log store or trace store in this phase
+# (those arrive in later 3B slices).
 #
 # Start:  docker compose up -d        (from this directory)
 # Logs:   docker compose logs -f otel-collector
@@ -15,6 +15,13 @@
 #   locally-running services, prints received spans to its own log via the
 #   debug exporter (trace verification path), and re-exposes collected
 #   metrics for Prometheus-compatible scraping on :8889.
+# - prometheus (pinned): scrapes the collector's :8889 exposition only
+#   (single metrics path — it never scrapes the Java services directly).
+#   UI + API on :9090.
+# - grafana (pinned): visualizes Prometheus. Datasource + dashboard are
+#   provisioned from ./grafana so a fresh setup reproduces them with no
+#   browser clicks. Local defaults only (admin/admin), no secrets. UI on
+#   :3000.
 name: systivex-observability
 
 services:
@@ -31,3 +38,26 @@ services:
       - "8889:8889"
       # Collector health
       - "13133:13133"
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      # Prometheus UI + HTTP API
+      - "9090:9090"
+    depends_on:
+      - otel-collector
+  grafana:
+    image: grafana/grafana:12.1.0
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      # Grafana UI
+      - "3000:3000"
+    depends_on:
+      - prometheus

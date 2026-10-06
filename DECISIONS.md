@@ -271,6 +271,32 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   sanitizer removed — verified failing-without / passing-with on 2026-10-06,
   plus a live collector-log check with zero synthetic-token hits.
 
+## D20. Prometheus + Grafana visualization on the existing metrics path — decided (2026-10-06)
+
+- **Decision:** Extend the existing `observability/docker-compose.yml`
+  (no second Compose file) with pinned `prom/prometheus:v3.5.0` (:9090)
+  and `grafana/grafana:12.1.0` (:3000). Prometheus scrapes ONLY the OTel
+  Collector's `:8889` exposition — the collector stays the sole scraper
+  of the Java services, so no duplicate collection path exists. Grafana
+  gets its Prometheus datasource and the single `Systivex Metrics`
+  dashboard purely through file provisioning (`observability/grafana/`);
+  local Grafana defaults, no secrets in the repo, no database files in Git.
+  Per-service identity uses a `server_port` → `service` relabel in
+  `prometheus.yml`, because the collector stamps `service_name="systivex"`
+  on every scraped app metric. OTel histograms arrive without buckets on
+  this path, so the latency panel is a sum/count average, not a p95 —
+  recorded here so nobody "fixes" it back to a quantile that returns no
+  data. No Java application changes; no Loki/Tempo, no twin ingestion, no
+  agent use (all still deferred).
+- **Rationale:** Visualization must consume the observed contract, not
+  redefine it: one more scrape hop would double-load the services and
+  split the metric identity scheme. Provisioning (not browser clicks)
+  keeps the dashboard reproducible from a fresh checkout.
+- **State:** Implemented and verified live 2026-10-06 (checkout + failure
+  scenarios move the dashboard metrics; control plane verified on a
+  temporary :8090 because :8080 is held by another project on this
+  machine).
+
 ## Supersession rule
 
 New decisions amend this file with date and rationale; they never silently edit

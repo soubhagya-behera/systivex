@@ -140,7 +140,32 @@ gateway/order/payment/inventory (+ control plane)
 │  traces → debug exporter (collector stdout)     │
 │  metrics → Prometheus receiver → :8889          │
 └─────────────────────────────────────────────────┘
+                                  │  Prometheus scrape (:8889 only)
+                                  ▼
+                        ┌──────────────────┐
+                        │  Prometheus :9090 │  (Phase 3B-1)
+                        └──────────────────┘
+                                  │  PromQL
+                                  ▼
+                        ┌──────────────────┐
+                        │  Grafana :3000    │  (Phase 3B-1, provisioned)
+                        │  Systivex Metrics │
+                        └──────────────────┘
 ```
+
+Phase 3B-1 adds visualization without touching the collection path:
+Prometheus scrapes only the collector's `:8889` exposition (never the
+Java services directly — no duplicate collection). The collector stamps
+all app metrics with its scrape-job resource (`service_name="systivex"`),
+so per-service identity on this path comes from the receiver-kept
+`server_port` label, mapped once in `prometheus.yml` to a `service`
+label (control-plane/gateway-service/order-service/payment-service/
+inventory-service). The single `Systivex Metrics` dashboard (provisioned
+from `observability/grafana/`, no browser setup) shows services
+reporting, request rate, requests by outcome, average latency, JVM heap,
+process CPU, and the checkout/inventory/payment business counters — all
+low-cardinality labels only; OTel histograms arrive without buckets on
+this path, so latency is a sum/count average, not a histogram quantile.
 
 - Tracing: automatic server/client HTTP spans everywhere; trace context
   (W3C `traceparent`) propagates gateway → order → inventory + payment —

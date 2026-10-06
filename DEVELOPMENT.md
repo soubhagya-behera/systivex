@@ -279,13 +279,13 @@ has two telemetry privacy tests proving downstream 4xx bodies never reach
 recorded span data (positive span-event assertions plus a negative-direction
 test that fails with the sanitizer unregistered).
 
-## 9. Telemetry pipeline (Phase 3A)
+## 9. Telemetry pipeline (Phase 3A) + visualization (Phase 3B-1)
 
 The Java services run locally (see §5/§8b); only the collection
 infrastructure runs in Docker. From `observability/`:
 
 ```powershell
-docker compose up -d          # start the OTel Collector (contrib, pinned image)
+docker compose up -d          # collector + Prometheus + Grafana (all pinned images)
 docker compose logs -f otel-collector
 docker compose down           # stop it
 ```
@@ -295,6 +295,16 @@ log (debug exporter — the trace verification path), scrapes each service's
 `/actuator/prometheus` (ports 8080–8084 via `host.docker.internal`), and
 re-exposes the collected metrics Prometheus-compatible on :8889. Collector
 health: `GET http://localhost:13133/`.
+
+Phase 3B-1 adds, in the same Compose file: Prometheus on :9090 scrapes
+only the collector's `:8889` (never the Java services directly — single
+metrics path, no duplicates), and Grafana on :3000 reads Prometheus
+through a provisioned datasource (local defaults, no secrets) with one
+provisioned `Systivex Metrics` dashboard — a fresh `docker compose up -d`
+reproduces both with no browser setup. Per-service identity in queries is
+the `service` label (`prometheus.yml` maps the collector-kept
+`server_port` to service names, because the collector stamps
+`service_name="systivex"` on everything it scrapes).
 
 Per-service checks (services running):
 

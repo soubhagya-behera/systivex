@@ -5,8 +5,40 @@ whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 3A — Observability instrumentation & telemetry pipeline.** Phases
-0–2B below are kept as history.
+**Phase 3B-1 — Prometheus + Grafana metrics visualization.** Phases
+0–3A below are kept as history.
+
+## What is complete (Phase 3B-1, 2026-10-06)
+
+- [x] Prometheus (`prom/prometheus:v3.5.0`) in the existing
+      `observability/docker-compose.yml`: scrapes only the OTel Collector's
+      `:8889` exposition (single metrics path — never the Java services
+      directly, no duplicate collection). Scrape config in the tracked
+      `observability/prometheus.yml`, including a `server_port` →
+      `service` relabeling (the collector stamps `service_name="systivex"`
+      on everything, so per-service identity comes from the receiver-kept
+      port label).
+- [x] Grafana (`grafana/grafana:12.1.0`) in the same Compose file, UI on
+      :3000: Prometheus datasource + one `Systivex Metrics` dashboard fully
+      provisioned from `observability/grafana/` (fresh `up -d` reproduces
+      both, no browser clicks, no secrets, no database files in Git).
+- [x] Dashboard (9 panels, low-cardinality labels only): services reporting,
+      HTTP request rate, requests by outcome, average latency (sum/count —
+      OTel histograms arrive without buckets on this path, so no p95),
+      JVM heap, process CPU, checkout success/failure, inventory
+      reservation success/rejected, payment authorization
+      success/declined.
+- [x] Live verified 2026-10-06: collector + Prometheus + Grafana healthy;
+      Prometheus target `otel-collector:8889` up; gateway/order/payment/
+      inventory series present (control plane verified directly on a
+      temporary :8090 — :8080 is held by another project's
+      PolicyImpactEngineApplication on this machine); Grafana datasource
+      health OK and dashboard loads with data; success checkout moved
+      `checkout_success_total` 0→1, rejection moved `checkout_failure`
+      0→1, payment decline moved `payment_authorization_declined_total`
+      0→1 and `checkout_failure` 1→2. No Java changes; 88 tests still green.
+- [ ] STILL DEFERRED: Loki, Tempo, unified logs/traces UI, System Twin
+      telemetry ingestion, any agent use of telemetry.
 
 ## What is complete (Phase 3A, 2026-09-30)
 
@@ -293,7 +325,7 @@ These are **deferred by decision**, not missing by accident. Do not report them 
 
 - Richer twin ingestion (code/arch/runtime connectors), Git integration,
   System Twin telemetry ingestion of any kind.
-- Grafana dashboards, Loki/Tempo exploration UIs, automated anomaly
+- Loki/Tempo exploration UIs, automated anomaly
   detection, any agent use of telemetry, observability-driven decisions.
 - Agent orchestration, tool mediation, simulation, evidence model.
 - Policy / approval / controlled-execution / verification logic.

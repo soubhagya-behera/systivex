@@ -1,0 +1,11 @@
+# Systivex Phase 3B-1: Grafana Prometheus datasource (provisioned, local only).
+# No credentials: everything is loopback-local development defaults.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

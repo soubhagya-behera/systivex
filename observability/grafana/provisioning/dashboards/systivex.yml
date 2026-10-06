@@ -1,0 +1,12 @@
+# Systivex Phase 3B-1: dashboard provider (local only).
+# Dashboards live in ../dashboards as JSON; no Grafana database files in Git.
+apiVersion: 1
+
+providers:
+  - name: systivex
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

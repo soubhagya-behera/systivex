@@ -54,8 +54,15 @@ consequential actions through explicit control-plane authorization.
   spans (`checkout`, `inventory.reservation`, `payment.authorization`),
   tag-free business counters, and trace-correlated console logs. Success,
   rejection, decline, and downstream-outage paths all emit telemetry. The
-  control plane emits but consumes nothing yet — no twin ingestion, no
-  dashboards, no anomaly detection, no agent use.
+   control plane emits but consumes nothing yet — no twin ingestion, no
+   dashboards, no anomaly detection, no agent use.
+- Phase 3B-1 metrics visualization (verified 2026-10-06): Prometheus
+  (`observability/`, Compose) scrapes the collector's `:8889` exposition —
+  the single metrics path, no direct app scrapes — and Grafana (provisioned
+  datasource + one `Systivex Metrics` dashboard, no manual setup) shows
+  request rate, errors by outcome, average latency, JVM heap/CPU, service
+  reporting, and checkout/inventory/payment business counters. Checkout and
+  failure scenarios move the dashboard metrics live.
 
 **Not yet implemented** (planned architecture only):
 
@@ -64,7 +71,7 @@ consequential actions through explicit control-plane authorization.
 - Agent orchestration, tooling, evidence model
 - Policy / risk / approval engine and controlled execution, simulation, verification
 - Cross-database checkout atomicity/reconciliation, cache (Redis), Spring AI / Ollama, frontend
-- Dashboards (Grafana), log/trace exploration UIs, anomaly detection, any
+- Log/trace exploration UIs (Loki/Tempo), anomaly detection, any
   agent or automated use of telemetry
 
 See [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for the phase record,
@@ -94,9 +101,11 @@ Systivex/
 │       └── inventory-service/   # :8084, real stock + reservations (inventory_db, V2 dev seed)
 │           # each: own pom/mvnw/app class + Flyway history; live application.properties git-ignored,
 │           # application.example.properties tracked; datasource passwords via env only
-├── observability/           # IMPLEMENTED (Phase 3A): local telemetry collection ONLY
-│   ├── docker-compose.yml   # OTel Collector (contrib, pinned); Java services NOT containerized
-│   └── otel-collector.yml   # OTLP traces -> debug log; Prometheus scrape -> :8889
+├── observability/           # IMPLEMENTED (Phase 3A + 3B-1): local telemetry ONLY
+│   ├── docker-compose.yml   # Collector + Prometheus (:9090) + Grafana (:3000); Java services NOT containerized
+│   ├── otel-collector.yml   # OTLP traces -> debug log; Prometheus scrape -> :8889
+│   ├── prometheus.yml       # scrapes collector :8889 only (single metrics path)
+│   └── grafana/             # provisioned Prometheus datasource + Systivex Metrics dashboard (no clicks needed)
 ├── README.md                # this file
 ├── ARCHITECTURE.md          # target architecture + current status
 ├── DEVELOPMENT.md           # build / test / run instructions
