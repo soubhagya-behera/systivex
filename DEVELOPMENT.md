@@ -1,8 +1,10 @@
 # Systivex Development Guide
 
-Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B)**
+Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B) +
+telemetry pipeline (Phase 3A)**
 (verified 2026-09-30). §§1–7 cover the control plane in `backend/`;
-§8 covers the target services in `backend/target-services/`.
+§8 covers the target services in `backend/target-services/`; §9 covers the
+local telemetry infrastructure in `observability/`.
 No cache, AI runtime, or frontend — none are required yet.
 
 ## 1. Prerequisites
@@ -13,11 +15,11 @@ No cache, AI runtime, or frontend — none are required yet.
 | Maven | Wrapper-provided (3.9.16 via `./mvnw`) | No separate install needed |
 | OS / shell | Windows 10/11 + PowerShell 5.1 (verified); any OS with JDK 21 works | — |
 | PostgreSQL | 18.x locally (`systivex` + 3 target dbs, see §8a) | Required to run; tests use Testcontainers instead |
-| Docker | Docker Desktop (daemon running) | Required for `./mvnw test` (Testcontainers spins up PG 18) |
+| Docker | Docker Desktop (daemon running) | Required for `./mvnw test` (Testcontainers spins up PG 18) and for the Phase 3A telemetry collector (`observability/`) |
 | Redis | **Not required** in this phase | Deferred, only when justified |
 | Ollama / Spring AI | **Not required** in this phase | Deferred |
 | Node / React | **Not required** (no frontend yet) | Deferred |
-| Docker | **Not required** (no Compose yet) | Deferred |
+| K8s / brokers | **Not required** (services run locally, not containerized) | Deferred |
 
 > Environment setup (2026-09-28, updated): the machine default `JAVA_HOME`/PATH
 > points at JDK 17, which **cannot** build this project. This is solved
@@ -115,9 +117,10 @@ $env:Path="C:\Program Files\Java\jdk-21.0.10\bin;" + $env:Path
 ./mvnw test
 ```
 
-Expected (verified 2026-09-29): `Tests run: 29, Failures: 0, Errors: 0` —
+Expected (verified 2026-09-30): `Tests run: 31, Failures: 0, Errors: 0` —
 service unit tests plus Testcontainers-backed migration, repository, and API
-integration tests (one shared PG 18 container per run). Docker Desktop must be
+integration tests plus 2 observability tests (tracing active, health UP).
+Docker Desktop must be
 running; the developer's local database is never touched by tests.
 
 ## 5. How to start the backend
@@ -141,13 +144,15 @@ Invoke-RestMethod -Uri "http://localhost:8080/actuator/health" | ConvertTo-Json
 # {"status":"UP","groups":["liveness","readiness"]} (shape may vary; "status":"UP" is the assertion)
 ```
 
-Only the `health` actuator endpoint is exposed under `/actuator` by default.
+Only `health` and `prometheus` actuator endpoints are exposed under
+`/actuator` (Phase 3A; previously health only).
 The twin API lives under `/api/v1/twin/entities` and
 `/api/v1/twin/relationships` (create/get/list, JSON, 400/404/409 on misuse).
 
 ## 6. What is NOT needed yet
 
-- No `docker-compose.yml`; local PostgreSQL is installed directly.
+- No service containers or orchestration; the only Compose file is
+  `observability/docker-compose.yml` (telemetry collector, §9).
 - No Redis connection, no vector database, no broker.
 - No `OLLAMA_*` configuration, no model pull.
 - No `frontend/` install or build.
@@ -261,9 +266,50 @@ recorded in their service's database. Checkout is not atomic across the three
 databases (see `ARCHITECTURE.md` §4): a FAILED order can coexist with a
 standing reservation.
 
-Tests (47 total, Testcontainers PostgreSQL, no local databases touched): each
+Tests (57 total across the four services, Testcontainers PostgreSQL, no local databases touched): each
 service has real-HTTP boundary tests — inventory/payment/order boot against
 throwaway containers (Flyway-migrated, so migration startup is covered),
 order/gateway tests stub only the downstream side with loopback stub servers.
 Inventory additionally covers stock-decrease persistence, rejection paths, a
-concurrent-reserve locking test, and repository constraint behavior.
+concurrent-reserve locking test, and repository constraint behavior. Each
+service also has an observability test: Prometheus exposition plus business
+counters, and (gateway/order) W3C traceparent propagation to stubbed
+downstream hops — no collector needed for tests. Order-service additionally
+has two telemetry privacy tests proving downstream 4xx bodies never reach
+recorded span data (positive span-event assertions plus a negative-direction
+test that fails with the sanitizer unregistered).
+
+## 9. Telemetry pipeline (Phase 3A)
+
+The Java services run locally (see §5/§8b); only the collection
+infrastructure runs in Docker. From `observability/`:
+
+```powershell
+docker compose up -d          # start the OTel Collector (contrib, pinned image)
+docker compose logs -f otel-collector
+docker compose down           # stop it
+```
+
+What it does: receives OTLP traces on :4317/:4318, prints spans to its own
+log (debug exporter — the trace verification path), scrapes each service's
+`/actuator/prometheus` (ports 8080–8084 via `host.docker.internal`), and
+re-exposes the collected metrics Prometheus-compatible on :8889. Collector
+health: `GET http://localhost:13133/`.
+
+Per-service checks (services running):
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8082/actuator/prometheus"  # raw exposition
+```
+
+Distributed-trace check: `POST /api/v1/checkout` (§8b), then find the single
+trace ID spanning `gateway-service` / `order-service` /
+`inventory-service` / `payment-service` in the collector log
+(`http post /api/v1/checkout` server span plus `checkout`,
+`inventory.reservation`, `payment.authorization` business spans share it).
+
+Configuration: `management.opentelemetry.tracing.export.otlp.endpoint`
+defaults to `http://localhost:4318/v1/traces` and is overridable via
+`OTEL_TRACING_ENDPOINT` — never a secret. Sampling is 1.0, correct only for
+local development volume. Telemetry endpoints bind locally with no auth;
+do not expose them beyond the machine (see `THREAT_MODEL.md` §3a).

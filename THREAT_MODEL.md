@@ -1,6 +1,6 @@
 # Systivex Threat Model
 
-Scope: **foundation + persistence + target-runtime principles** (2026-09-30). Enforcement
+Scope: **foundation + persistence + target-runtime + telemetry principles** (2026-09-30). Enforcement
 mechanisms (policy engine, approvals, audit store) are **planned, not implemented** —
 these principles bind all future design so the mechanisms can be built correctly.
 
@@ -79,6 +79,51 @@ gateway holds no database credentials at all.
   append-only record: who/what was proposed, which policy version decided,
   who approved (if required), what executed, and what verification observed.
 - Audit records must be sufficient to reconstruct and explain any change after the fact.
+
+## 3a. Telemetry as a data surface (Phase 3A, verified 2026-09-30)
+
+Telemetry is evidence about behavior, not a trusted channel — and it is
+itself a place data can leak. The following holds for the current pipeline
+(services → local collector debug log / local scrape endpoints):
+
+- **Span attributes no longer carry bodies or business messages.**
+  Automatic RestClient-error spans used to record the downstream 4xx response
+  body in `exception.message`, and custom business observations recorded
+  service-layer messages — both reachable by customer/product/amount data.
+  A per-deployable `ObservationErrorSanitizer` now participates in Boot's
+  observation-handler grouping through its own group ordered BEFORE the
+  tracing handler group (verified against Boot 4.1.1 registration order),
+  so the error the tracing handler records is already the payload-free
+  replacement keeping only the original exception type name and the HTTP
+  status; no credentials, passwords, tokens, or secrets were observed in
+  span attributes, and a 2026-10-06 live collector-log check found zero
+  synthetic-token hits across success/rejection/decline/outage traces.
+  Guarantee (narrow, as implemented): observation-error paths cannot carry
+  response bodies, business messages, or cause chains into spans. NOT
+  claimed: that no future span attribute, log line, or metric label could
+  ever carry sensitive data — telemetry remains a leakage surface and any
+  new attribute/label/message must be reviewed here first. Covered by
+  `TelemetryPrivacyTest` (recorded span data) plus the negative-direction
+  `TelemetryPrivacyUnsanitizedTest`. Until a trace backend beyond the local
+  collector exists, trace output stays on the local machine regardless.
+- **Logs carry only outcome + internal IDs.** The three business log lines
+  emit reservation/authorization/order IDs with a status word — no customer,
+  product, amount, header, or secret values. Correlation uses the trace/span
+  IDs in the log pattern, not payload data.
+- **Metrics are tag-free by rule.** The six business counters have no labels
+  at all; in particular customer, order, product, and trace IDs must never
+  become metric labels (cardinality abuse would also be a cheap
+  denial-of-service against the local collector). Standard HTTP/JVM metrics
+  keep only their low-cardinality framework labels.
+- **Access boundary is the loopback interface.** Scrape endpoints
+  (`/actuator/prometheus`), OTLP receivers (:4317/:4318), and the
+  collector's :8889 exposition have no authentication — acceptable only
+  because everything binds locally and nothing is reachable beyond the
+  machine. Exposing any of these beyond localhost requires authentication
+  and a recorded review (see §4: actuator surface).
+- **Sampling 1.0 is local-only.** Full trace sampling is proportional to
+  development traffic. Any shared or higher-traffic environment needs a
+  sampling decision first.
 
 ## 3. Out-of-scope today, in-scope for design
 

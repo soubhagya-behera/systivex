@@ -32,7 +32,8 @@ consequential actions through explicit control-plane authorization.
 - Minimal twin REST surface (`/api/v1/twin/entities`, `/api/v1/twin/relationships`)
   with DTOs, Bean Validation, and stable 400/404/409 error responses.
 - 29 control-plane tests green: service unit tests plus Testcontainers-backed
-  migration, repository, and API integration tests.
+  migration, repository, and API integration tests (now 31 with Phase 3A
+  observability tests).
 - Phase 2B target environment (`backend/target-services/`): four independently
   runnable Spring Boot services — gateway (8081) → order (8082) → inventory
   (8084) + payment (8083) — with real HTTP calls between processes and
@@ -43,16 +44,28 @@ consequential actions through explicit control-plane authorization.
   reservations (seeded `SKU-1001 × 10` for local demos). Checkout across the
   three databases is deliberately not atomic — documented, not hidden.
   Controlled 400/422/502/503 error handling with nothing internal on the
-  wire, and 47 service tests green (Testcontainers-backed). No
-  observability, no agents — just the persistent distributed system Systivex
-  will one day observe. The control plane does not read from these services yet.
+  wire, and service tests green (Testcontainers-backed).
+- Phase 3A observability (verified 2026-09-30): Boot-managed OpenTelemetry +
+  Prometheus instrumentation in all five deployables; a local collector
+  (`observability/`, Compose — telemetry infrastructure only, services still
+  run locally) receives OTLP traces and re-exposes scraped metrics. One
+  checkout produces one distributed trace across gateway → order →
+  inventory + payment (verified in the collector log), with three business
+  spans (`checkout`, `inventory.reservation`, `payment.authorization`),
+  tag-free business counters, and trace-correlated console logs. Success,
+  rejection, decline, and downstream-outage paths all emit telemetry. The
+  control plane emits but consumes nothing yet — no twin ingestion, no
+  dashboards, no anomaly detection, no agent use.
 
 **Not yet implemented** (planned architecture only):
 
-- Twin ingestion of the target environment, Git integration, telemetry
+- Twin ingestion of the target environment (including telemetry ingestion),
+  Git integration
 - Agent orchestration, tooling, evidence model
 - Policy / risk / approval engine and controlled execution, simulation, verification
 - Cross-database checkout atomicity/reconciliation, cache (Redis), Spring AI / Ollama, frontend
+- Dashboards (Grafana), log/trace exploration UIs, anomaly detection, any
+  agent or automated use of telemetry
 
 See [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for the phase record,
 [`ARCHITECTURE.md`](ARCHITECTURE.md) for target vs. current architecture,
@@ -81,6 +94,9 @@ Systivex/
 │       └── inventory-service/   # :8084, real stock + reservations (inventory_db, V2 dev seed)
 │           # each: own pom/mvnw/app class + Flyway history; live application.properties git-ignored,
 │           # application.example.properties tracked; datasource passwords via env only
+├── observability/           # IMPLEMENTED (Phase 3A): local telemetry collection ONLY
+│   ├── docker-compose.yml   # OTel Collector (contrib, pinned); Java services NOT containerized
+│   └── otel-collector.yml   # OTLP traces -> debug log; Prometheus scrape -> :8889
 ├── README.md                # this file
 ├── ARCHITECTURE.md          # target architecture + current status
 ├── DEVELOPMENT.md           # build / test / run instructions
@@ -90,8 +106,10 @@ Systivex/
 └── .gitignore               # root ignores
 ```
 
-No `frontend/`, no `docker-compose.yml` — intentionally absent
-(see `DECISIONS.md`: no premature infrastructure). Database configuration exists
+No `frontend/`, no service containers — intentionally absent
+(see `DECISIONS.md`: no premature infrastructure). The only Compose file is
+`observability/docker-compose.yml`, scoped to the telemetry collector.
+Database configuration exists
 but is local-only: `application.properties` is git-ignored, only the safe
 `application.example.properties` template is tracked.
 

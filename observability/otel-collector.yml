@@ -1,0 +1,61 @@
+# Systivex Phase 3A collector pipeline (local development only).
+#
+# Traces:  apps --OTLP--> collector --logging exporter--> collector stdout.
+#          Grep one trace ID in the collector log to see the same distributed
+#          trace across gateway / order / inventory / payment.
+# Metrics: collector scrapes each service's /actuator/prometheus (Prometheus
+#          receiver) and re-exposes everything Prometheus-compatible on :8889.
+#          Apps do NOT push metrics over OTLP and do NOT export logs over OTLP
+#          in this phase (disabled in application configuration); metrics stay
+#          pull-based, logs stay on the console.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: systivex
+          scrape_interval: 15s
+          metrics_path: /actuator/prometheus
+          static_configs:
+            - targets:
+                - host.docker.internal:8080 # control plane
+                - host.docker.internal:8081 # gateway-service
+                - host.docker.internal:8082 # order-service
+                - host.docker.internal:8083 # payment-service
+                - host.docker.internal:8084 # inventory-service
+
+processors:
+  batch: {}
+
+exporters:
+  debug:
+    verbosity: detailed
+    # Local volume is tiny; log every span so trace verification never
+    # silently drops the one span being looked for.
+    sampling_initial: 10000
+    sampling_thereafter: 10000
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    metrics:
+      receivers: [prometheus]
+      processors: [batch]
+      exporters: [prometheus]

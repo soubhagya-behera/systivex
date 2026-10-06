@@ -1,0 +1,33 @@
+# Systivex Phase 3A: local telemetry infrastructure (NOT application code).
+#
+# Scoped strictly to observability collection. The Java services are NOT
+# containerized here — they run locally via ./mvnw spring-boot:run and ship
+# telemetry to this collector. No dashboards, no log store, no trace store
+# in this phase (those arrive in Phase 3B).
+#
+# Start:  docker compose up -d        (from this directory)
+# Logs:   docker compose logs -f otel-collector
+# Stop:   docker compose down
+#
+# What runs here:
+# - otel-collector (contrib, pinned): receives OTLP traces over HTTP/gRPC,
+#   scrapes Prometheus-compatible /actuator/prometheus endpoints from the
+#   locally-running services, prints received spans to its own log via the
+#   debug exporter (trace verification path), and re-exposes collected
+#   metrics for Prometheus-compatible scraping on :8889.
+name: systivex-observability
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.140.0
+    command: ["--config=/etc/otel-collector.yml"]
+    volumes:
+      - ./otel-collector.yml:/etc/otel-collector.yml:ro
+    ports:
+      # OTLP receivers (apps ship spans here)
+      - "4317:4317"
+      - "4318:4318"
+      # Collected metrics, Prometheus-compatible exposition
+      - "8889:8889"
+      # Collector health
+      - "13133:13133"

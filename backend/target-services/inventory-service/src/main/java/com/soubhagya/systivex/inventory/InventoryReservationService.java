@@ -8,8 +8,14 @@ import com.soubhagya.systivex.inventory.model.InventoryReservation;
 import com.soubhagya.systivex.inventory.model.ReservationStatus;
 import com.soubhagya.systivex.inventory.repository.InventoryItemRepository;
 import com.soubhagya.systivex.inventory.repository.InventoryReservationRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,17 +32,34 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class InventoryReservationService {
 
+    private static final Logger log = LoggerFactory.getLogger(InventoryReservationService.class);
+
     private final InventoryItemRepository items;
     private final InventoryReservationRepository reservations;
+    private final ObservationRegistry observations;
+    private final Counter reserved;
+    private final Counter rejected;
 
     public InventoryReservationService(
-            InventoryItemRepository items, InventoryReservationRepository reservations) {
+            InventoryItemRepository items,
+            InventoryReservationRepository reservations,
+            ObservationRegistry observations,
+            MeterRegistry meters) {
         this.items = items;
         this.reservations = reservations;
+        this.observations = observations;
+        // Tag-free by decision: productId and quantities stay out of metrics.
+        this.reserved = meters.counter("inventory.reservation.success");
+        this.rejected = meters.counter("inventory.reservation.rejected");
     }
 
     @Transactional(noRollbackFor = ReservationRejectedException.class)
     public ReserveResponse reserve(ReserveRequest request) {
+        return Observation.createNotStarted("inventory.reservation", observations)
+                .observe(() -> doReserve(request));
+    }
+
+    private ReserveResponse doReserve(ReserveRequest request) {
         UUID id = UUID.randomUUID();
         Optional<InventoryItem> locked = items.findLockedByProductId(request.productId());
 
@@ -44,6 +67,10 @@ public class InventoryReservationService {
             reservations.save(
                     new InventoryReservation(
                             id, request.productId(), request.quantity(), ReservationStatus.REJECTED));
+            rejected.increment();
+            // Outcome only: reservation id + status. No stock levels or
+            // customer data — traceId in this line links to the trace.
+            log.info("Reservation {} REJECTED unknown-product", id);
             throw new ReservationRejectedException(
                     "Unknown product " + request.productId() + ": no stock record exists");
         }
@@ -53,6 +80,8 @@ public class InventoryReservationService {
             reservations.save(
                     new InventoryReservation(
                             id, request.productId(), request.quantity(), ReservationStatus.REJECTED));
+            rejected.increment();
+            log.info("Reservation {} REJECTED insufficient-stock", id);
             throw new ReservationRejectedException(
                     "Insufficient stock for product "
                             + request.productId()
@@ -68,6 +97,8 @@ public class InventoryReservationService {
         reservations.save(
                 new InventoryReservation(
                         id, request.productId(), request.quantity(), ReservationStatus.RESERVED));
+        reserved.increment();
+        log.info("Reservation {} RESERVED", id);
         return new ReserveResponse(id, request.productId(), request.quantity(), "RESERVED");
     }
 }

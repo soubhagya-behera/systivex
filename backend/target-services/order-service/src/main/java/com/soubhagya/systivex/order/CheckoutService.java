@@ -11,7 +11,13 @@ import com.soubhagya.systivex.order.downstream.ReserveRequest;
 import com.soubhagya.systivex.order.downstream.ReserveResponse;
 import com.soubhagya.systivex.order.model.OrderEntity;
 import com.soubhagya.systivex.order.repository.OrderRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
@@ -36,18 +42,40 @@ import org.springframework.web.client.RestClient;
 @Service
 public class CheckoutService {
 
+    private static final Logger log = LoggerFactory.getLogger(CheckoutService.class);
+
     private final RestClient inventoryClient;
     private final RestClient paymentClient;
     private final OrderRepository orders;
+    private final ObservationRegistry observations;
+    private final Counter confirmed;
+    private final Counter failed;
 
     public CheckoutService(
-            RestClient inventoryClient, RestClient paymentClient, OrderRepository orders) {
+            RestClient inventoryClient,
+            RestClient paymentClient,
+            OrderRepository orders,
+            ObservationRegistry observations,
+            MeterRegistry meters) {
         this.inventoryClient = inventoryClient;
         this.paymentClient = paymentClient;
         this.orders = orders;
+        this.observations = observations;
+        // Deliberately tag-free: outcome is in the name, and no request
+        // identifiers (customer, order, product, trace) ever become labels.
+        this.confirmed = meters.counter("checkout.success");
+        this.failed = meters.counter("checkout.failure");
     }
 
     public OrderResponse checkout(UUID orderId, OrderRequest request) {
+        // One business span for the whole orchestration. HTTP hops already
+        // have automatic client/server spans; this names the business
+        // operation they belong to. No request payload in attributes.
+        return Observation.createNotStarted("checkout", observations)
+                .observe(() -> doCheckout(orderId, request));
+    }
+
+    private OrderResponse doCheckout(UUID orderId, OrderRequest request) {
         OrderEntity order =
                 orders.save(
                         new OrderEntity(
@@ -63,6 +91,11 @@ public class CheckoutService {
         } catch (InventoryRejectedException | DownstreamUnavailableException e) {
             order.fail();
             orders.save(order);
+            failed.increment();
+            // Outcome only: order id + status. No customer, product, amount,
+            // or downstream payload — the traceId in this line (see logging
+            // pattern) is the link back to the distributed trace.
+            log.info("Checkout {} FAILED inventory", orderId);
             throw e;
         }
 
@@ -72,11 +105,15 @@ public class CheckoutService {
         } catch (PaymentDeclinedException | DownstreamUnavailableException e) {
             order.fail();
             orders.save(order);
+            failed.increment();
+            log.info("Checkout {} FAILED payment", orderId);
             throw e;
         }
 
         order.confirm(reservation.reservationId(), authorization.authorizationId());
         orders.save(order);
+        confirmed.increment();
+        log.info("Checkout {} CONFIRMED", orderId);
         return OrderResponse.confirmed(
                 orderId,
                 reservation.reservationId(),

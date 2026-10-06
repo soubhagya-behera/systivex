@@ -1,7 +1,7 @@
 # Systivex Architectural Decisions
 
 Record of binding decisions taken at project foundation (2026-09-28) and
-extended in Phase 1 and Phase 2A (2026-09-29).
+extended in Phase 1 and Phase 2A (2026-09-29), Phase 2B and Phase 3A (2026-09-30).
 Status labels: **decided** (binding now) / **planned** (intent, not yet implemented).
 
 ## D1. Java 21 — decided
@@ -186,6 +186,90 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   Faking atomicity (cross-DB writes, a transaction coordinator) was rejected;
   the honest PENDING → CONFIRMED/FAILED record is the foundation a future
   reconciliation/simulation story can build on.
+
+## D18. Telemetry before twin ingestion — decided (2026-09-30)
+
+- **Decision:** Instrument the target environment for metrics/traces/logs
+  (Phase 3A) before building any System Twin runtime ingestion of that
+  telemetry.
+- **Rationale:** Ingestion built against uninstrumented services would define
+  its data contracts against guesses. Real, running telemetry — with known
+  span names, metric names, and correlation behavior verified end to end —
+  gives the future ingestion work an observed contract to consume instead of
+  a speculative one. The control plane still consumes nothing; the two sides
+  of the pipeline are built and verified independently.
+- **State:** Implemented: the four target services plus the control plane emit
+  OTLP traces and Prometheus metrics; collection is verified locally. No twin
+  ingestion exists.
+
+## D19. Minimal Boot-managed observability, pull-based metrics — decided (2026-09-30)
+
+- **Decision:** Two dependencies per service, both version-managed by the
+  Boot 4.1.1 BOM: `spring-boot-starter-opentelemetry` (tracing + W3C context
+  propagation) and `micrometer-registry-prometheus` (scrape endpoint). No
+  hand-pinned OTel/Micrometer versions, no second instrumentation library.
+  Metrics stay pull-based (`/actuator/prometheus`); OTLP metric export and
+  OTLP log export are disabled. Logs stay on the console with a trace/span
+  correlation pattern. Sampling is 1.0 — acceptable only because all traffic
+  is local development volume.
+- **Rationale:** Managed versions remove a whole class of span-duplication and
+  version-skew faults. Pull-based metrics need no per-service export
+  configuration and fail visibly (empty scrape) rather than silently (dropped
+  push). A single local OpenTelemetry Collector (contrib, pinned image) is
+  the only infrastructure: OTLP receiver for traces, Prometheus receiver
+  re-scraping the services, debug exporter to its own log for trace
+  verification, Prometheus exporter on :8889. No dashboards, log store, or
+  trace store — visualization is Phase 3B.
+- **State:** Implemented. Three custom business spans only (`checkout`,
+  `inventory.reservation`, `payment.authorization`); everything else is
+  automatic HTTP instrumentation. Six tag-free business counters
+  (`checkout.success/failure`, `inventory.reservation.success/rejected`,
+  `payment.authorization.success/declined`) — outcome in the name, no
+  customer/order/product/trace labels. RestClient builders carry the
+  observation registry explicitly so trace context crosses each HTTP hop.
+- **Telemetry-error redaction (closure fix, 2026-09-30):** automatic
+  client-error spans copied downstream 4xx response bodies into
+  `exception.message`, and custom business observations recorded
+  service-layer messages — both can carry customer/product/amount data.
+  Verified root cause: the OTel bridge calls `Span.recordException`
+  immediately in the tracing handler's `onError`, so a stop-time
+  `ObservationFilter` would run too late. Fix: one stateless
+  `ObservationErrorSanitizer` (`ObservationHandler<Observation.Context>`,
+  `@Order(HIGHEST_PRECEDENCE)`, picked up by Boot's ordered handler
+  registration) per deployable replaces the recorded error with a
+  payload-free equivalent carrying only the original exception type name
+  and, for `HttpStatusCodeException`, the HTTP status. No cause chain (a
+  cause would reintroduce the payload via the stacktrace attribute).
+  Thrown exceptions, API responses, and logs are untouched. Side effect,
+  accepted: timer `error` tags report the sanitizer type on error
+  observations instead of the original type (still low-cardinality).
+   Regression test `TelemetryPrivacyTest` (order-service) fails without the
+   sanitizer and passes with it — verified both directions.
+- **Telemetry-error redaction, correction (2026-10-06):** the 2026-09-30
+  `@Order(HIGHEST_PRECEDENCE)` fix was insufficient and live verification
+  proved it: Boot 4.1.1 registers tracing/meter handlers through its
+  `TracingAndMeterObservationHandlerGroup` composite AHEAD of ungrouped
+  `ObservationHandler` beans, so the tracing handler's `onError` recorded
+  the raw exception (`Span.recordException` → `exception.message` /
+  `exception.stacktrace` / status description) BEFORE the late sanitizer
+  replaced the final recorded error. Verified against the actual jars
+  (Boot 4.1.1 `ObservationHandlerGroups.register` sorts groups and registers
+  group composites before ungrouped handlers; Micrometer 1.17.1
+  `SimpleObservation.notifyOnError` notifies handlers sequentially in
+  registration order; Micrometer-tracing 1.7.1 `TracingObservationHandler`
+  records `context.getError()` at notification time). Fix, per deployable:
+  the sanitizer now belongs to its own `SanitizerObservationHandlerGroup`
+  ordered before the tracing group, so its `onError` replaces the error
+  first and the tracing handler records only the sanitized replacement.
+  Joining the tracing group itself was rejected: group members dispatch
+  first-match, which would suppress the real tracing handler. Preserved:
+  HTTP status, original exception type name, observation/span names, trace
+  context. Removed: response bodies, business messages, cause chain.
+  `TelemetryPrivacyTest` now asserts on in-memory RECORDED SPAN DATA
+  (event attributes + status description), and
+  `TelemetryPrivacyUnsanitizedTest` proves the same payload leaks with the
+  sanitizer removed — verified failing-without / passing-with on 2026-10-06,
+  plus a live collector-log check with zero synthetic-token hits.
 
 ## Supersession rule
 

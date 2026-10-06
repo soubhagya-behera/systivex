@@ -125,6 +125,43 @@ and never migrates.
   remain strictly outside the control-plane trust boundary: untrusted until
   verified, never self-authorizing, carrying only their own local logic.
 
+## 4a. Observability instrumentation (Phase 3A; collection verified, consumption planned)
+
+Every service (four target services plus the control plane) emits
+OpenTelemetry traces and Prometheus metrics from the same two
+Boot-managed dependencies. Collection is local only:
+
+```text
+gateway/order/payment/inventory (+ control plane)
+  │  OTLP traces (:4318)          │  /actuator/prometheus scrape
+  ▼                               ▼
+┌─────────────────────────────────────────────────┐
+│  OTel Collector (local, compose)                │
+│  traces → debug exporter (collector stdout)     │
+│  metrics → Prometheus receiver → :8889          │
+└─────────────────────────────────────────────────┘
+```
+
+- Tracing: automatic server/client HTTP spans everywhere; trace context
+  (W3C `traceparent`) propagates gateway → order → inventory + payment —
+  verified as one trace ID across all four services in the collector log.
+  Three custom business spans mark what automatic instrumentation cannot:
+  `checkout` (order), `inventory.reservation`, `payment.authorization`.
+   Recorded observation errors are sanitized per deployable
+   (`ObservationErrorSanitizer` in its own handler group ordered before
+   Boot's tracing handler group, so the tracing handler records the
+   sanitized error): type name + HTTP status only, no response
+   bodies or business messages — see `DECISIONS.md` D19, `THREAT_MODEL.md`
+   §3a.
+- Metrics: standard HTTP server/client, JVM, and process families plus six
+  tag-free business counters (`checkout.success/failure`,
+  `inventory.reservation.success/rejected`,
+  `payment.authorization.success/declined`).
+- Logs: console only, with `traceId`/`spanId` correlation; outcome + IDs,
+  never payloads or secrets.
+- Sampling is 1.0 (local development only). The control plane emits but
+  consumes nothing — twin ingestion of telemetry is future work (D18).
+
 ## 5. System Twin concept (persistence exists; reasoning still planned)
 
 The System Twin is the planned authoritative model of a target system, joining:
@@ -179,8 +216,9 @@ Implemented:
 - `backend/`: Spring Boot 4.1.1, Java 21 (`release 21`), Maven build.
 - Dependencies: `webmvc`, `validation`, `actuator`, `data-jpa`,
   `spring-boot-starter-flyway` + `flyway-database-postgresql`, `postgresql`
-  driver (+ test: `webmvc-test`, `restclient-test`, `testcontainers-postgresql`).
-  Nothing else.
+  driver, `spring-boot-starter-opentelemetry`,
+  `micrometer-registry-prometheus` (+ test: `webmvc-test`,
+  `restclient-test`, `testcontainers-postgresql`). Nothing else.
 - `twin` module: `SystemEntity` / `SystemRelationship` entities (UUID keys,
   closed enum types, JSONB metadata via native Hibernate mapping), two
   repositories, a small transactional service, DTO-based REST controller,
@@ -199,6 +237,12 @@ Implemented:
   histories, validated JPA mappings, persistent orders / payments /
   inventory+reservations, and a checkout flow backed by real databases with a
   documented per-database consistency model.
+- Observability (Phase 3A, see §4a): OTLP + Prometheus instrumentation in all
+  five deployables, error redaction at the observation boundary, local
+  collector pipeline (`observability/`), distributed trace across the
+  checkout chain verified in the collector log, business counters and
+  correlated logs verified live and in tests (85 tests total:
+  control plane 31, gateway 8, order 18, payment 12, inventory 16).
 
 Why PostgreSQL + Flyway + a relational graph at this stage: the records the
 control plane will eventually authorize against (twin state, proposals,
@@ -211,8 +255,11 @@ Intentionally absent (not bugs — deferred by decision):
 
 - Twin connectors/ingestion, intelligence, policy, execution, verification,
   observation modules.
-- Redis, Spring AI / Ollama, security, frontend, Docker Compose.
-- Kafka / RabbitMQ / Kubernetes / WebSockets / vector DB / MCP / multi-agent / cloud.
+- Redis, Spring AI / Ollama, security, frontend.
+- Grafana dashboards, Loki/Tempo UIs, anomaly detection, any agent use of
+  telemetry (Phase 3B and later).
+- Docker packaging of the Java services, Kafka / RabbitMQ / Kubernetes /
+  WebSockets / vector DB / MCP / multi-agent / cloud.
 - Target-service cross-database atomicity (rejected in D17; reconciliation is
   future work, not missing plumbing).
 
