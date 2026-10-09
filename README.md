@@ -67,16 +67,27 @@ consequential actions through explicit control-plane authorization.
   pending service restarts): the same console records now also ship over
   OTLP through the existing collector into Loki (`observability/`,
   Compose — single binary, local filesystem, no auth), searchable in
-  Grafana Explore via a provisioned Loki datasource (no new dashboard).
-  Per-service Logback bridge (`logback-spring.xml` +
-  `OtelLogAppenderInstaller`; Boot alone ships nothing — see
-  `DECISIONS.md` D21). Only `service.name` is a Loki index label;
-  trace/span IDs stay searchable structured metadata, never stream
-  labels. Outcome + IDs only, same privacy guarantees as Phase 3A.
+   Grafana Explore via a provisioned Loki datasource (no new dashboard).
+   Per-service Logback bridge (`logback-spring.xml` +
+   `OtelLogAppenderInstaller`; Boot alone ships nothing — see
+   `DECISIONS.md` D21). Only `service.name` is a Loki index label;
+   trace/span IDs stay searchable structured metadata, never stream
+   labels. Outcome + IDs only, same privacy guarantees as Phase 3A.
+- Phase 4 twin observation (implemented 2026-10-09, local live boot
+  pending): a read-only repository connector (`backend/.../observation/`)
+  scans `backend/target-services/` configs, controller routes, and Flyway
+  migrations into the twin — 4 services, 3 databases, 4 tables, 4 APIs
+  (15 entities, 18 CALLS/DEPENDS_ON/CONTAINS/WRITES/EXPOSES edges) via an
+  explicit `POST /api/v1/twin/sync` trigger. Idempotent, transactional,
+  connector-owned rows only (manual rows preserved, conflicts fail 409).
+  Localhost-only: `server.address=127.0.0.1` bind plus a loopback-peer
+  guard (403 off loopback, no header trust). 51 tests green (31 existing
+  + 20 new). The control plane still consumes no telemetry and no agent
+  exists — see `DECISIONS.md` D22.
 
 **Not yet implemented** (planned architecture only):
 
-- Twin ingestion of the target environment (including telemetry ingestion),
+- Twin telemetry ingestion (metrics/traces/logs into the twin),
   Git integration
 - Agent orchestration, tooling, evidence model
 - Policy / risk / approval engine and controlled execution, simulation, verification
@@ -99,7 +110,8 @@ Systivex/
 │   └── src/
 │       ├── main/java/com/soubhagya/systivex/
 │       │   ├── SystivexApplication.java
-│       │   └── twin/{model,repository,service,api}/
+│       │   ├── twin/{model,repository,service,api}/
+│       │   └── observation/           # Phase 4: read-only repo connector + POST /api/v1/twin/sync
 │       ├── main/resources/application.properties          # LOCAL ONLY, git-ignored
 │       ├── main/resources/application.example.properties  # tracked safe template
 │       ├── main/resources/db/migration/V1__create_system_twin.sql

@@ -1,12 +1,82 @@
 # Systivex Project Status
 
-Last verified: **2026-10-07** (Asia/Kolkata). This document must be updated
+Last verified: **2026-10-09** (Asia/Kolkata). This document must be updated
 whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 3B-2 — Loki + log exploration (implemented; live verification
-pending service restarts).** Phases 0–3B-1 below are kept as history.
+**Phase 4 — Twin observation: read-only repository connector (implemented;
+live verification complete 2026-10-09, ready for review).** Phases 0–3B-2 below
+are kept as history.
+
+## What is complete (Phase 4, 2026-10-09 — implementation + automated tests + live verification complete)
+
+- [x] `observation` package in the control plane (new, only addition):
+      `TargetRepositoryScanner` (read-only scan of `backend/target-services/`),
+      `TwinSyncService` (transactional, idempotent sync), `SyncController`
+      (`POST /api/v1/twin/sync`), `LoopbackGuard` (403 off loopback),
+      `SyncResult`/`DiscoveryResult`/`DiscoveredEntity`/`DiscoveredRelationship`,
+      `OwnershipConflictException` (409) / `SyncForbiddenException` (403),
+      best-effort `GitRevision` (short HEAD or omitted). No new dependencies.
+- [x] Deterministic mapping from verified repository facts (service
+      directories, tracked `application.example.properties`, controller
+      route annotations, Flyway `CREATE TABLE` statements) onto the
+      EXISTING closed enums — no enum expansion: 4 `SERVICE`
+      (gateway/order/payment/inventory :8081–:8084), 3 `DATABASE`
+      (order_db/order_app, payment_db/payment_app,
+      inventory_db/inventory_app), 4 `TABLE` (orders, payments,
+      inventory_items, inventory_reservations), 4 `API` (POST
+      /api/v1/checkout, POST /api/v1/orders, POST
+      /internal/v1/inventory/reserve, POST /internal/v1/payments/authorize).
+      18 edges: gateway `CALLS` order, order `CALLS` inventory + payment
+      (from downstream URL configs), 3 `DEPENDS_ON`, 4 `CONTAINS`, 4
+      `WRITES`, 4 `EXPOSES`. Stable `target-*` external refs; ports, paths,
+      ownership, downstream evidence, and provenance
+      (`managedBy: repository-connector`, `phase4-v1`) in metadata.
+- [x] Sync semantics: discovery validates fully before any write; one
+      transaction per run; connector-owned rows created/refreshed, manual
+      rows never touched, identity collisions abort 409 with full rollback,
+      bad roots fail 400 with no writes. Re-runs are idempotent
+      (created:0/unchanged:15+18).
+- [x] Localhost-only boundary (see `DECISIONS.md` D22): `server.address=
+      127.0.0.1` in the tracked example config plus a transport-peer guard
+      (`getRemoteAddr()` only, headers ignored, missing peer denied).
+      Scanner reads example configs only — never live properties, never
+      the environment, never writes or executes under the root.
+- [x] Tests: 51 green, 0 failures (31 pre-existing + 20 new:
+      `TargetRepositoryScannerTest` 7 incl. a read-only scan of the REAL
+      target-services tree pinning 15 entities / 18 edges,
+      `TwinSyncServiceTest` 5, `SyncApiTest` 5, `LoopbackGuardTest` 3);
+      `package -DskipTests` builds. `backend/target-services/` and
+      `observability/` untouched (verified via `git status`).
+- [x] LIVE VERIFICATION 2026-10-09 (complete, observed directly in PowerShell
+      against local PostgreSQL 18): control-plane health `UP`; PostgreSQL
+      connection successful via a temporary `SPRING_DATASOURCE_URL` override
+      to `jdbc:postgresql://localhost:5432/systivex` (local
+      `application.properties` not edited; no secret recorded here). First
+      `POST /api/v1/twin/sync` with `'{}'` reported entitiesCreated 15,
+      entitiesUpdated 0, entitiesUnchanged 0, relationshipsCreated 18,
+      relationshipsUnchanged 0, repositoryRoot
+      `C:\Users\Asus\Desktop\systivex\backend\target-services`, revision
+      `4dc09df`. Second sync reported entitiesCreated 0, entitiesUpdated 0,
+      entitiesUnchanged 15, relationshipsCreated 0,
+      relationshipsUnchanged 18. `GET /api/v1/twin/entities` returned 15
+      entities; `GET /api/v1/twin/relationships` returned 18 relationships;
+      graph contains gateway-service, inventory-service, order-service, and
+      payment-service. Prior automated evidence retained (no tests rerun in
+      this review): `SyncApiTest` runs a REAL HTTP server (RANDOM_PORT) and
+      syncs the REAL `backend/target-services` tree over loopback —
+      200 + exact counts, 400 on a bad root with row counts unchanged,
+      403 off loopback through the full handler chain; `TwinSyncServiceTest`
+      syncs the real tree against throwaway PostgreSQL 18 (15/18 exact,
+      idempotent re-run, manual-row preservation, conflict rollback to 1
+      row / 0 edges). Nothing staged, committed, or pushed. Verdict: READY
+      FOR REVIEW — implementation + automated tests + local live
+      verification complete.
+- [ ] STILL DEFERRED: Tempo, twin telemetry ingestion, unified trace/log UI,
+      agents, intelligence/policy/execution/verification, Redis, brokers,
+      K8s, vectors, MCP, frontend, Git remotes, watchers, schedulers,
+      broad authentication (Milestone 2C item 2 still open).
 
 ## What is complete (Phase 3B-2, 2026-10-07 — implementation; live pending)
 
@@ -484,8 +554,9 @@ pending service restarts).** Phases 0–3B-1 below are kept as history.
 
 These are **deferred by decision**, not missing by accident. Do not report them as regressions.
 
-- Richer twin ingestion (code/arch/runtime connectors), Git integration,
-  System Twin telemetry ingestion of any kind.
+- Richer twin ingestion (code-AST parsing beyond manifests/routes/
+  migrations, runtime/telemetry connectors), Git integration.
+  (The Phase 4 repository connector — configs/routes/migrations — is done.)
 - Tempo trace exploration UI, unified trace/log UI, automated anomaly
   detection, any agent use of telemetry, observability-driven decisions.
   (Loki log exploration is Phase 3B-2, above.)
@@ -503,6 +574,23 @@ These are **deferred by decision**, not missing by accident. Do not report them 
 - Message brokers; Kubernetes; WebSockets;
   vector databases; MCP; multi-agent architecture; cloud infrastructure.
 - Placeholder or speculative backend packages beyond `twin`.
+
+## Verification record (2026-10-09, Phase 4)
+
+| Check | Command | Result |
+|---|---|---|
+| Tests (control plane) | `./mvnw clean test` from `backend/` (Docker running) | 51 green, 0 failures (31 pre-existing + 20 observation), BUILD SUCCESS |
+| Scanner mapping | `TargetRepositoryScannerTest` (fixtures + real tree) | 15 entities / 18 edges exact on fixture and real `target-services`; unknown port / routeless service / DB-without-migrations / bad root all fail closed |
+| Sync semantics | `TwinSyncServiceTest` (Testcontainers PG 18, real tree) | empty → 15/18; re-sync idempotent (0/15+18); manual row preserved; squatted identity → 409 + rollback (1 row, 0 edges); bad root → 400-equivalent, 0 writes |
+| HTTP trigger | `SyncApiTest` (real HTTP, real tree) | 200 + counts over loopback; default-root resolution; 400 on bad root with counts unchanged; 403 off loopback (full chain); graph visible via existing GET endpoints |
+| Loopback guard | `LoopbackGuardTest` | 127.0.0.1/::1/full-IPv6 allowed; non-loopback + spoofed `X-Forwarded-For` denied; missing peer denied |
+| Build | `./mvnw -q package -DskipTests` from `backend/` | `systivex-0.0.1-SNAPSHOT.jar` produced |
+| Untouched areas | `git status --short` | only control-plane `observation/`, twin repo/handler additions, example config, docs; `target-services/`, `observability/` clean |
+| Live health | `GET 127.0.0.1:8080/actuator/health` (control plane on local PostgreSQL 18) | `{"status":"UP"}` observed 2026-10-09 |
+| Live DB | control-plane start with temporary `SPRING_DATASOURCE_URL` override to `jdbc:postgresql://localhost:5432/systivex` | connection successful; local `application.properties` not edited; no secret recorded |
+| Live sync (1st) | `POST 127.0.0.1:8080/api/v1/twin/sync` body `'{}'` | entitiesCreated 15, updated 0, unchanged 0; relationshipsCreated 18, unchanged 0; root `C:\Users\Asus\Desktop\systivex\backend\target-services`; revision `4dc09df` |
+| Live sync (2nd) | same `POST /api/v1/twin/sync` | entitiesCreated 0, updated 0, unchanged 15; relationshipsCreated 0, unchanged 18 (no duplicates, graph stable) |
+| Live GET | `GET 127.0.0.1:8080/api/v1/twin/entities` and `/api/v1/twin/relationships` | 15 entities and 18 relationships; graph contains gateway-service, inventory-service, order-service, payment-service |
 
 ## Verification record (2026-09-30, Phase 3A)
 
@@ -589,11 +677,16 @@ Phase 0 record (2026-09-28) is retained below for history.
 
 ## Immediate next milestone (proposed, not started)
 
-**Milestone 2C — Twin observation of the target environment:**
+**Milestone 2C remainder + twin telemetry ingestion:**
 
-1. Repository connector reading the target services into twin rows (first
-   actual observation; still no agents or execution).
-2. Authentication on any API before the surface leaves the local machine.
+1. ~~Repository connector reading the target services into twin rows~~ DONE
+   (Phase 4, above).
+2. Authentication on any API before the surface leaves the local machine
+   (still open — the Phase 4 loopback bind + guard is a development
+   boundary, not auth).
+3. Twin telemetry ingestion: consume the observed metrics/traces/logs
+   contract (Phase 3A/3B-1/3B-2) into twin rows — still without agents or
+   execution.
 
 Out of scope: agents, simulation, approvals UI, brokers, K8s,
 vector search, frontend beyond API consumption readiness. Cross-database

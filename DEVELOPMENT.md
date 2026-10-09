@@ -1,10 +1,11 @@
 # Systivex Development Guide
 
 Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B) +
-telemetry pipeline (Phase 3A)**
-(verified 2026-09-30). §§1–7 cover the control plane in `backend/`;
+telemetry pipeline (Phase 3A) + twin observation (Phase 4)**
+(verified 2026-10-09). §§1–7 cover the control plane in `backend/`;
 §8 covers the target services in `backend/target-services/`; §9 covers the
-local telemetry infrastructure in `observability/`.
+local telemetry infrastructure in `observability/`; §10 covers twin
+synchronization.
 No cache, AI runtime, or frontend — none are required yet.
 
 ## 1. Prerequisites
@@ -68,6 +69,7 @@ Active dependencies: `webmvc`, `validation`, `actuator`, `data-jpa`, `flyway`
 `spring-boot-starter-opentelemetry`, `micrometer-registry-prometheus`,
 `opentelemetry-logback-appender-1.0` for the Phase 3B-2 Loki sink;
 test: `webmvc-test`, `restclient-test`, `testcontainers-postgresql`).
+Phase 4 adds no dependencies.
 Do not add more without a recorded decision.
 
 ## 2a. Local database setup (once per machine, never committed)
@@ -119,9 +121,11 @@ $env:Path="C:\Program Files\Java\jdk-21.0.10\bin;" + $env:Path
 ./mvnw test
 ```
 
-Expected (verified 2026-09-30): `Tests run: 31, Failures: 0, Errors: 0` —
+Expected (verified 2026-10-09): `Tests run: 51, Failures: 0, Errors: 0` —
 service unit tests plus Testcontainers-backed migration, repository, and API
-integration tests plus 2 observability tests (tracing active, health UP).
+integration tests, 2 observability tests (tracing active, health UP), and
+20 Phase 4 observation tests (scanner mapping/fail-closed, sync
+idempotency/ownership/rollback, HTTP trigger, loopback guard).
 Docker Desktop must be
 running; the developer's local database is never touched by tests.
 
@@ -343,3 +347,44 @@ defaults to `http://localhost:4318/v1/traces` and is overridable via
 `OTEL_TRACING_ENDPOINT` — never a secret. Sampling is 1.0, correct only for
 local development volume. Telemetry endpoints bind locally with no auth;
 do not expose them beyond the machine (see `THREAT_MODEL.md` §3a).
+
+## 10. Twin synchronization (Phase 4)
+
+The control plane can model the target environment in its own twin with
+one explicit trigger (control plane running per §5, against your local
+PostgreSQL — tests use Testcontainers instead):
+
+```powershell
+# Repository root resolves automatically (backend/target-services from here);
+# override per machine with $env:SYSTIVEX_OBSERVATION_REPOSITORY_ROOT or per call:
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/twin/sync" -Method Post `
+  -ContentType "application/json" -Body '{}' | ConvertTo-Json
+# -> {"entitiesCreated":15,...,"relationshipsCreated":18,...} (first run;
+#    re-runs report created:0/unchanged:15+18 — idempotent)
+```
+
+Inspect the graph through the existing endpoints:
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/twin/entities" |
+  Where-Object { $_.externalRef -like 'target-service:*' } |
+  Select-Object type, name, externalRef
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/twin/relationships" | Measure-Object | Select-Object Count
+```
+
+Notes and limits:
+
+- The connector reads `application.example.properties`, controller route
+  annotations, and Flyway migration SQL under the repository root. It never
+  reads live `application.properties`, never touches the environment, and
+  never writes to the repository — so no password or secret can flow into
+  the twin. Scanned files are never executed.
+- Only connector-owned rows (metadata `managedBy: repository-connector`)
+  are created/updated. Manual rows are preserved; an identity collision
+  fails the whole sync with 409 and rolls back (nothing partial).
+- Bad roots fail with 400 before any write. The run is one transaction.
+- Localhost-only: the server binds `127.0.0.1` by default (see
+  `application.example.properties`; add `server.address=127.0.0.1` to your
+  existing live `application.properties` copy too) and the endpoint
+  refuses non-loopback peers with 403. No watchers, schedulers, Git
+  remotes, or telemetry ingestion — those are deferred by decision.

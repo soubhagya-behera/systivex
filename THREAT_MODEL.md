@@ -138,6 +138,19 @@ itself a place data can leak. The following holds for the current pipeline
   locally and nothing is reachable beyond the machine. Exposing any of
   these beyond localhost requires authentication and a recorded review
   (see §4: actuator surface).
+- **Phase 4 sync trigger (2026-10-09): same boundary, one new mutating
+  surface.** `POST /api/v1/twin/sync` writes to the twin, so it gets two
+  loopback layers instead of one: the server binds `127.0.0.1` by default
+  and the endpoint refuses non-loopback transport peers with 403
+  (`getRemoteAddr()` only — `X-Forwarded-For` is untrusted input and is
+  ignored; a missing peer is denied). The scanner only reads tracked
+  example configs, route annotations, and migration SQL — never live
+  `application.properties`, never environment values, never writes to the
+  repository, never executes scanned files — so secrets cannot enter twin
+  metadata through this path. Connector-owned rows are namespaced by
+  `managedBy` marker + `target-*` refs; a squatted identity aborts the
+  run (409, rolled back) rather than hijacking the row. Full API
+  authentication remains deferred and still gates any non-local exposure.
 - **Sampling 1.0 is local-only.** Full trace sampling is proportional to
   development traffic. Any shared or higher-traffic environment needs a
   sampling decision first.

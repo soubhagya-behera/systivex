@@ -1,7 +1,8 @@
 # Systivex Architectural Decisions
 
 Record of binding decisions taken at project foundation (2026-09-28) and
-extended in Phase 1 and Phase 2A (2026-09-29), Phase 2B and Phase 3A (2026-09-30).
+extended in Phase 1 and Phase 2A (2026-09-29), Phase 2B and Phase 3A (2026-09-30),
+Phase 3B-1/3B-2 (2026-10-06/07), and Phase 4 (2026-10-09).
 Status labels: **decided** (binding now) / **planned** (intent, not yet implemented).
 
 ## D1. Java 21 — decided
@@ -344,6 +345,52 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   record actually arrives at a stub OTLP receiver with MDC trace context —
   the regression test the missing bridge would have failed). Live
   verification pending service restarts (see `PROJECT_STATUS.md`).
+
+## D22. Read-only repository connector + localhost-only sync trigger — decided (2026-10-09)
+
+- **Decision:** The first twin ingestion is a read-only repository
+  connector (`observation` package, control plane only): a scanner reads
+  the target-service tree — service directories, tracked
+  `application.example.properties` (names, ports, datasource DB/owner,
+  downstream URLs), controller `@RequestMapping`/`@XMapping` annotations,
+  Flyway `CREATE TABLE` statements — and maps them onto the EXISTING
+  closed enums (4 `SERVICE`, 3 `DATABASE`, 4 `TABLE`, 4 `API`; `CALLS` /
+  `DEPENDS_ON` / `CONTAINS` / `WRITES` / `EXPOSES`). No enum expansion was
+  needed; none is permitted without a documented incompatibility. Stable
+  `target-*` external refs; ports/paths/ownership/provenance
+  (`managedBy: repository-connector`, `phase4-v1`) in JSONB metadata.
+  Sync is explicit (`POST /api/v1/twin/sync`), idempotent, and one
+  transaction: discovery validates fully before any write; connector-owned
+  rows are created/refreshed; manual rows are never touched; identity
+  collisions abort with 409 and roll back; bad roots fail 400 with no
+  writes. No watchers, schedulers, Git remotes, or telemetry ingestion.
+- **Rationale:** The twin had schema but no content; the repository is the
+  most deterministic source of truth available (configs, routes, and
+  migrations are already reviewed facts), while telemetry ingestion would
+  define consumption contracts against a noisier signal. An explicit
+  trigger keeps observation reviewable and replayable — a twin that
+  silently rewrites itself cannot be the authoritative record T3 demands.
+- **Localhost boundary (binding):** this phase adds no authentication
+  system, so the new mutating trigger must not serve the network.
+  Verified starting position: no `spring-security`, no `server.address` —
+  default bind is all interfaces, and the existing twin POST endpoints are
+  already open. Boundary, two layers, no header trust: (1)
+  `server.address=127.0.0.1` in the tracked example config (fresh copies
+  bind loopback; existing live copies must add it — see `DEVELOPMENT.md`
+  §10); (2) `LoopbackGuard` in the sync path refuses any
+  non-loopback `getRemoteAddr()` peer with 403 (`X-Forwarded-For` ignored
+  by design; missing peer denied). Covered by `LoopbackGuardTest` plus an
+  HTTP 403 test. Full API authentication stays deferred (Milestone 2C
+  item 2, still open).
+- **What the scanner never touches:** live `application.properties`,
+  process environment, and the repository itself (reads only; scanned
+  files are never executed). Only placeholder defaults (the part after
+  `:` in `${VAR:default}`) are consumed, so datasource passwords and
+  local secrets cannot flow into twin metadata. Nothing is logged except
+  counts/names/refs — all already-tracked facts.
+- **State:** Implemented and tested (20 new tests, 51 green total, build
+  succeeds). Local live boot pending the control-plane credential
+  (see `PROJECT_STATUS.md`).
 
 ## Supersession rule
 

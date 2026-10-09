@@ -1,5 +1,7 @@
 package com.soubhagya.systivex.twin.api;
 
+import com.soubhagya.systivex.observation.OwnershipConflictException;
+import com.soubhagya.systivex.observation.SyncForbiddenException;
 import com.soubhagya.systivex.twin.service.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
@@ -67,6 +69,30 @@ public class RestExceptionHandler {
                 HttpStatus.CONFLICT.value(),
                 HttpStatus.CONFLICT.getReasonPhrase(),
                 "Request conflicts with existing data",
+                request.getRequestURI(),
+                null);
+    }
+
+    @ExceptionHandler(OwnershipConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleOwnershipConflict(
+            OwnershipConflictException ex, HttpServletRequest request) {
+        return ErrorResponse.of(
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                null);
+    }
+
+    @ExceptionHandler(SyncForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleSyncForbidden(
+            SyncForbiddenException ex, HttpServletRequest request) {
+        return ErrorResponse.of(
+                HttpStatus.FORBIDDEN.value(),
+                HttpStatus.FORBIDDEN.getReasonPhrase(),
+                ex.getMessage(),
                 request.getRequestURI(),
                 null);
     }

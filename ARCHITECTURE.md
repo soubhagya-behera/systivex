@@ -50,16 +50,20 @@ being changed, and the thing being changed must never self-authorize.
 
 The control plane is a single Spring Boot deployment with strict module boundaries.
 The `twin` module exists in outline (`model`, `repository`, `service`, `api`
-packages); the remaining target modules are **not yet created** — no placeholder
+packages) plus the Phase 4 `observation` package (scanner + sync, repository
+connector only); the remaining target modules are **not yet created** — no placeholder
 packages exist for them by decision:
 
 - `twin` — System Twin model and connectors (**model + persistence + minimal
-  CRUD API exist**; connectors planned)
+  CRUD API exist**; repository connector exists since Phase 4, telemetry
+  connectors still planned)
 - `intelligence` — change impact, simulation, risk assessment (planned)
 - `policy` — policy evaluation and approval workflow (planned)
 - `execution` — controlled, auditable action dispatch (planned)
 - `verification` — post-change checks against twin + runtime (planned)
-- `observation` — code/arch/runtime ingest (planned)
+- `observation` — code/arch/runtime ingest (**repository connector exists
+  since Phase 4**: read-only scan of `backend/target-services/` + explicit
+  sync trigger; telemetry ingest still planned)
 - `api` — REST + SSE surface (initial twin CRUD exists; only Actuator health
   existed before Phase 1)
 
@@ -210,8 +214,12 @@ The System Twin is the planned authoritative model of a target system, joining:
 Agent reasoning must be grounded in the twin and in live backend state —
 never in LLM output alone. What exists today is the persistence footing:
 `system_entity` / `system_relationship` tables (Flyway V1), JPA mappings kept
-in lockstep by `ddl-auto=validate`, and CRUD behind DTOs. No twin package
-beyond that, no schema, no connectors yet.
+in lockstep by `ddl-auto=validate`, and CRUD behind DTOs — plus, since
+Phase 4, the first real content: a read-only repository connector that
+models the four target services, their databases/tables, APIs, and
+dependencies as connector-owned rows (stable `target-*` external refs,
+provenance in metadata). No twin package beyond `twin` + `observation`,
+no telemetry ingestion, no reasoning yet.
 
 ## 6. Trust boundaries
 
@@ -279,6 +287,10 @@ Implemented:
   checkout chain verified in the collector log, business counters and
   correlated logs verified live and in tests (85 tests total:
   control plane 31, gateway 8, order 18, payment 12, inventory 16).
+- Twin observation (Phase 4): read-only repository connector + explicit
+  sync trigger in the control plane (`observation` package); 15 entities /
+  18 edges modelling the target environment, verified in tests (control
+  plane suite now 51: 31 pre-existing + 20 new).
 
 Why PostgreSQL + Flyway + a relational graph at this stage: the records the
 control plane will eventually authorize against (twin state, proposals,
@@ -289,8 +301,8 @@ consumer yet (see `DECISIONS.md` D10).
 
 Intentionally absent (not bugs — deferred by decision):
 
-- Twin connectors/ingestion, intelligence, policy, execution, verification,
-  observation modules.
+- Twin telemetry ingestion, intelligence, policy, execution, verification
+  modules (the repository connector is Phase 4, above).
 - Redis, Spring AI / Ollama, security, frontend.
 - Grafana log dashboards, Tempo trace UI, unified trace/log UI, anomaly
   detection, any agent use of telemetry (later 3B slices and later).
@@ -299,5 +311,6 @@ Intentionally absent (not bugs — deferred by decision):
 - Target-service cross-database atomicity (rejected in D17; reconciliation is
   future work, not missing plumbing).
 
-Next architectural step (see `PROJECT_STATUS.md`): twin ingestion from a real
-source (repository connector first) — still without agents or execution.
+Next architectural step (see `PROJECT_STATUS.md`): twin telemetry ingestion
+(consuming the observed metrics/traces/logs contract into the twin) — still
+without agents or execution.
