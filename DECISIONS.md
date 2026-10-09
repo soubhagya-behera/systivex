@@ -297,6 +297,54 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   temporary :8090 because :8080 is held by another project on this
   machine).
 
+## D21. Loki log exploration over the existing OTLP path — decided (2026-10-07)
+
+- **Decision:** Make application logs searchable in Grafana via Loki
+  (`grafana/loki:3.5.0`, single binary, filesystem storage, no auth — local
+  development only), fed by the existing OTel Collector. No second Compose
+  file, no Tempo, no new dashboard: Grafana Explore is the log UI for this
+  phase. Application logging stays exactly as Phase 3A defined it (console
+  pattern `[service,traceId,spanId]`, outcome + internal IDs only); OTLP
+  export is an additional sink, not a replacement.
+- **Rationale:** Logs are the third signal of the already-observed contract
+  (spans, counters, correlated lines). Reusing the OTLP path keeps one
+  collection story instead of adding a parallel shipper per service.
+- **The missing bridge (verified, not assumed):** setting Boot's
+  `management.logging.export.otlp.*` properties alone ships nothing — Boot
+  wires the SDK and the OTLP log exporter but installs no Logback bridge, so
+  no record ever reaches the exporter. Each deployable therefore gets the
+  smallest working addition: `opentelemetry-logback-appender-1.0` (version
+  from an imported `opentelemetry-instrumentation-bom-alpha`,
+  `2.28.1-alpha` — that line compiles against `opentelemetry-api 1.62.0`,
+  exactly what Boot 4.1.1 manages, so no SDK skew) plus a
+  `logback-spring.xml` (Boot base config + one OTEL appender; console
+  untouched) and a small installer bean calling
+  `OpenTelemetryAppender.install(openTelemetry)` on ready. Only the
+  trace/span MDC keys are copied as attributes; nothing else about the log
+  statements changes, and the sanitizer is untouched.
+- **Collector:** one `logs` pipeline appended to the existing
+  `observability/otel-collector.yml` (`otlp` receiver → `batch` →
+  `otlphttp/loki`: `http://loki:3100/otlp` — the exporter appends
+  `/v1/logs` itself, so the full path must NOT be configured or Loki
+  answers 404). Traces/metrics pipelines unchanged. The contrib `loki`
+  exporter was evaluated first and rejected: it no longer ships in
+  collector 0.140.x (removed upstream after deprecation) in favor of
+  OTLP export to Loki's native endpoint.
+- **Label policy (binding):** only `service.name` becomes a Loki index
+  label. Trace/span IDs, `service.instance.id` (fresh UUID per Boot start),
+  SDK/process/host resource detail, and scope fields travel as structured
+  metadata — searchable in LogQL (`| traceId="<hex>"`) but never stream
+  labels, so one trace or restart can never fan out into per-trace streams.
+  Customer/order/product/amount values never leave the JVM in log form, so
+  they cannot become labels either. Verified against the running Loki via
+  the `/labels` index endpoint (carries `service_name` only) plus
+  positive/negative metadata-filter queries.
+- **State:** Implemented; `OtlpLoggingExportTest` (export wired, checkout
+  survives a missing collector) plus `OtlpLogDeliveryTest` (a checkout
+  record actually arrives at a stub OTLP receiver with MDC trace context —
+  the regression test the missing bridge would have failed). Live
+  verification pending service restarts (see `PROJECT_STATUS.md`).
+
 ## Supersession rule
 
 New decisions amend this file with date and rationale; they never silently edit

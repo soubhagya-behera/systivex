@@ -1,13 +1,21 @@
-# Systivex Phase 3A collector pipeline (local development only).
+# Systivex Phase 3B-2 collector pipeline (local development only).
 #
 # Traces:  apps --OTLP--> collector --logging exporter--> collector stdout.
 #          Grep one trace ID in the collector log to see the same distributed
 #          trace across gateway / order / inventory / payment.
 # Metrics: collector scrapes each service's /actuator/prometheus (Prometheus
 #          receiver) and re-exposes everything Prometheus-compatible on :8889.
-#          Apps do NOT push metrics over OTLP and do NOT export logs over OTLP
-#          in this phase (disabled in application configuration); metrics stay
-#          pull-based, logs stay on the console.
+#          Apps do NOT push metrics over OTLP in this phase (disabled in
+#          application configuration); metrics stay pull-based.
+# Logs:    apps --OTLP--> collector --OTLP/HTTP--> Loki (native OTLP ingest).
+#          Console logging is unchanged; this is an additional sink, not a
+#          replacement. Loki stream labels stay low-cardinality (service
+#          identity from the OTLP resource); trace/span IDs travel as
+#          structured metadata and remain searchable, but never become
+#          stream labels. The contrib `loki` exporter was evaluated first
+#          and rejected: it no longer ships in this collector build
+#          (removed upstream after deprecation), whose own migration note
+#          points at OTLP export to Loki instead.
 receivers:
   otlp:
     protocols:
@@ -43,6 +51,16 @@ exporters:
     endpoint: 0.0.0.0:8889
     resource_to_telemetry_conversion:
       enabled: true
+  # Phase 3B-2: OTLP/HTTP straight into Loki's native OTLP endpoint. The
+  # otlphttp exporter appends /v1/logs to the base URL itself, so the
+  # endpoint must be the /otlp base (setting the full .../otlp/v1/logs
+  # here would double the path and Loki answers 404). No per-trace or
+  # per-request attribute is promoted to a label anywhere in this
+  # pipeline; Loki indexes service identity only.
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
 
 extensions:
   health_check:
@@ -59,3 +77,7 @@ service:
       receivers: [prometheus]
       processors: [batch]
       exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/loki]

@@ -64,7 +64,9 @@ backend/
 
 Backend coordinates: `com.soubhagya:systivex:0.0.1-SNAPSHOT`.
 Active dependencies: `webmvc`, `validation`, `actuator`, `data-jpa`, `flyway`
-(+ `flyway-database-postgresql`, `postgresql` driver;
+(+ `flyway-database-postgresql`, `postgresql` driver,
+`spring-boot-starter-opentelemetry`, `micrometer-registry-prometheus`,
+`opentelemetry-logback-appender-1.0` for the Phase 3B-2 Loki sink;
 test: `webmvc-test`, `restclient-test`, `testcontainers-postgresql`).
 Do not add more without a recorded decision.
 
@@ -305,6 +307,24 @@ reproduces both with no browser setup. Per-service identity in queries is
 the `service` label (`prometheus.yml` maps the collector-kept
 `server_port` to service names, because the collector stamps
 `service_name="systivex"` on everything it scrapes).
+
+Phase 3B-2 adds, in the same Compose file: Loki on :3100 (single binary,
+filesystem storage in a Docker volume, no auth — local only, see
+`loki-config.yml`) plus a provisioned Loki datasource in Grafana, so
+Explore works with no browser setup and no new dashboard. The Java
+services ship the same console records over OTLP/HTTP
+(`management.logging.export.otlp.*`, on top of the unchanged console
+pattern) through a new `logs` pipeline in the existing
+`otel-collector.yml` (`otlp` receiver → `batch` → OTLP/HTTP export to
+`http://loki:3100/otlp`; the exporter appends `/v1/logs` itself).
+The bridge that makes records flow is per-service and small: the OTel
+Logback appender (`logback-spring.xml` + `OtelLogAppenderInstaller`;
+Boot does not install one itself — properties alone ship nothing).
+In Loki, only `service.name` is an index label; trace/span IDs stay
+searchable structured metadata (`{service_name="order-service"} |
+traceId="<hex>"`), never stream labels — see `loki-config.yml` and
+`DECISIONS.md` D21. Logs are evidence about runtime behavior, not
+authoritative truth.
 
 Per-service checks (services running):
 

@@ -1,12 +1,173 @@
 # Systivex Project Status
 
-Last verified: **2026-10-06** (Asia/Kolkata). This document must be updated
+Last verified: **2026-10-07** (Asia/Kolkata). This document must be updated
 whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 3B-1 — Prometheus + Grafana metrics visualization.** Phases
-0–3A below are kept as history.
+**Phase 3B-2 — Loki + log exploration (implemented; live verification
+pending service restarts).** Phases 0–3B-1 below are kept as history.
+
+## What is complete (Phase 3B-2, 2026-10-07 — implementation; live pending)
+
+- [x] Loki (`grafana/loki:3.5.0`) in the existing
+      `observability/docker-compose.yml`: single binary, filesystem storage
+      in the `loki-data` volume, no auth (local development only — see
+      `observability/loki-config.yml`). HTTP API on :3100. No clustering,
+      no object storage.
+- [x] Collector `logs` pipeline appended to the existing
+      `observability/otel-collector.yml` (`otlp` receiver → `batch` →
+      `otlphttp/loki` at `http://loki:3100/otlp`; the exporter appends
+      `/v1/logs` itself — configuring the full path makes Loki answer 404,
+      found the hard way and fixed). Traces/metrics pipelines untouched.
+      The contrib `loki` exporter was evaluated first and rejected (gone
+      from collector 0.140.x after upstream deprecation).
+- [x] The missing Logback bridge (root cause of silent zero-export: Boot
+      wires SDK + OTLP exporter but installs no appender, so properties
+      alone ship nothing): `opentelemetry-logback-appender-1.0` per
+      deployable (version from imported
+      `opentelemetry-instrumentation-bom-alpha` `2.28.1-alpha`, which
+      compiles against `opentelemetry-api 1.62.0` = Boot 4.1.1's managed
+      SDK — no skew), identical `logback-spring.xml` (Boot base + OTEL
+      appender, console untouched, MDC `traceId,spanId` captured), and a
+      small `OtelLogAppenderInstaller` bean calling
+      `OpenTelemetryAppender.install(openTelemetry)` on ready. Console
+      format, log statements, sanitizer, and business logic unchanged.
+- [x] Grafana Loki datasource provisioned from
+      `observability/grafana/provisioning/datasources/loki.yml` (Prometheus
+      stays default; health OK for both). Explore is the log UI — no new
+      dashboard by decision.
+- [x] Low-cardinality label policy enforced in Loki (`limits_config`
+      `otlp_config`, explicit attribute lists): index carries
+      `service_name` only — proven via the `/labels` index endpoint (one
+      series per service) — while trace/span IDs, `service.instance.id`,
+      SDK/process/host detail, and scope fields stay searchable structured
+      metadata (`{service_name="order-service"} | traceId="<hex>"` finds
+      the line; a wrong ID finds nothing). No customer/order/product/
+      amount/request-body values in log form at all.
+- [x] Tests: 91 green, 0 failures (control plane 31, gateway 8, order 24
+      incl. new `OtlpLoggingExportTest` + `OtlpLogDeliveryTest`, payment
+      12, inventory 16); all five `package -DskipTests` builds succeed.
+      `OtlpLogDeliveryTest` is the regression test the missing bridge
+      would have failed: a checkout record arrives at a stub OTLP
+      receiver with MDC trace context, and checkout survives a dead
+      receiver. Test-suite logs from all five deployables already flow
+      through the fixed pipeline into Loki (observed live during the test
+      runs — the bridge works in every module).
+- [ ] LIVE VERIFICATION 2026-10-07 (blocked: services still run the
+      pre-bridge build). Actually observed: health UP on :8081/:8082/
+      :8083/:8084 plus control plane on :8090 (:8080 answers 401 from the
+      other project's PolicyImpactEngineApplication — left alone by
+      decision); Prometheus :9090 healthy with `otel-collector:8889` up;
+      Loki :3100 ready; collector healthy; Grafana Loki + Prometheus
+      datasources both report OK, and a `{service_name="..."}`
+      query through the Grafana datasource proxy returns log lines
+      (Explore path proven). Business behavior intact on the running
+      builds: gateway checkout 201 CONFIRMED; inventory rejection 422
+      `INVENTORY_REJECTED`; payment decline 422 `PAYMENT_DECLINED`;
+      counters moved (`checkout_failure` 0→2, rejected/declined 0→1);
+      fresh 4-service distributed trace in the collector log
+      (gateway→order→inventory+payment with `checkout`,
+      `inventory.reservation`, `payment.authorization` spans; rejection
+      path correctly stops before payment). Metrics and tracing show no
+      regression. BUT the four target processes (PIDs 14948/20804/21068/
+      596, started 19:13) still run the pre-bridge build — the restart
+      did not take effect — so NO live service log reaches Loki: the
+      three verification order IDs (success/rejection/decline) return
+      zero Loki lines. Loki currently holds only test-suite logs (which
+      do prove the bridge works in all five deployables) plus probes.
+      Label policy holds live: `/labels` index endpoint carries
+      `service_name` only (one series per service via `/series`);
+      `traceId` has no index values yet stays searchable as structured
+      metadata (positive filter finds the probe line, wrong ID finds
+      nothing). Sensitive-data audit over 664 Loki lines: zero hits for
+      passwords/API keys/authorization headers/bearer/access tokens/
+      synthetic span-test tokens/JDBC secrets; the single `CUST-1001`
+      hit is a test-fixture row echoed in a Hibernate
+      constraint-violation ERROR from `OrderRepositoryTest` — test data,
+      not a live leak, but noted: framework error logs can echo row
+      detail (console-identical content, now also searchable in Loki).
+      Live order IDs have zero Loki hits of any kind. Kill-based outage
+      test deliberately skipped: stopping inventory would strand it down
+      with no restart permitted, for zero new signal (stale builds ship
+      nothing to Loki either way). Verdict: NOT READY TO REVIEW —
+      implementation + pipeline + policy proven, live service-log
+      verification impossible until the services actually restart with
+       the bridge build.
+- [ ] LIVE VERIFICATION 2026-10-09 (partial; success path still blocked).
+      Actually observed: order/inventory/payment PIDs 10744/12700/27064
+      (started 11:19/11:36) run jars built 11:18–11:19 that all contain
+      the bridge (`OtelLogAppenderInstaller`, `logback-spring.xml`,
+      `opentelemetry-logback-appender-1.0-2.28.1-alpha` verified inside
+      every jar) and all three already ship live logs to Loki (startup
+      lines + `Trace ID` spans observed), so they were NOT killed:
+      `ORDER/PAYMENT/INVENTORY_DB_PASSWORD` are absent from every
+      reachable shell (process/user/machine) and their parent shells are
+      gone, so killing them would strand them down with no restart.
+      Gateway was down (no :8081 listener) and is stateless, so only it
+      was (re)started — twice under `java.exe` (PIDs 30884/30508, both
+      reached UP and shipped startup lines to Loki, then vanished;
+      suspected host reaping of console java, as noted 2026-10-06) and
+      finally under `javaw.exe` (PID 15132, UP, startup line in Loki).
+      Health UP on :8081/:8082/:8083/:8084; Loki :3100 ready; collector
+      healthy; Prometheus healthy; Grafana Loki + Prometheus datasources
+      present. Two live checkouts through the gateway both returned 422
+      `FAILED`/`INVENTORY_REJECTED` (order IDs
+      `ad49f3c4-…` qty 1 and `8691d773-…` qty 99): `inventory_items`
+      holds 0 units for `SKU-1001` (seed was 10, successes since have
+      consumed it; qty-1 `insufficient-stock` proves 0), so no CONFIRMED
+      checkout and no payment-decline probe is currently possible.
+      Failure-path Loki verification SUCCEEDS on live services: both
+      order IDs return order-service `Checkout <id> FAILED inventory`
+      plus inventory-service `Reservation <id> REJECTED
+      insufficient-stock` lines sharing one `traceId` per checkout
+      (`d04e8d42…`, `d312a1e6…`) with distinct `spanId`s; payment
+      correctly absent; gateway has no business log by design (forwards
+      only). Same lines retrievable through the Grafana Loki datasource
+      proxy (Explore path proven). Collector log holds 7 spans for trace
+      `d312a1e6…` (3 order + 2 inventory + 2 gateway); the order→
+      inventory client span's parent equals the Loki `spanId`
+      `17e014b0…`, and error attributes are sanitized
+      (`SanitizedObservationError`, `[HTTP 422] (response body withheld
+      from telemetry)`). Label policy holds live (`/labels` =
+      `service_name` only); wrong-traceId filter returns zero lines.
+      Privacy audit over Loki (counts only, nothing printed): zero hits
+      for passwords/API keys/authorization/bearer/JDBC/synthetic
+      `CUSTOMER/PRODUCT/AMOUNT-TEST` tokens and zero hits for live
+      `CUST-1001`/`SKU-1001`/amounts in log lines. A temporary
+      `pg_hba.conf` trust line for password recovery was considered to
+      restock `SKU-1001` but REVERTED unused (byte-identical SHA256
+      restore verified): `pg_ctl reload` is `Operation not permitted`
+      unelevated and restarting PostgreSQL is forbidden, so the change
+      could never take effect. No app code, dependency, config, or DB
+      content was modified; nothing staged/committed/pushed; no secret
+      was printed. Verdict: NOT READY TO REVIEW — failure-path live-log
+      verification now proven, but success-path (CONFIRMED checkout,
+      4-service log correlation incl. payment) still requires
+      service passwords, all currently unavailable).
+- [x] LIVE VERIFICATION 2026-10-09 (success path closed; user restocked
+      `SKU-1001` to 10 via pgAdmin, no service restarted, nothing
+      modified). Actually observed, all against live PIDs
+      10744/12700/27064 + gateway javaw 15132 (health UP :8081–:8084
+      throughout): qty-1 checkout → HTTP 201 `CONFIRMED` (order
+      `364f57f0-…`, reservation `c1be65d6-…`, authorization
+      `dec876ee-…`); amount-6000.00 qty-1 checkout → HTTP 422
+      `FAILED`/`PAYMENT_DECLINED` (order `1fc3ed65-…`). Loki holds both:
+      success trace `478fc42d…` = order `Checkout … CONFIRMED` +
+      inventory `Reservation c1be65d6-… RESERVED` + payment
+      `Authorization dec876ee-… AUTHORIZED` (IDs cross-match the HTTP
+      response); decline trace `15890c89…` = order `FAILED payment` +
+      inventory `RESERVED` (stock held, non-atomic by design D17) +
+      payment `DECLINED`. Same lines via Grafana proxy. Collector
+      exported both traces (20 span lines). Metrics: `checkout_success`
+      1, `checkout_failure` 3, payment success/declined 1/1, inventory
+      rejected 2. Privacy re-audit: zero hits for passwords/API
+      keys/bearer/JDBC/synthetic tokens/customer/product/amount values;
+      the two `(?i)authorization` hits are the benign domain log word
+      (`Authorization <uuid> AUTHORIZED|DECLINED`, IDs only). Verdict:
+      READY TO REVIEW.
+- [ ] STILL DEFERRED: Tempo, dedicated trace UI, unified trace/log UI,
+      System Twin telemetry ingestion, any agent use of telemetry.
 
 ## What is complete (Phase 3B-1, 2026-10-06)
 
@@ -325,8 +486,9 @@ These are **deferred by decision**, not missing by accident. Do not report them 
 
 - Richer twin ingestion (code/arch/runtime connectors), Git integration,
   System Twin telemetry ingestion of any kind.
-- Loki/Tempo exploration UIs, automated anomaly
+- Tempo trace exploration UI, unified trace/log UI, automated anomaly
   detection, any agent use of telemetry, observability-driven decisions.
+  (Loki log exploration is Phase 3B-2, above.)
 - Agent orchestration, tool mediation, simulation, evidence model.
 - Policy / approval / controlled-execution / verification logic.
 - Filtering, pagination, graph traversal, bulk import on the twin API.

@@ -131,27 +131,29 @@ Every service (four target services plus the control plane) emits
 OpenTelemetry traces and Prometheus metrics from the same two
 Boot-managed dependencies. Collection is local only:
 
-```text
-gateway/order/payment/inventory (+ control plane)
-  │  OTLP traces (:4318)          │  /actuator/prometheus scrape
-  ▼                               ▼
-┌─────────────────────────────────────────────────┐
-│  OTel Collector (local, compose)                │
-│  traces → debug exporter (collector stdout)     │
-│  metrics → Prometheus receiver → :8889          │
-└─────────────────────────────────────────────────┘
-                                  │  Prometheus scrape (:8889 only)
-                                  ▼
-                        ┌──────────────────┐
-                        │  Prometheus :9090 │  (Phase 3B-1)
-                        └──────────────────┘
-                                  │  PromQL
-                                  ▼
-                        ┌──────────────────┐
-                        │  Grafana :3000    │  (Phase 3B-1, provisioned)
-                        │  Systivex Metrics │
-                        └──────────────────┘
-```
+ ```text
+ gateway/order/payment/inventory (+ control plane)
+   │  OTLP traces + logs (:4318)   │  /actuator/prometheus scrape
+   ▼                               ▼
+ ┌─────────────────────────────────────────────────┐
+ │  OTel Collector (local, compose)                │
+ │  traces → debug exporter (collector stdout)     │
+ │  metrics → Prometheus receiver → :8889          │
+ │  logs → OTLP/HTTP exporter → Loki :3100         │  (Phase 3B-2)
+ └─────────────────────────────────────────────────┘
+          │                        │  Prometheus scrape (:8889 only)
+          ▼                        ▼
+ ┌──────────────────┐    ┌──────────────────┐
+ │  Loki :3100       │    │  Prometheus :9090 │  (Phase 3B-1)
+ │  (Phase 3B-2)    │    └──────────────────┘
+ └──────────────────┘              │  PromQL
+          │                        ▼
+          │              ┌──────────────────┐
+          └─────────────▶│  Grafana :3000    │  (provisioned)
+                         │  Metrics dashboard│  (Phase 3B-1)
+                         │  Explore logs     │  (Phase 3B-2)
+                         └──────────────────┘
+ ```
 
 Phase 3B-1 adds visualization without touching the collection path:
 Prometheus scrapes only the collector's `:8889` exposition (never the
@@ -182,8 +184,17 @@ this path, so latency is a sum/count average, not a histogram quantile.
   tag-free business counters (`checkout.success/failure`,
   `inventory.reservation.success/rejected`,
   `payment.authorization.success/declined`).
-- Logs: console only, with `traceId`/`spanId` correlation; outcome + IDs,
-  never payloads or secrets.
+- Logs: console output is unchanged (`traceId`/`spanId` correlation;
+  outcome + IDs, never payloads or secrets), and the same records now also
+  ship over OTLP to the collector and into Loki (Phase 3B-2, see below).
+  Boot wires the OTLP log exporter but installs no logging bridge, so each
+  deployable adds the smallest one: the OTel Logback appender (version
+  paired with Boot's managed OTel SDK, see `DECISIONS.md` D21) declared in
+  `logback-spring.xml` plus a tiny installer bean. Loki indexes
+  `service.name` only; trace/span IDs travel as structured metadata —
+  searchable (`| traceId="<hex>"`) but never stream labels, so no
+  per-trace/per-request cardinality. Grafana Explore is the log UI; no log
+  dashboard, no Tempo.
 - Sampling is 1.0 (local development only). The control plane emits but
   consumes nothing — twin ingestion of telemetry is future work (D18).
 
@@ -281,8 +292,8 @@ Intentionally absent (not bugs — deferred by decision):
 - Twin connectors/ingestion, intelligence, policy, execution, verification,
   observation modules.
 - Redis, Spring AI / Ollama, security, frontend.
-- Grafana dashboards, Loki/Tempo UIs, anomaly detection, any agent use of
-  telemetry (Phase 3B and later).
+- Grafana log dashboards, Tempo trace UI, unified trace/log UI, anomaly
+  detection, any agent use of telemetry (later 3B slices and later).
 - Docker packaging of the Java services, Kafka / RabbitMQ / Kubernetes /
   WebSockets / vector DB / MCP / multi-agent / cloud.
 - Target-service cross-database atomicity (rejected in D17; reconciliation is

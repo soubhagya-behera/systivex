@@ -63,6 +63,16 @@ consequential actions through explicit control-plane authorization.
   request rate, errors by outcome, average latency, JVM heap/CPU, service
   reporting, and checkout/inventory/payment business counters. Checkout and
   failure scenarios move the dashboard metrics live.
+- Phase 3B-2 log exploration (implemented 2026-10-07, live verification
+  pending service restarts): the same console records now also ship over
+  OTLP through the existing collector into Loki (`observability/`,
+  Compose — single binary, local filesystem, no auth), searchable in
+  Grafana Explore via a provisioned Loki datasource (no new dashboard).
+  Per-service Logback bridge (`logback-spring.xml` +
+  `OtelLogAppenderInstaller`; Boot alone ships nothing — see
+  `DECISIONS.md` D21). Only `service.name` is a Loki index label;
+  trace/span IDs stay searchable structured metadata, never stream
+  labels. Outcome + IDs only, same privacy guarantees as Phase 3A.
 
 **Not yet implemented** (planned architecture only):
 
@@ -71,8 +81,9 @@ consequential actions through explicit control-plane authorization.
 - Agent orchestration, tooling, evidence model
 - Policy / risk / approval engine and controlled execution, simulation, verification
 - Cross-database checkout atomicity/reconciliation, cache (Redis), Spring AI / Ollama, frontend
-- Log/trace exploration UIs (Loki/Tempo), anomaly detection, any
-  agent or automated use of telemetry
+- Trace exploration UI (Tempo), unified trace/log UI, anomaly detection,
+  any agent or automated use of telemetry (Loki log exploration is done;
+  Tempo is a later slice)
 
 See [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for the phase record,
 [`ARCHITECTURE.md`](ARCHITECTURE.md) for target vs. current architecture,
@@ -101,11 +112,12 @@ Systivex/
 │       └── inventory-service/   # :8084, real stock + reservations (inventory_db, V2 dev seed)
 │           # each: own pom/mvnw/app class + Flyway history; live application.properties git-ignored,
 │           # application.example.properties tracked; datasource passwords via env only
-├── observability/           # IMPLEMENTED (Phase 3A + 3B-1): local telemetry ONLY
-│   ├── docker-compose.yml   # Collector + Prometheus (:9090) + Grafana (:3000); Java services NOT containerized
-│   ├── otel-collector.yml   # OTLP traces -> debug log; Prometheus scrape -> :8889
+├── observability/           # IMPLEMENTED (Phase 3A + 3B-1 + 3B-2): local telemetry ONLY
+│   ├── docker-compose.yml   # Collector + Prometheus (:9090) + Loki (:3100) + Grafana (:3000); Java NOT containerized
+│   ├── otel-collector.yml   # OTLP traces -> debug log; Prometheus scrape -> :8889; OTLP logs -> Loki
 │   ├── prometheus.yml       # scrapes collector :8889 only (single metrics path)
-│   └── grafana/             # provisioned Prometheus datasource + Systivex Metrics dashboard (no clicks needed)
+│   ├── loki-config.yml      # single-binary Loki, filesystem storage, low-cardinality label policy (service.name only)
+│   └── grafana/             # provisioned Prometheus + Loki datasources + Systivex Metrics dashboard (no clicks needed)
 ├── README.md                # this file
 ├── ARCHITECTURE.md          # target architecture + current status
 ├── DEVELOPMENT.md           # build / test / run instructions

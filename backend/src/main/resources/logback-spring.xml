@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Phase 3B-2: Boot defaults plus an OTel sink for application logs.
+  base.xml keeps the standard console output untouched (including the
+  [service,traceId,spanId] correlation from logging.pattern.level); the OTEL
+  appender is an additional sink feeding the Boot-managed OTel SDK, which
+  the OTLP log exporter ships to the collector and on to Loki.
+  Boot wires SDK + exporter but installs no logging bridge itself, so without
+  this appender no log record would ever reach Loki. Only the trace/span MDC
+  keys are copied as attributes — outcome + IDs, never payloads. -->
+<configuration>
+	<include resource="org/springframework/boot/logging/logback/base.xml"/>
+	<appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+		<captureMdcAttributes>traceId,spanId</captureMdcAttributes>
+	</appender>
+	<root level="INFO">
+		<appender-ref ref="CONSOLE"/>
+		<appender-ref ref="OTEL"/>
+	</root>
+</configuration>

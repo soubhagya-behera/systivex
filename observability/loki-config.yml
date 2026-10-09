@@ -1,0 +1,108 @@
+# Systivex Phase 3B-2: Loki configuration (local development only).
+#
+# Single-binary Loki with local filesystem storage. No clustering, no object
+# storage, no authentication (auth_enabled: false). Matches the upstream
+# loki-docker-config.yaml shape: tsdb index, v13 schema, inmemory ring.
+# Data lives in the `loki-data` Docker volume (see docker-compose.yml);
+# nothing here is a secret and no credentials are required.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-04-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+# Low-cardinality label policy (binding for this phase): only the stable
+# service name becomes an index label. Everything else — trace/span IDs,
+# SDK/process/host resource detail, scope fields — is stored as structured
+# metadata: still searchable in LogQL, but never a stream label, so one trace
+# (or one restart) can never fan out into per-trace/per-instance streams.
+#
+# Notes, verified empirically against grafana/loki:3.5.0 via the /labels
+# index endpoint and structured-metadata LogQL filters (note: query_range
+# merges structured metadata into the displayed stream object, so only
+# /labels proves what is actually indexed):
+# - the index carries service_name only; trace/span IDs never appear as
+#   index labels (no per-trace streams), yet stay searchable as structured
+#   metadata (e.g. {service_name="order-service"} | traceId="<hex>").
+# - service.instance.id is deliberately demoted (Boot assigns a fresh UUID per
+#   start; Loki's own docs discourage it as a default label). Demotion needs
+#   ignore_defaults: Loki prepends its built-in default label list ahead of
+#   file rules, so a plain override would not win (see grafana/loki#15927).
+# - Rules use explicit attribute lists (the documented Example 3 shape) so
+#   the policy stays auditable. Anything NOT listed here falls back to the
+#   build default — so if a new attribute ever shows up in /labels, add it
+#   to the structured_metadata list below.
+# - severity_text_as_label is set explicitly false. Level-ish fields stay
+#   low-cardinality either way; trace/span/business IDs are what must never
+#   become index labels, and none of them are listed as index labels here.
+limits_config:
+  otlp_config:
+    resource_attributes:
+      ignore_defaults: true
+      attributes_config:
+        - action: index_label
+          attributes:
+            - service.name
+        - action: structured_metadata
+          attributes:
+            - service.namespace
+            - service.version
+            - service.instance.id
+            - telemetry.sdk.name
+            - telemetry.sdk.language
+            - telemetry.sdk.version
+            - telemetry.distro.name
+            - telemetry.distro.version
+            - process.runtime.name
+            - process.runtime.version
+            - process.runtime.description
+            - process.pid
+            - process.executable.path
+            - process.executable.name
+            - process.command
+            - process.command_line
+            - process.command_args
+            - process.owner
+            - host.name
+            - host.id
+            - host.arch
+            - host.type
+            - os.type
+            - os.description
+            - os.name
+            - os.version
+    scope_attributes:
+      - action: structured_metadata
+        attributes:
+          - scope_name
+          - scope_version
+          - scope_dropped_attributes_count
+    log_attributes:
+      - action: structured_metadata
+        attributes:
+          - traceId
+          - spanId
+          - trace_id
+          - span_id
+    severity_text_as_label: false

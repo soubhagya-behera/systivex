@@ -1,27 +1,30 @@
-# Systivex Phase 3A + 3B-1: local telemetry infrastructure (NOT application code).
+# Systivex Phase 3A + 3B-1 + 3B-2: local telemetry infrastructure (NOT application code).
 #
 # Scoped strictly to observability collection. The Java services are NOT
 # containerized here — they run locally via ./mvnw spring-boot:run and ship
-# telemetry to this collector. No log store or trace store in this phase
-# (those arrive in later 3B slices).
+# telemetry to this collector. No trace store in this phase (Tempo arrives in
+# a later 3B slice); Loki is the log store.
 #
 # Start:  docker compose up -d        (from this directory)
 # Logs:   docker compose logs -f otel-collector
 # Stop:   docker compose down
 #
 # What runs here:
-# - otel-collector (contrib, pinned): receives OTLP traces over HTTP/gRPC,
-#   scrapes Prometheus-compatible /actuator/prometheus endpoints from the
-#   locally-running services, prints received spans to its own log via the
-#   debug exporter (trace verification path), and re-exposes collected
-#   metrics for Prometheus-compatible scraping on :8889.
+# - otel-collector (contrib, pinned): receives OTLP traces AND logs over
+#   HTTP/gRPC, scrapes Prometheus-compatible /actuator/prometheus endpoints
+#   from the locally-running services, prints received spans to its own log
+#   via the debug exporter (trace verification path), forwards log records
+#   to Loki, and re-exposes collected metrics for Prometheus-compatible
+#   scraping on :8889.
 # - prometheus (pinned): scrapes the collector's :8889 exposition only
 #   (single metrics path — it never scrapes the Java services directly).
 #   UI + API on :9090.
-# - grafana (pinned): visualizes Prometheus. Datasource + dashboard are
-#   provisioned from ./grafana so a fresh setup reproduces them with no
-#   browser clicks. Local defaults only (admin/admin), no secrets. UI on
-#   :3000.
+# - loki (pinned): single-binary log store, filesystem storage, no auth
+#   (local development only — see loki-config.yml). HTTP API on :3100.
+# - grafana (pinned): visualizes Prometheus + explores Loki. Datasources
+#   (Prometheus default, Loki) + dashboard are provisioned from ./grafana so
+#   a fresh setup reproduces them with no browser clicks. Local defaults
+#   only (admin/admin), no secrets. UI on :3000.
 name: systivex-observability
 
 services:
@@ -31,13 +34,24 @@ services:
     volumes:
       - ./otel-collector.yml:/etc/otel-collector.yml:ro
     ports:
-      # OTLP receivers (apps ship spans here)
+      # OTLP receivers (apps ship spans and log records here)
       - "4317:4317"
       - "4318:4318"
       # Collected metrics, Prometheus-compatible exposition
       - "8889:8889"
       # Collector health
       - "13133:13133"
+    depends_on:
+      - loki
+  loki:
+    image: grafana/loki:3.5.0
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+    volumes:
+      - ./loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    ports:
+      # Loki HTTP API (push + query)
+      - "3100:3100"
   prometheus:
     image: prom/prometheus:v3.5.0
     command:
@@ -61,3 +75,7 @@ services:
       - "3000:3000"
     depends_on:
       - prometheus
+      - loki
+
+volumes:
+  loki-data:

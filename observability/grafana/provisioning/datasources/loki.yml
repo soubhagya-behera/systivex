@@ -1,0 +1,12 @@
+# Systivex Phase 3B-2: Grafana Loki datasource (provisioned, local only).
+# No credentials: everything is loopback-local development defaults.
+# Prometheus stays the default datasource; Explore is the log UI for this
+# phase (no log dashboard is provisioned).
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false

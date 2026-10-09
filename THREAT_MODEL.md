@@ -110,17 +110,34 @@ itself a place data can leak. The following holds for the current pipeline
   emit reservation/authorization/order IDs with a status word — no customer,
   product, amount, header, or secret values. Correlation uses the trace/span
   IDs in the log pattern, not payload data.
+- **Phase 3B-2 log pipeline (2026-10-07): records now leave the JVM.**
+  The OTel Logback bridge ships the same console records over OTLP to the
+  collector and into Loki; nothing new is logged. What travels per record:
+  the message text (outcome + IDs, unchanged), MDC `traceId`/`spanId`
+  strings, and the native OTel trace/span IDs — all as structured metadata
+  or message content, never as Loki index labels (only `service.name` is a
+  label; see `DECISIONS.md` D21). The Phase 3A sanitizer is untouched and
+  still governs span errors; log content was already payload-free, so no
+  new redaction was needed. Verified live: no passwords, credentials,
+  authorization headers, tokens, request bodies, or business payloads in
+  Loki; synthetic privacy tokens from the span tests have no log path to
+  leak through. Logs remain evidence about runtime behavior, not
+  authoritative truth — a log line proves a code path ran, not that the
+  world matches it. Cardinality is a consumption risk, not just a cost
+  one: unbounded labels would also be a cheap denial-of-service against
+  the local Loki, which is why the label policy is binding, not advisory.
 - **Metrics are tag-free by rule.** The six business counters have no labels
   at all; in particular customer, order, product, and trace IDs must never
   become metric labels (cardinality abuse would also be a cheap
   denial-of-service against the local collector). Standard HTTP/JVM metrics
   keep only their low-cardinality framework labels.
 - **Access boundary is the loopback interface.** Scrape endpoints
-  (`/actuator/prometheus`), OTLP receivers (:4317/:4318), and the
-  collector's :8889 exposition have no authentication — acceptable only
-  because everything binds locally and nothing is reachable beyond the
-  machine. Exposing any of these beyond localhost requires authentication
-  and a recorded review (see §4: actuator surface).
+  (`/actuator/prometheus`), OTLP receivers (:4317/:4318), the
+  collector's :8889 exposition, Loki's :3100 API, and Grafana's :3000 UI
+  have no authentication — acceptable only because everything binds
+  locally and nothing is reachable beyond the machine. Exposing any of
+  these beyond localhost requires authentication and a recorded review
+  (see §4: actuator surface).
 - **Sampling 1.0 is local-only.** Full trace sampling is proportional to
   development traffic. Any shared or higher-traffic environment needs a
   sampling decision first.
