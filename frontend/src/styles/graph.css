@@ -1,0 +1,84 @@
+/* ---------- Dependency graph ---------- */
+.graph-shell {
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius);
+  background: #0c1220;
+  overflow: auto;
+  max-height: 66vh;
+}
+
+.graph-svg {
+  display: block;
+  min-width: 100%;
+}
+
+.graph-node__box {
+  fill: #141c2e;
+  stroke: var(--surface-line-strong);
+  stroke-width: 1.2;
+}
+
+.graph-node--selected .graph-node__box {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.graph-node__label {
+  fill: var(--text);
+  font-size: 12px;
+  font-family: var(--sans);
+}
+
+.graph-node__sub {
+  fill: var(--text-faint);
+  font-size: 10px;
+  font-family: var(--mono);
+}
+
+.graph-edge__line {
+  stroke: #3a4767;
+  stroke-width: 1.4;
+  fill: none;
+}
+
+.graph-edge__label {
+  fill: var(--text-faint);
+  font-size: 9.5px;
+  font-family: var(--mono);
+}
+
+.graph-node {
+  cursor: pointer;
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid var(--surface-line-strong);
+}
+
+.notice {
+  border: 1px solid rgba(224, 165, 58, 0.35);
+  background: rgba(224, 165, 58, 0.08);
+  color: #f0d7a4;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}

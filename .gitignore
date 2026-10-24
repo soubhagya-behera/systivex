@@ -33,9 +33,9 @@ application-local.yml
 application-local.yaml
 application-*.local.properties
 
-# --- Frontend (deferred — pre-ignored so nothing accidental is committed) ---
-# No frontend/ exists yet. When React (JavaScript, no TypeScript) lands,
-# its own .gitignore will complement these entries.
+# --- Frontend (Phase 13 S1 read-only console) ---
+# frontend/ keeps its own .gitignore; these root entries pre-ignore accidental
+# installs/builds anywhere in the tree (React, JavaScript — no TypeScript).
 node_modules/
 dist/
 .next/
