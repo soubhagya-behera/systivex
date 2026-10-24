@@ -69,7 +69,7 @@ export function Overview({ entities, relationships, onSelectEntity }) {
       </div>
 
       <section className="card" style={{ marginTop: 18 }}>
-        <h2 className="card__title">Recently updated</h2>
+        <h2 className="card__title">Recently updated twin records</h2>
         {recent.length === 0 ? (
           <p className="hint">No entities available.</p>
         ) : (

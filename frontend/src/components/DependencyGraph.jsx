@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { buildGraph } from '../lib/graphLayout.js';
-import { titleCaseType } from '../lib/format.js';
+import { RELATIONSHIP_TYPES } from '../lib/constants.js';
+import { pluralize, titleCaseType } from '../lib/format.js';
 import { EmptyPanel } from './StatePanels.jsx';
 
 function GraphNotice({ warnings }) {
@@ -22,12 +23,83 @@ function GraphNotice({ warnings }) {
   if (notes.length === 0) return null;
   return (
     <div className="notice" role="status">
-      {notes.join(' ')}
+      <span>{notes.join(' ')}</span>
+      <span className="notice__meta">
+        Derived in the browser from loaded twin records; not operational risk.
+      </span>
     </div>
   );
 }
 
+function GraphAlternative({ graph }) {
+  const names = new Map(
+    graph.nodes.map((node) => [node.id, node.entity?.name ?? node.id]),
+  );
+
+  return (
+    <details className="graph-alternative">
+      <summary>Node and edge table (accessible alternative)</summary>
+      <div className="graph-alternative__body">
+        <h3 className="graph-alternative__title">Entities in this graph</h3>
+        <div className="table-wrap">
+          <table className="data">
+            <caption className="visually-hidden">Entities in this graph</caption>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Type</th>
+                <th scope="col">Environment</th>
+                <th scope="col">ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {graph.nodes.map((node) => (
+                <tr key={`alt-n-${node.id}`}>
+                  <td>{node.entity?.name ?? node.id}</td>
+                  <td>{titleCaseType(node.entity?.type)}</td>
+                  <td>{node.entity?.environment ?? '—'}</td>
+                  <td className="mono">{node.id}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <h3 className="graph-alternative__title">Relationships in this graph</h3>
+        <div className="table-wrap">
+          <table className="data">
+            <caption className="visually-hidden">Relationships in this graph</caption>
+            <thead>
+              <tr>
+                <th scope="col">Type</th>
+                <th scope="col">From</th>
+                <th scope="col">To</th>
+              </tr>
+            </thead>
+            <tbody>
+              {graph.edges.length === 0 ? (
+                <tr>
+                  <td colSpan="3">No modeled relationships are shown.</td>
+                </tr>
+              ) : (
+                graph.edges.map((edge) => (
+                  <tr key={`alt-e-${edge.id}`}>
+                    <td>{edge.type}</td>
+                    <td>{names.get(edge.sourceId) ?? edge.sourceId}</td>
+                    <td>{names.get(edge.targetId) ?? edge.targetId}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+  );
+}
+
 export function DependencyGraph({ entities, relationships, selectedId, onSelectEntity }) {
+  const graphHelpId = useId();
   const graph = useMemo(
     () => buildGraph(entities, relationships),
     [entities, relationships],
@@ -43,6 +115,11 @@ export function DependencyGraph({ entities, relationships, selectedId, onSelectE
   }
 
   const { nodeWidth, nodeHeight } = graph;
+  const graphName = `Modeled relationship graph with ${pluralize(
+    graph.nodes.length,
+    'entity',
+    'entities',
+  )} and ${pluralize(graph.edges.length, 'relationship')}`;
 
   return (
     <div>
@@ -54,15 +131,35 @@ export function DependencyGraph({ entities, relationships, selectedId, onSelectE
         </span>
         <span className="legend__item">
           <span className="legend__swatch" style={{ background: '#3a4767' }} />
-          {graph.edges.length} relationship(s)
+          {graph.edges.length} modeled relationship(s)
         </span>
-        <span className="legend__item">left → right follows CALLS/DEPENDS_ON direction</span>
+        <span className="legend__item">
+          Arrow direction is stored relationship direction, not traffic. Column order is
+          layout only.
+        </span>
       </div>
+      <ul
+        className="legend legend--types"
+        aria-label="Supported modeled relationship types"
+      >
+        {RELATIONSHIP_TYPES.map((type) => (
+          <li className="legend__item" key={type}>
+            <span className="legend__swatch" style={{ background: '#3a4767' }} />
+            {type}
+          </li>
+        ))}
+      </ul>
+      <p id={graphHelpId} className="visually-hidden">
+        Relationship lines and labels are visual only. Use the node and edge table
+        for relationship details. Press Tab to move between entity controls, then
+        Enter or Space to open an entity.
+      </p>
       <div className="graph-shell">
         <svg
           className="graph-svg"
-          role="img"
-          aria-label={`Dependency graph with ${graph.nodes.length} entities and ${graph.edges.length} relationships`}
+          role="group"
+          aria-label={graphName}
+          aria-describedby={graphHelpId}
           width={graph.width}
           height={graph.height}
           viewBox={`0 0 ${graph.width} ${graph.height}`}
@@ -85,7 +182,7 @@ export function DependencyGraph({ entities, relationships, selectedId, onSelectE
             const midX = (edge.x1 + edge.x2) / 2;
             const midY = (edge.y1 + edge.y2) / 2;
             return (
-              <g key={`e-${edge.id}`} className="graph-edge">
+              <g key={`e-${edge.id}`} className="graph-edge" aria-hidden="true">
                 {edge.selfLoop ? (
                   <path
                     className="graph-edge__line"
@@ -140,6 +237,7 @@ export function DependencyGraph({ entities, relationships, selectedId, onSelectE
           })}
         </svg>
       </div>
+      <GraphAlternative graph={graph} />
     </div>
   );
 }

@@ -704,7 +704,7 @@ for the console to fetch data. Every command runs from `frontend/`:
 ```powershell
 cd frontend
 npm ci            # reproducible install from package-lock.json
-npm test          # Vitest + Testing Library (23 tests)
+npm test          # Vitest + Testing Library (51 tests)
 npm run build     # production bundle in frontend/dist/
 npm run dev       # Vite dev server at http://127.0.0.1:5173
 ```

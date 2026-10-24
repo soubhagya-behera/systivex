@@ -2,9 +2,12 @@ import { useCallback, useMemo, useState } from 'react';
 import { AppShell } from '../components/AppShell.jsx';
 import { ErrorPanel, LoadingPanel } from '../components/StatePanels.jsx';
 import { useAsyncResource } from '../hooks/useAsyncResource.js';
+import { useNow } from '../hooks/useNow.js';
 import { createApiClient } from '../api/client.js';
+import { ErrorKind } from '../api/errors.js';
 import { createTwinApi } from '../api/twin.js';
 import { countBy } from '../lib/filter.js';
+import { formatAge, formatInstant } from '../lib/format.js';
 import { Overview } from '../views/Overview.jsx';
 import { Entities } from '../views/Entities.jsx';
 import { Relationships } from '../views/Relationships.jsx';
@@ -17,20 +20,72 @@ const NAV = [
   { key: 'graph', label: 'Graph', icon: '◈' },
 ];
 
+const ACCESS_STATES = {
+  supplied: {
+    label: 'Token supplied',
+    tone: 'pending',
+    detail: 'Waiting for a successful protected read.',
+  },
+  confirmed: {
+    label: 'Access confirmed',
+    tone: 'confirmed',
+    detail:
+      'A protected read succeeded. Identity and full permissions are not verified.',
+  },
+  rejected: {
+    label: 'Access rejected',
+    tone: 'rejected',
+    detail: 'The control plane rejected the read with HTTP 401 or 403.',
+  },
+  unavailable: {
+    label: 'Connection unavailable',
+    tone: 'unavailable',
+    detail: 'The control plane could not be reached or returned a server error.',
+  },
+  unconfirmed: {
+    label: 'Access unconfirmed',
+    tone: 'pending',
+    detail: 'The request failed before access could be confirmed.',
+  },
+};
+
+function accessState(error, status) {
+  if (error) {
+    if (error.kind === ErrorKind.UNAUTHORIZED || error.kind === ErrorKind.FORBIDDEN) {
+      return ACCESS_STATES.rejected;
+    }
+    if (error.kind === ErrorKind.NETWORK || error.kind === ErrorKind.SERVER) {
+      return ACCESS_STATES.unavailable;
+    }
+    return ACCESS_STATES.unconfirmed;
+  }
+  if (status === 'success') {
+    return ACCESS_STATES.confirmed;
+  }
+  return ACCESS_STATES.supplied;
+}
+
 export function TwinConsole({ token, onDisconnect }) {
   const [view, setView] = useState('overview');
   const [selectedId, setSelectedId] = useState(null);
+  const [focusDetail, setFocusDetail] = useState(false);
+  const now = useNow();
 
   const twinApi = useMemo(() => {
     const client = createApiClient({ getToken: () => token });
     return createTwinApi(client);
   }, [token]);
 
-  const entitiesRes = useAsyncResource(() => twinApi.listEntities(), [twinApi]);
-  const relsRes = useAsyncResource(() => twinApi.listRelationships(), [twinApi]);
+  const { data, error, status, reload } = useAsyncResource(async () => {
+    const [entities, relationships] = await Promise.all([
+      twinApi.listEntities(),
+      twinApi.listRelationships(),
+    ]);
+    return { entities, relationships, snapshotLoadedAt: Date.now() };
+  }, [twinApi]);
 
-  const entities = useMemo(() => entitiesRes.data ?? [], [entitiesRes.data]);
-  const relationships = useMemo(() => relsRes.data ?? [], [relsRes.data]);
+  const entities = useMemo(() => data?.entities ?? [], [data]);
+  const relationships = useMemo(() => data?.relationships ?? [], [data]);
 
   const entitiesById = useMemo(
     () => new Map(entities.map((entity) => [entity.id, entity])),
@@ -46,15 +101,17 @@ export function TwinConsole({ token, onDisconnect }) {
     relationships,
   ]);
 
-  const selectEntity = useCallback((id) => {
+  const selectEntity = useCallback((id, options = {}) => {
     setSelectedId(id);
     setView('entities');
+    setFocusDetail(options.focusDetail === true);
   }, []);
 
+  const detailFocused = useCallback(() => setFocusDetail(false), []);
+
   const retry = useCallback(() => {
-    entitiesRes.reload();
-    relsRes.reload();
-  }, [entitiesRes, relsRes]);
+    reload();
+  }, [reload]);
 
   const navItems = useMemo(
     () =>
@@ -66,19 +123,46 @@ export function TwinConsole({ token, onDisconnect }) {
     [entities.length, relationships.length],
   );
 
-  const statusSlot = (
-    <div className="token-chip">
-      <span className="status-dot" aria-hidden="true" />
-      <span>Connected</span>
-      <button type="button" className="btn" onClick={onDisconnect}>
-        Disconnect
-      </button>
-    </div>
+  const loading = !error && status !== 'success';
+  const access = accessState(error, status);
+  const snapshotLoadedAt = status === 'success' ? data?.snapshotLoadedAt ?? null : null;
+
+  const snapshotText = snapshotLoadedAt ? (
+    <>
+      <span>Snapshot loaded</span>{' '}
+      <time dateTime={new Date(snapshotLoadedAt).toISOString()}>
+        {formatInstant(snapshotLoadedAt)}
+      </time>
+      <span className="snapshot-age">
+        {' '}
+        · {formatAge(snapshotLoadedAt, Math.max(now, snapshotLoadedAt))}
+      </span>
+    </>
+  ) : (
+    <span>{loading ? 'Loading snapshot…' : 'No snapshot loaded'}</span>
   );
 
-  const error = entitiesRes.error ?? relsRes.error ?? null;
-  const loading =
-    !error && (entitiesRes.status === 'loading' || relsRes.status === 'loading');
+  const statusSlot = (
+    <div className="header-status">
+      <div className="snapshot-chip">{snapshotText}</div>
+      <div className={`token-chip token-chip--${access.tone}`}>
+        <span
+          className={`status-dot status-dot--${access.tone}`}
+          aria-hidden="true"
+        />
+        <span
+          role="status"
+          aria-live="polite"
+          aria-label={`${access.label}. ${access.detail}`}
+        >
+          {access.label}
+        </span>
+        <button type="button" className="btn" onClick={onDisconnect}>
+          Disconnect
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <AppShell
@@ -104,6 +188,8 @@ export function TwinConsole({ token, onDisconnect }) {
           selectedId={selectedId}
           onSelectEntity={setSelectedId}
           entityTypes={entityTypes}
+          focusDetail={focusDetail}
+          onDetailFocused={detailFocused}
         />
       ) : view === 'relationships' ? (
         <Relationships

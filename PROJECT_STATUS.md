@@ -63,10 +63,11 @@ scaffolding.
   The graph is a pure, dependency-free layered SVG layout that handles
   disconnected entities, missing endpoints, cycles, self-loops, and larger
   graphs with explicit notices. Node 24 LTS drives `npm ci` → `npm test`
-  (23 Vitest tests) → `npm run build`; these checks pass locally (2026-10-24),
+  (51 Vitest tests) → `npm run build`; these checks pass locally (2026-10-24),
   and `.github/workflows/frontend-ci.yml` defines the same sequence. The
-  workflow has not yet run on GitHub. No backend code, schema, security rule,
-  or dependency changed.
+  workflow passed on GitHub for the committed HEAD (`7b9fb6c`); the current
+  uncommitted changes have only been verified locally. No backend code, schema,
+  security rule, or dependency changed.
 - [x] Security posture verified: the API client refuses to send before a token
   is supplied, attaches `Authorization: Bearer …` only to local `/api` paths
   (the Vite proxy keeps it same-origin), and maps 401/403/5xx/network errors to

@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react';
 import { formatInstant, titleCaseType } from '../lib/format.js';
 import { MetadataView } from './MetadataView.jsx';
+import { RuntimeEvidence } from './RuntimeEvidence.jsx';
 
 function Row({ label, children }) {
   return (
@@ -10,7 +12,21 @@ function Row({ label, children }) {
   );
 }
 
-export function EntityDetail({ entity, relationships = [], onSelectEntity }) {
+export function EntityDetail({
+  entity,
+  relationships = [],
+  onSelectEntity,
+  focusOnRender = false,
+  onFocused,
+}) {
+  const headingRef = useRef(null);
+
+  useEffect(() => {
+    if (!focusOnRender) return;
+    headingRef.current?.focus();
+    onFocused?.();
+  }, [focusOnRender, entity, onFocused]);
+
   if (!entity) {
     return (
       <div className="detail" aria-label="Entity detail">
@@ -24,7 +40,12 @@ export function EntityDetail({ entity, relationships = [], onSelectEntity }) {
 
   return (
     <div className="detail" aria-label="Entity detail">
-      <h2 className="view-header__title" style={{ fontSize: 18 }}>
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="view-header__title"
+        style={{ fontSize: 18 }}
+      >
         {entity.name}
       </h2>
       <Row label="id">
@@ -37,8 +58,13 @@ export function EntityDetail({ entity, relationships = [], onSelectEntity }) {
       <Row label="externalRef">
         <span className="mono">{entity.externalRef ?? '—'}</span>
       </Row>
-      <Row label="createdAt">{formatInstant(entity.createdAt)}</Row>
-      <Row label="updatedAt">{formatInstant(entity.updatedAt)}</Row>
+      <Row label="Twin record created">{formatInstant(entity.createdAt)}</Row>
+      <Row label="Twin record updated">{formatInstant(entity.updatedAt)}</Row>
+
+      <h3 className="card__title" style={{ marginTop: 18 }}>
+        Runtime evidence
+      </h3>
+      <RuntimeEvidence metadata={entity.metadata} />
 
       <h3 className="card__title" style={{ marginTop: 18 }}>
         Metadata

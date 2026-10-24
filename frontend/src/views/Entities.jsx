@@ -11,6 +11,8 @@ export function Entities({
   selectedId,
   onSelectEntity,
   entityTypes,
+  focusDetail = false,
+  onDetailFocused,
 }) {
   const [query, setQuery] = useState('');
   const [types, setTypes] = useState([]);
@@ -88,6 +90,8 @@ export function Entities({
             entity={selected}
             relationships={relationships}
             onSelectEntity={onSelectEntity}
+            focusOnRender={focusDetail}
+            onFocused={onDetailFocused}
           />
         </div>
       )}

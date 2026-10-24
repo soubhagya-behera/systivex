@@ -4,6 +4,7 @@ import App from './App.jsx';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/graph.css';
+import './styles/trust.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

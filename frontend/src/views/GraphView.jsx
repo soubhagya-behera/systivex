@@ -9,7 +9,7 @@ export function GraphView({ entities, relationships, selectedId, onSelectEntity 
           <h1 className="view-header__title">Dependency Graph</h1>
           <p className="view-header__hint">
             A layered, deterministic view of directed relationships. This is a
-            static layout of observed data — never a simulation.
+            static layout of loaded twin records — never observed traffic or a simulation.
           </p>
         </div>
       </div>
@@ -24,7 +24,7 @@ export function GraphView({ entities, relationships, selectedId, onSelectEntity 
           entities={entities}
           relationships={relationships}
           selectedId={selectedId}
-          onSelectEntity={onSelectEntity}
+          onSelectEntity={(id) => onSelectEntity?.(id, { focusDetail: true })}
         />
       )}
     </div>

@@ -10,8 +10,11 @@ export function MetadataView({ metadata }) {
     return <p className="hint">No metadata recorded for this entity.</p>;
   }
   return (
-    <pre className="meta-block" aria-label="Entity metadata (JSON)">
-      {prettyJson(metadata)}
-    </pre>
+    <details className="metadata-disclosure">
+      <summary>Raw metadata (JSON)</summary>
+      <pre className="meta-block" aria-label="Entity metadata (JSON)">
+        {prettyJson(metadata)}
+      </pre>
+    </details>
   );
 }
