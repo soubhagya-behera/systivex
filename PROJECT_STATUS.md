@@ -1,17 +1,21 @@
 # Systivex Project Status
 
-Last verified: **2026-10-17** (Asia/Kolkata). This document must be updated
+Last verified: **2026-10-24** (Asia/Kolkata). This document must be updated
 whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 13 S1 — Read-only operator console (authorized 2026-10-18;
-documentation/decision only — implementation not started).**
+**Phase 13 S1 — Read-only operator console (implemented 2026-10-18 on
+`feat/phase-13-s1-twin-explorer`; pending review/merge).**
 `DECISIONS.md` D33 authorizes a scoped, read-only React + Vite + JavaScript
-operator console beginning with the System Twin explorer (Phase 13 S1). No
-frontend files exist yet and none has been started; D33 is the checkpoint
-that permits the first UI slice. D29–D31 are unchanged and controlled
-execution stays gated. Phases 0–12 below are kept as history.
+operator console beginning with the System Twin explorer. The first slice is
+implemented in `frontend/`: entity and relationship browsing, a deterministic
+dependency graph, client-side search/filter, and accessible
+loading/empty/error states over the existing `TWIN_READ` GETs. It is
+local-development-only (in-memory token, Vite `127.0.0.1` proxy, no backend
+CORS or hosting) and live OIDC remains blocked (no trusted issuer/client
+configured). D29–D31 are unchanged and controlled execution stays gated.
+Phases 0–12 below are kept as history.
 
 ## Gated, not scheduled — controlled execution
 
@@ -27,8 +31,8 @@ an explicit D29-change decision are all satisfied and approved. Until then
 execution remains unimplemented — stated plainly, not filled with
 scaffolding.
 
-## Phase 13 S1 — Read-only operator console (authorized 2026-10-18;
-documentation/decision only — implementation not started)
+## Phase 13 S1 — Read-only operator console (implemented 2026-10-18;
+`frontend/` landed on `feat/phase-13-s1-twin-explorer`, pending review)
 
 - [x] `DECISIONS.md` D33 records the Phase 13 S1 decision: a scoped,
   read-only **React + Vite + JavaScript** operator console, starting with the
@@ -52,10 +56,26 @@ documentation/decision only — implementation not started)
 - [x] No new backend endpoints, database migrations, backend dependencies,
   executor role, or actuator are authorized by S1. D29–D31 remain unchanged
   and `APPROVED` stays terminal; no operation is executed.
-- [ ] Frontend implementation (System Twin explorer) — **not started**; no
-  frontend files, Node toolchain, or CI job exist yet. Later UI slices
-  (impact/risk, simulation/policy, governance/audit) each require their own
-  scope and verification checkpoint.
+- [x] Frontend implementation (System Twin explorer) **landed on
+  `feat/phase-13-s1-twin-explorer`** (pending review/merge): `frontend/` is
+  React + Vite + JavaScript (no TypeScript) with a system overview, entity and
+  relationship explorers, a dependency graph, and client-side search/filter.
+  The graph is a pure, dependency-free layered SVG layout that handles
+  disconnected entities, missing endpoints, cycles, self-loops, and larger
+  graphs with explicit notices. Node 24 LTS drives `npm ci` → `npm test`
+  (51 Vitest tests) → `npm run build`; these checks pass locally (2026-10-24),
+  and `.github/workflows/frontend-ci.yml` defines the same sequence. The
+  workflow passed on GitHub for the committed HEAD (`7b9fb6c`); the current
+  uncommitted changes have only been verified locally. No backend code, schema,
+  security rule, or dependency changed.
+- [x] Security posture verified: the API client refuses to send before a token
+  is supplied, attaches `Authorization: Bearer …` only to local `/api` paths
+  (the Vite proxy keeps it same-origin), and maps 401/403/5xx/network errors to
+  fixed safe messages without echoing response bodies or the token. A source
+  scan found no `localStorage`/`sessionStorage`/`document.cookie`/`console` use
+  in application code, and no JWT decoding.
+- [ ] Later UI slices (impact/risk, simulation/policy, governance/audit) each
+  require their own scope and verification checkpoint.
 
 ## Phase 13 S0 — Open-source contributor readiness (recorded 2026-10-17;
 licensing + contributor docs + CI only, no application change)
@@ -74,7 +94,8 @@ licensing + contributor docs + CI only, no application change)
   `main`, JDK 21 plus the repository Maven wrapper run `./mvnw -B clean test`
   in `backend/` (Testcontainers PostgreSQL via the runner's Docker daemon),
   with read-only permissions, a timeout, and Maven dependency caching. No
-  frontend job exists because no frontend exists.
+  frontend job existed at that time because no frontend existed; the separate
+  Frontend CI was added with Phase 13 S1.
 - [x] `DECISIONS.md` D32 records the Apache-2.0 licensing choice and the
   boundaries of the contributor-readiness work.
 - [x] No business logic, schema, authentication/authorization, policy, tests,
@@ -1296,10 +1317,12 @@ These are **deferred by decision**, not missing by accident. Do not report them 
   non-persistent, and never authorization.)
 - Filtering, pagination (beyond impact-query `includeTypes`/caps), bulk import
   on the twin API. (Read-only impact traversal is Phase 5, above.)
-- Authentication/authorization on the API.
+- Authentication/authorization on the Phase 2B target-service APIs. (The
+  control-plane API is JWT-protected; Phase 10, D28.)
 - Redis configuration or usage.
 - Spring AI / Ollama integration, model configuration.
-- React (JavaScript, no TypeScript) frontend; no `frontend/` directory.
+- Frontend work beyond the Phase 13 S1 read-only System Twin explorer
+  (`frontend/`); no impact/risk, simulation/policy, or governance/audit UI.
 - Docker packaging of the Java services or any container orchestration
   (Compose exists only for the telemetry collector, `observability/`).
 - Cross-service database access, shared schemas, distributed transactions
