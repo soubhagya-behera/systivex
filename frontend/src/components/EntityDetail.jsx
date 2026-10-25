@@ -18,6 +18,7 @@ export function EntityDetail({
   onSelectEntity,
   focusOnRender = false,
   onFocused,
+  preview = false,
 }) {
   const headingRef = useRef(null);
 
@@ -58,13 +59,17 @@ export function EntityDetail({
       <Row label="externalRef">
         <span className="mono">{entity.externalRef ?? '—'}</span>
       </Row>
-      <Row label="Twin record created">{formatInstant(entity.createdAt)}</Row>
-      <Row label="Twin record updated">{formatInstant(entity.updatedAt)}</Row>
+      <Row label={preview ? 'Sample record created' : 'Twin record created'}>
+        {formatInstant(entity.createdAt)}
+      </Row>
+      <Row label={preview ? 'Sample record updated' : 'Twin record updated'}>
+        {formatInstant(entity.updatedAt)}
+      </Row>
 
       <h3 className="card__title" style={{ marginTop: 18 }}>
         Runtime evidence
       </h3>
-      <RuntimeEvidence metadata={entity.metadata} />
+      <RuntimeEvidence metadata={entity.metadata} preview={preview} />
 
       <h3 className="card__title" style={{ marginTop: 18 }}>
         Metadata

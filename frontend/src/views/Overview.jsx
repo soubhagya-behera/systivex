@@ -25,7 +25,7 @@ function Distribution({ title, rows, emptyLabel }) {
   );
 }
 
-export function Overview({ entities, relationships, onSelectEntity }) {
+export function Overview({ entities, relationships, onSelectEntity, preview = false }) {
   const entityTypes = useMemo(() => countBy(entities, 'type'), [entities]);
   const relTypes = useMemo(() => countBy(relationships, 'type'), [relationships]);
   const environments = useMemo(() => countBy(entities, 'environment'), [entities]);
@@ -42,8 +42,9 @@ export function Overview({ entities, relationships, onSelectEntity }) {
         <div>
           <h1 className="view-header__title">Overview</h1>
           <p className="view-header__hint">
-            A snapshot of the System Twin as reported by the control plane. This
-            console only reads; it never mutates twin state.
+            {preview
+              ? 'Synthetic sample records for local UI inspection. Not connected to the control plane, and nothing shown is live or authenticated.'
+              : 'A snapshot of the System Twin as reported by the control plane. This console only reads; it never mutates twin state.'}
           </p>
         </div>
       </div>

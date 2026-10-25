@@ -10,6 +10,7 @@ export function Relationships({
   entitiesById,
   relTypes,
   onSelectEntity,
+  preview = false,
 }) {
   const [query, setQuery] = useState('');
   const [types, setTypes] = useState([]);
@@ -32,8 +33,9 @@ export function Relationships({
         <div>
           <h1 className="view-header__title">Relationships</h1>
           <p className="view-header__hint">
-            Directed edges between entities. Endpoints are resolved against the
-            loaded entity set.
+            {preview
+              ? 'Synthetic sample relationships for local UI inspection. Endpoints are resolved against the sample entity set.'
+              : 'Directed edges between entities. Endpoints are resolved against the loaded entity set.'}
           </p>
         </div>
       </div>

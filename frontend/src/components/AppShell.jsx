@@ -3,18 +3,22 @@ export function AppShell({
   activeKey,
   onNavigate,
   statusSlot = null,
+  banner = null,
   children,
 }) {
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="brand">
-          <span className="brand__mark">Systivex</span>
-          <span className="brand__sub">System Twin · read-only</span>
-        </div>
-        <div className="header__spacer" />
-        {statusSlot}
-      </header>
+      <div className="app-top">
+        <header className="app-header">
+          <div className="brand">
+            <span className="brand__mark">Systivex</span>
+            <span className="brand__sub">System Twin · read-only</span>
+          </div>
+          <div className="header__spacer" />
+          {statusSlot}
+        </header>
+        {banner}
+      </div>
       <div className="app-body">
         <nav className="sidebar" aria-label="Twin sections">
           <span className="sidebar__title">Explorer</span>

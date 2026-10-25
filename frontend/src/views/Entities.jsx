@@ -13,6 +13,7 @@ export function Entities({
   entityTypes,
   focusDetail = false,
   onDetailFocused,
+  preview = false,
 }) {
   const [query, setQuery] = useState('');
   const [types, setTypes] = useState([]);
@@ -35,8 +36,9 @@ export function Entities({
         <div>
           <h1 className="view-header__title">Entities</h1>
           <p className="view-header__hint">
-            Source, deploy, data, and configuration entities in the twin. Filtering
-            happens entirely in the browser over the fetched set.
+            {preview
+              ? 'Synthetic sample entities for local UI inspection. Filtering happens entirely in the browser over the sample set.'
+              : 'Source, deploy, data, and configuration entities in the twin. Filtering happens entirely in the browser over the fetched set.'}
           </p>
         </div>
       </div>
@@ -92,6 +94,7 @@ export function Entities({
             onSelectEntity={onSelectEntity}
             focusOnRender={focusDetail}
             onFocused={onDetailFocused}
+            preview={preview}
           />
         </div>
       )}

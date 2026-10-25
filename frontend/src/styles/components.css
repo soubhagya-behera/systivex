@@ -313,3 +313,35 @@ table.data tbody tr:hover {
   color: var(--text-faint);
   font-size: 12.5px;
 }
+
+/* ---------- Local preview (development only) ---------- */
+.preview-banner {
+  padding: 10px 22px;
+  border-bottom: 1px solid #8a6212;
+  background: repeating-linear-gradient(
+    135deg,
+    #e0a53a,
+    #e0a53a 12px,
+    #f0b95a 12px,
+    #f0b95a 24px
+  );
+  color: #1b1305;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.preview-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding-top: 14px;
+  border-top: 1px dashed var(--surface-line);
+}
+
+.preview-entry .btn {
+  align-self: flex-start;
+}

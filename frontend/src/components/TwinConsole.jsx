@@ -49,6 +49,13 @@ const ACCESS_STATES = {
   },
 };
 
+const PREVIEW_ACCESS = {
+  label: 'Local preview',
+  tone: 'preview',
+  detail:
+    'Synthetic sample data only. No backend request or authenticated session is connected.',
+};
+
 function accessState(error, status) {
   if (error) {
     if (error.kind === ErrorKind.UNAUTHORIZED || error.kind === ErrorKind.FORBIDDEN) {
@@ -65,24 +72,32 @@ function accessState(error, status) {
   return ACCESS_STATES.supplied;
 }
 
-export function TwinConsole({ token, onDisconnect }) {
+export function TwinConsole({ token, onDisconnect, preview = false, previewData = null }) {
   const [view, setView] = useState('overview');
   const [selectedId, setSelectedId] = useState(null);
   const [focusDetail, setFocusDetail] = useState(false);
   const now = useNow();
 
   const twinApi = useMemo(() => {
+    if (preview) return null;
     const client = createApiClient({ getToken: () => token });
     return createTwinApi(client);
-  }, [token]);
+  }, [token, preview]);
 
   const { data, error, status, reload } = useAsyncResource(async () => {
+    if (preview) {
+      return {
+        entities: previewData?.entities ?? [],
+        relationships: previewData?.relationships ?? [],
+        snapshotLoadedAt: previewData?.snapshotLoadedAt ?? Date.now(),
+      };
+    }
     const [entities, relationships] = await Promise.all([
       twinApi.listEntities(),
       twinApi.listRelationships(),
     ]);
     return { entities, relationships, snapshotLoadedAt: Date.now() };
-  }, [twinApi]);
+  }, [twinApi, preview, previewData]);
 
   const entities = useMemo(() => data?.entities ?? [], [data]);
   const relationships = useMemo(() => data?.relationships ?? [], [data]);
@@ -124,10 +139,12 @@ export function TwinConsole({ token, onDisconnect }) {
   );
 
   const loading = !error && status !== 'success';
-  const access = accessState(error, status);
+  const access = preview ? PREVIEW_ACCESS : accessState(error, status);
   const snapshotLoadedAt = status === 'success' ? data?.snapshotLoadedAt ?? null : null;
 
-  const snapshotText = snapshotLoadedAt ? (
+  const snapshotText = preview ? (
+    <span>Synthetic preview snapshot · not live</span>
+  ) : snapshotLoadedAt ? (
     <>
       <span>Snapshot loaded</span>{' '}
       <time dateTime={new Date(snapshotLoadedAt).toISOString()}>
@@ -158,7 +175,7 @@ export function TwinConsole({ token, onDisconnect }) {
           {access.label}
         </span>
         <button type="button" className="btn" onClick={onDisconnect}>
-          Disconnect
+          {preview ? 'Exit preview' : 'Disconnect'}
         </button>
       </div>
     </div>
@@ -170,6 +187,13 @@ export function TwinConsole({ token, onDisconnect }) {
       activeKey={view}
       onNavigate={setView}
       statusSlot={statusSlot}
+      banner={
+        preview ? (
+          <div className="preview-banner" role="note">
+            {previewData?.banner}
+          </div>
+        ) : null
+      }
     >
       {error ? (
         <ErrorPanel error={error} onRetry={retry} />
@@ -180,6 +204,7 @@ export function TwinConsole({ token, onDisconnect }) {
           entities={entities}
           relationships={relationships}
           onSelectEntity={selectEntity}
+          preview={preview}
         />
       ) : view === 'entities' ? (
         <Entities
@@ -190,6 +215,7 @@ export function TwinConsole({ token, onDisconnect }) {
           entityTypes={entityTypes}
           focusDetail={focusDetail}
           onDetailFocused={detailFocused}
+          preview={preview}
         />
       ) : view === 'relationships' ? (
         <Relationships
@@ -198,6 +224,7 @@ export function TwinConsole({ token, onDisconnect }) {
           entitiesById={entitiesById}
           relTypes={relTypes}
           onSelectEntity={selectEntity}
+          preview={preview}
         />
       ) : (
         <GraphView
@@ -205,6 +232,7 @@ export function TwinConsole({ token, onDisconnect }) {
           relationships={relationships}
           selectedId={selectedId}
           onSelectEntity={selectEntity}
+          preview={preview}
         />
       )}
     </AppShell>

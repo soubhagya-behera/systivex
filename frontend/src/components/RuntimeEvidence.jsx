@@ -93,15 +93,16 @@ function HealthValue({ health }) {
   return <span>{HEALTH_STATE.unrecognized}; no health status is inferred.</span>;
 }
 
-export function RuntimeEvidence({ metadata }) {
+export function RuntimeEvidence({ metadata, preview = false }) {
   const now = useNow();
   const evidence = parseRuntimeEvidence(metadata);
 
   if (evidence.state === 'missing') {
     return (
       <p className="hint">
-        No runtime evidence is stored for this entity. Missing evidence is not treated as
-        healthy or unhealthy.
+        {preview
+          ? 'This synthetic sample has no runtime evidence. Missing evidence is not treated as healthy or unhealthy.'
+          : 'No runtime evidence is stored for this entity. Missing evidence is not treated as healthy or unhealthy.'}
       </p>
     );
   }
@@ -109,8 +110,10 @@ export function RuntimeEvidence({ metadata }) {
   if (evidence.state === 'unrecognized') {
     return (
       <div className="notice notice--neutral" role="status">
-        Runtime metadata is present but could not be interpreted. No health status is
-        inferred. {evidence.reason}
+        {preview
+          ? 'Synthetic runtime metadata could not be interpreted. No health status is inferred. '
+          : 'Runtime metadata is present but could not be interpreted. No health status is inferred. '}
+        {evidence.reason}
       </div>
     );
   }
@@ -120,8 +123,14 @@ export function RuntimeEvidence({ metadata }) {
   return (
     <section className="evidence" aria-label="Observed runtime evidence">
       <div className="evidence__top">
-        <span className="badge badge--type">Stored observation</span>
-        <span className="hint">Latest value stored in the twin, not live telemetry.</span>
+        <span className="badge badge--type">
+          {preview ? 'Synthetic sample' : 'Stored observation'}
+        </span>
+        <span className="hint">
+          {preview
+            ? 'Fictional sample value for local UI inspection, not from a backend and not live telemetry.'
+            : 'Latest value stored in the twin, not live telemetry.'}
+        </span>
       </div>
 
       <dl className="evidence__grid">

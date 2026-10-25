@@ -7,7 +7,7 @@ import { useState } from 'react';
  * configured issuer/client, so the operator pastes a bearer token they already
  * hold. Nothing is written to persistent storage and no fake IdP is used.
  */
-export function TokenGate({ onSubmit }) {
+export function TokenGate({ onSubmit, onPreview, previewLoading = false }) {
   const [value, setValue] = useState('');
 
   function handleSubmit(event) {
@@ -53,6 +53,22 @@ export function TokenGate({ onSubmit }) {
           attempted.
         </p>
       </form>
+      {onPreview ? (
+        <div className="preview-entry">
+          <button
+            type="button"
+            className="btn"
+            onClick={onPreview}
+            disabled={previewLoading}
+          >
+            {previewLoading ? 'Loading preview…' : 'Open local preview (synthetic data)'}
+          </button>
+          <p className="hint">
+            Development-only UI preview. Uses fictional sample records, makes no
+            backend requests, and needs no bearer token.
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }
