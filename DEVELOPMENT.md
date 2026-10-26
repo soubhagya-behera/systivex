@@ -1,12 +1,13 @@
 # Systivex Development Guide
 
 Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B) +
-telemetry pipeline (Phase 3A) + twin observation (Phase 4)**
-(verified 2026-10-09). §§1–7 cover the control plane in `backend/`;
-§8 covers the target services in `backend/target-services/`; §9 covers the
-local telemetry infrastructure in `observability/`; §10 covers twin
-synchronization.
-No cache, AI runtime, or frontend — none are required yet.
+telemetry pipeline (Phase 3A) + twin observation (Phase 4) + read-only operator
+console (Phase 13 S1)**. §§1–7 cover the control plane in `backend/`; §8 covers
+the target services in `backend/target-services/`; §9 covers the local telemetry
+infrastructure in `observability/`; §10 covers twin synchronization; §18 covers
+the local-development-only React console in `frontend/`.
+No cache or AI runtime is required yet; the frontend is optional and only
+needed for console work.
 
 ## 1. Prerequisites
 
@@ -19,7 +20,7 @@ No cache, AI runtime, or frontend — none are required yet.
 | Docker | Docker Desktop (daemon running) | Required for `./mvnw test` (Testcontainers spins up PG 18) and for the Phase 3A telemetry collector (`observability/`) |
 | Redis | **Not required** in this phase | Deferred, only when justified |
 | Ollama / Spring AI | **Not required** in this phase | Deferred |
-| Node / React | **Not required** (no frontend yet) | Deferred |
+| Node / React | **24 LTS** (`frontend/.nvmrc`) | Optional — only for the Phase 13 S1 console (§18); not needed for backend work |
 | K8s / brokers | **Not required** (services run locally, not containerized) | Deferred |
 
 > Environment setup (2026-09-28, updated): the machine default `JAVA_HOME`/PATH
@@ -179,7 +180,8 @@ The twin API lives under `/api/v1/twin/entities` and
   `observability/docker-compose.yml` (telemetry collector, §9).
 - No Redis connection, no vector database, no broker.
 - No `OLLAMA_*` configuration, no model pull.
-- No `frontend/` install or build.
+- No `frontend/` install or build for backend work (the console in §18 is
+  optional and local-development-only).
 
 If a future milestone introduces any of these, this guide must be updated
 at the same time as the code — docs must reflect reality.
@@ -188,7 +190,8 @@ at the same time as the code — docs must reflect reality.
 
 1. Do not add dependencies unless required for the current phase (recorded in `DECISIONS.md`).
 2. Do not create placeholder packages or speculative modules.
-3. Do not add Docker Compose, Redis/AI configuration, or frontend scaffolding.
+3. Do not add Docker Compose, Redis/AI configuration, or frontend work beyond
+   the Phase 13 S1 read-only console (see §18).
 4. Do not weaken tests to make them pass.
 5. Do not claim features work unless verified by `./mvnw test` / startup / endpoint check.
 6. Never commit `application.properties`, credentials, or machine-local settings.
@@ -684,3 +687,40 @@ with 30-day maximum and lazy expiry (no scheduler); mandatory reasons;
 hard `(issuer, subject)` separation of duties; a hash-chained audit log
 that is tamper-evident, not tamper-proof; every mutation transactional
 with its audit event; no execution endpoints.
+
+## 18. Read-only operator console (Phase 13 S1, local development only)
+
+`frontend/` is a React + Vite + **JavaScript** (no TypeScript) System Twin
+explorer, authorized by `DECISIONS.md` D33 and scoped to the existing
+`TWIN_READ` GET endpoints only: `GET /api/v1/twin/entities[/{id}]` and
+`GET /api/v1/twin/relationships[/{id}]`. It performs no sync, observation,
+write, simulation, policy, or proposal mutation and adds no backend endpoint,
+CORS rule, or hosting.
+
+Prerequisites: **Node.js 24 LTS** (`frontend/.nvmrc`; `engines` requires
+`>=24`). The backend must be running locally (`§5`, Tomcat on `127.0.0.1:8080`)
+for the console to fetch data. Every command runs from `frontend/`:
+
+```powershell
+cd frontend
+npm ci            # reproducible install from package-lock.json
+npm test          # Vitest + Testing Library (51 tests)
+npm run build     # production bundle in frontend/dist/
+npm run dev       # Vite dev server at http://127.0.0.1:5173
+```
+
+The Vite dev server binds to `127.0.0.1` (`strictPort`) and proxies browser
+calls to `/api` through to `http://127.0.0.1:8080`, so no backend CORS rule is
+needed and the API is same-origin during development. Open the console, paste a
+bearer token you already hold (the control plane still requires a valid JWT with
+`TWIN_READ`, `§16`), and browse entities, relationships, and the dependency
+graph.
+
+Token handling: the token is held in memory for the tab only, cleared on
+reload, and never written to `localStorage`, `sessionStorage`, `IndexedDB`,
+cookies, a URL, or logs. There is **no login flow and no identity provider** —
+the trusted issuer/client details remain unavailable, so live OIDC sign-in is
+not implemented and is not claimed. CI (`.github/workflows/frontend-ci.yml`)
+installs from the lockfile, audits dependencies, runs the test suite, and builds
+the bundle on Node 24. Do not add production/static hosting or shared serving
+without a separately reviewed decision (D33).

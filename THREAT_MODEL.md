@@ -13,7 +13,10 @@ four Phase 2B target services on `:8081–:8084` (gateway → order → inventor
 with open local HTTP APIs, now backed by three service-owned databases
 (`order_db`, `payment_db`, `inventory_db`, each with its own application user
 that owns nothing else). No user data of value yet, no agents, no execution
-capability, and the control plane does not call the target services.
+capability, and the control plane does not call the target services. A
+local-development-only React console (`frontend/`, Phase 13 S1) reads the twin
+over the same JWT-guarded `TWIN_READ` GETs; it adds no write, execution, or
+hosting surface.
 Credential handling is load-bearing in both halves: every datasource password
 (control-plane `SYSTIVEX_DB_PASSWORD` plus `ORDER/PAYMENT/INVENTORY_DB_PASSWORD`)
 reaches its app only through the environment; all live `application.properties`
@@ -283,23 +286,27 @@ itself a place data can leak. The following holds for the current pipeline
   uncertain is never automatically redispatched; partial effects require
   a separately approved recovery/compensation contract; unresolved
   outcomes stay `UNVERIFIED` (T4/T5/T7).
-- **Phase 13 S1 read-only operator console (authorized 2026-10-18; not
-  implemented).** `DECISIONS.md` D33 authorizes a scoped React + Vite +
-  JavaScript console limited to the System Twin explorer over existing
-  `TWIN_READ` GET endpoints. Authentication stays mandatory (D28): the
-  manually supplied bearer token is a local-development-only bridge held
-  **in memory only** — cleared on reload and never logged, rendered, placed
-  in a URL, or persisted in `localStorage`, `sessionStorage`, `IndexedDB`,
-  cookies, or any other storage. There is no bundled identity provider, fake
-  login, invented issuer, placeholder production credential, or
-  security-off mode; the trusted issuer/client details remain missing, so
-  live authentication verification is still blocked (documented, not
-  fabricated). S1 uses the Vite development proxy and adds no backend CORS
-  rule and no backend endpoint; production/shared serving is deferred to a
-  separately reviewed decision. The UI stays local-development-only and adds
-  no execution or mutating capability; D29–D31 are unchanged. This is a
-  design authorization, not a deployed surface: no frontend code exists yet,
-  and none of it is claimed as verified.
+- **Phase 13 S1 read-only operator console (implemented 2026-10-18,
+  local-development only).** `frontend/` is a React + Vite + JavaScript console
+  (`DECISIONS.md` D33) limited to the System Twin explorer over existing
+  `TWIN_READ` GET endpoints; it adds no backend endpoint, CORS rule, migration,
+  or dependency. Authentication stays mandatory (D28): the manually supplied
+  bearer token is a local-development-only bridge held **in memory only** —
+  cleared on reload and never logged, rendered, placed in a URL, or persisted in
+  `localStorage`, `sessionStorage`, `IndexedDB`, cookies, or any other storage.
+  There is no bundled identity provider, fake login, invented issuer, placeholder
+  production credential, or security-off mode; the trusted issuer/client details
+  remain missing, so **live authentication verification is still blocked**
+  (documented, not fabricated) and the UI's automated tests never constitute live
+  identity verification. The API client sends nothing before a token is supplied,
+  attaches `Authorization: Bearer …` only to local `/api` paths, and maps
+  401/403/5xx/network failures to fixed safe messages — response bodies, headers,
+  claims, and tokens are never surfaced (asserted in tests). The JWT is not
+  decoded or treated as trusted authority by the UI. S1 uses the Vite
+  development proxy bound to `127.0.0.1` and adds no backend CORS rule; there is
+  no production or shared serving (deferred to a separately reviewed decision).
+  The UI adds no execution or mutating capability; D29–D31 are unchanged and
+  `APPROVED` stays terminal.
 
 ## 3. Out-of-scope today, in-scope for design
 

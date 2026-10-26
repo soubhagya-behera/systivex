@@ -108,7 +108,7 @@ Full design, trust boundaries, and the deterministic-vs-advisory distinction liv
 | JWT-protected API | ✅ Implemented and tested |
 | Runtime observation and telemetry integration | ✅ Implemented and tested |
 | Controlled execution | 🚧 Design-only — gated by D30/D31 |
-| Frontend / operator console | 📋 Authorized (Phase 13 S1, D33) — not implemented |
+| Frontend / operator console | 🚧 Phase 13 S1 System Twin explorer implemented (read-only, D33) |
 | Agent orchestration, verification, Git integration | 📋 Planned, not implemented |
 
 Impact, risk, and simulation derive deterministically from the twin and never authorize
@@ -143,6 +143,29 @@ configuration, and `./mvnw spring-boot:run` — are in [`DEVELOPMENT.md`](DEVELO
 
 </details>
 
+<details>
+<summary>Running the read-only operator console (frontend)</summary>
+
+The `frontend/` React + Vite + JavaScript console is **local-development only**
+(`DECISIONS.md` D33). It binds to `127.0.0.1` and proxies `/api` to a control plane
+running at `http://127.0.0.1:8080`; it adds no backend surface and has no
+production hosting.
+
+```bash
+cd frontend
+npm ci
+npm test        # Vitest + Testing Library
+npm run build   # production bundle
+npm run dev     # serve at http://127.0.0.1:5173 (start the backend first)
+```
+
+Open the console, paste a bearer token you already hold — it is kept in memory for
+the tab only — and explore entities, relationships, and the dependency graph. There
+is no login flow and no identity provider: the console never persists the token and
+performs read-only `GET`s against the System Twin API.
+
+</details>
+
 ---
 
 ## 🛡️ Security and Execution Boundaries
@@ -161,8 +184,10 @@ engine, agent, or tool broker, and no target actuator exists — report issues v
 
 ## 🗂️ Project Structure
 
-`backend/` holds the Java 21 control plane (with its sample `target-services/`), and
-`observability/` holds a local telemetry stack (collector, Prometheus, Loki, Grafana).
+`backend/` holds the Java 21 control plane (with its sample `target-services/`),
+`frontend/` holds the read-only React + Vite operator console (Phase 13 S1, local
+development only), and `observability/` holds a local telemetry stack (collector,
+Prometheus, Loki, Grafana).
 
 | Document | Purpose |
 | --- | --- |

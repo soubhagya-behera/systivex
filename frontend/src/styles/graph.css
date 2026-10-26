@@ -1,0 +1,141 @@
+/* ---------- Dependency graph ---------- */
+.graph-shell {
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius);
+  background: #0c1220;
+  overflow: auto;
+  max-height: 66vh;
+}
+
+.graph-svg {
+  display: block;
+  min-width: 100%;
+}
+
+.graph-node__box {
+  fill: #141c2e;
+  stroke: var(--surface-line-strong);
+  stroke-width: 1.2;
+}
+
+.graph-node--selected .graph-node__box {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.graph-node__label {
+  fill: var(--text);
+  font-size: 12.5px;
+  font-family: var(--sans);
+}
+
+.graph-node__sub {
+  fill: var(--text-faint);
+  font-size: 11px;
+  font-family: var(--mono);
+}
+
+.graph-edge__line {
+  stroke: #3a4767;
+  stroke-width: 1.4;
+  fill: none;
+}
+
+.graph-edge__label {
+  fill: var(--text-faint);
+  font-size: 11px;
+  font-family: var(--mono);
+  paint-order: stroke;
+  stroke: #0c1220;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.graph-node {
+  cursor: pointer;
+}
+
+.graph-node:focus-visible .graph-node__box {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid var(--surface-line-strong);
+}
+
+.legend--types {
+  list-style: none;
+  padding: 0;
+  margin-top: -4px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.notice__meta {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.notice {
+  border: 1px solid rgba(224, 165, 58, 0.35);
+  background: rgba(224, 165, 58, 0.08);
+  color: #f0d7a4;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.graph-alternative {
+  margin-top: 12px;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+}
+
+.graph-alternative summary {
+  padding: 10px 14px;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.graph-alternative[open] summary {
+  border-bottom: 1px solid var(--surface-line);
+}
+
+.graph-alternative__body {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.graph-alternative__title {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.graph-alternative .table-wrap {
+  max-height: 34vh;
+}

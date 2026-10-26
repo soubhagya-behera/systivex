@@ -31,8 +31,10 @@ The backend control plane lives in `backend/` (packages under
 | **Maven wrapper** | Bundled at `backend/mvnw` (`backend/mvnw.cmd` on Windows). No separate Maven install. |
 | **Docker** | Required to run the test suite: integration tests use Testcontainers PostgreSQL. Your Docker daemon must be running. |
 | **PostgreSQL 18** | Required only to *run* the application locally (not for tests). |
+| **Node 24 LTS** | Required only for the `frontend/` console (Phase 13 S1). Not needed for backend work. |
 
-There is no frontend, no Node toolchain, and no cache/AI runtime required today.
+The frontend is a self-contained, local-development-only tool; backend work needs no Node
+toolchain, and no cache/AI runtime is required today.
 
 > The wrapper scripts are committed without the executable bit on some checkouts. On
 > Linux/macOS run `chmod +x mvnw` once from `backend/` if `./mvnw` is not executable.

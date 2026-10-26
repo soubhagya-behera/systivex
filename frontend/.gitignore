@@ -1,0 +1,11 @@
+# Frontend-local ignores. The root .gitignore already pre-ignores node_modules/,
+# dist/, and log files; these entries complement it for the Vite toolchain.
+node_modules/
+dist/
+.vite/
+coverage/
+*.local
+.env
+.env.*
+!.env.example
+npm-debug.log*
