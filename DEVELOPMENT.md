@@ -672,6 +672,138 @@ generated signing keys (`security/TestJwt.java`) — automated JWT
 coverage, not live identity-provider verification. The four
 target-service APIs are unchanged (open local-only endpoints).
 
+
+### Authenticated manual workflow: sync → impact → risk → simulation → policy
+
+This walkthrough uses the existing local control plane from §5 and the authentication
+configuration from this section. Obtain a JWT from the **already configured trusted
+issuer** out of band; Systivex does not provide a login endpoint or bundled identity
+provider. Replace the placeholder below with a valid token in your local PowerShell
+session. Never commit a real token or put it in a script, URL, screenshot, or log.
+
+~~~powershell
+$token = "<JWT from your trusted issuer>"
+$headers = @{ Authorization = "Bearer $token" }
+$baseUrl = "http://localhost:8080"
+~~~
+
+Every request below sends the Authorization: Bearer <token> header. The token must
+be valid for the configured issuer and accepted audience. Role checks use the
+application's role mapping and security rules (`JwtGrantedAuthoritiesConverter.java`
+and `SecurityConfig.java`): **TWIN_ADMIN inherits TWIN_READ, TWIN_ANALYZE, and
+TWIN_OPERATOR**. Therefore, a trusted token with `TWIN_ADMIN` can satisfy checks for
+those three roles. **TWIN_APPROVER is explicit-only**: `TWIN_ADMIN` does not inherit
+it, so a token must be granted `TWIN_APPROVER` to pass an approver-only check.
+Missing/invalid tokens return **401**; a valid token without the required role (after
+role inheritance is applied) returns **403**.
+
+#### 1. Synchronize the local twin — TWIN_OPERATOR plus loopback guard
+
+Run the application locally and ensure the sync request reaches it over loopback
+(for example, keep the documented SERVER_ADDRESS=127.0.0.1 setting). The loopback
+guard remains enforced even when the token has TWIN_OPERATOR.
+
+~~~powershell
+$syncParams = @{
+  Uri = "$baseUrl/api/v1/twin/sync"
+  Method = "Post"
+  Headers = $headers
+  ContentType = "application/json"
+  Body = "{}"
+}
+Invoke-RestMethod @syncParams | ConvertTo-Json -Depth 10
+~~~
+
+The first sync may create the connector-owned entities and relationships; repeating
+the request should be idempotent. See §10 for ownership and failure semantics.
+
+#### 2. Inspect change impact — TWIN_READ
+
+~~~powershell
+$root = "target-table:inventory_db.inventory_items"
+$impactUri = "$baseUrl/api/v1/twin/impact?from=$([uri]::EscapeDataString($root))"
+$impact = Invoke-RestMethod -Uri $impactUri -Headers $headers
+$impact | Select-Object -ExpandProperty impacted |
+  Select-Object type, externalRef, depth, viaStart
+~~~
+
+The from value may be an entity UUID or external reference. The result describes
+potentially affected components and evidence paths; it is not proof of breakage.
+See §11 for depth, filtering, bounds, and limitations.
+
+#### 3. Assess change risk — TWIN_READ
+
+~~~powershell
+$riskUri = "$baseUrl/api/v1/twin/risk?from=$([uri]::EscapeDataString($root))"
+$risk = Invoke-RestMethod -Uri $riskUri -Headers $headers
+$risk | ConvertTo-Json -Depth 10
+~~~
+
+Risk is an ordinal, advisory assessment based on impact and available runtime
+evidence. Inspect each risk entry's `uncertain` and `stale` flags rather than
+treating a risk level as authorization. The risk response does not expose truncation
+or `limitations` fields; consult the impact or simulation response for related
+bounded-result details where applicable. See §13.
+
+#### 4. Simulate a hypothetical change — TWIN_ANALYZE
+
+This example hypothetically removes the inventory-items table from the twin graph.
+It does not remove a real database table or execute a change.
+
+~~~powershell
+$proposal = @{
+  from = @("target-service:gateway-service")
+  operations = @(
+    @{ type = "REMOVE_ENTITY"; entity = $root }
+  )
+} | ConvertTo-Json -Depth 10
+
+$simulationParams = @{
+  Uri = "$baseUrl/api/v1/twin/simulations"
+  Method = "Post"
+  Headers = $headers
+  ContentType = "application/json"
+  Body = $proposal
+}
+$simulation = Invoke-RestMethod @simulationParams
+$simulation | Select-Object simulated, advisory, delta, graph, limitations |
+  ConvertTo-Json -Depth 10
+~~~
+
+Confirm that simulated is true and the advisory says SIMULATED — NOT EXECUTED.
+The simulation is hypothetical and non-persistent. See §14 for supported operations
+and validation behaviour.
+
+#### 5. Evaluate the hypothetical change against policy — TWIN_ANALYZE
+
+Use the same proposal format. The server recomputes the simulation and policy result;
+do not submit caller-computed risk or deltas.
+
+~~~powershell
+$policyParams = @{
+  Uri = "$baseUrl/api/v1/twin/policy-evaluations"
+  Method = "Post"
+  Headers = $headers
+  ContentType = "application/json"
+  Body = $proposal
+}
+$policy = Invoke-RestMethod @policyParams
+$policy | Select-Object decision, policyVersion, rulesFired,
+  @{ Name = "limitations"; Expression = { $_.simulation.limitations } },
+  advisory |
+  ConvertTo-Json -Depth 10
+~~~
+
+The result is advisory and must retain the wording
+ADVISORY POLICY EVALUATION — NOT AN AUTHORIZATION; NOT EXECUTED.
+Even ALLOW is not permission to perform a change. This endpoint creates no
+approval, execution, or audit record. See §15 for policy precedence and rules.
+
+**Security and scope:** never disable JWT validation to make a request succeed, invent
+an issuer or role claim, or share the token. Keep the control plane local. If a call
+returns 401, verify the token, issuer, audience, and expiry; if it returns 403, verify
+the role granted by the trusted issuer. Do not weaken the loopback guard for sync.
+
 ## 17. Governed change proposals (Phase 11 — S1–S6 implemented)
 
 Design agreed in `DECISIONS.md` D29; slices S1–S5 implemented with
