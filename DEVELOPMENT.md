@@ -737,8 +737,10 @@ $risk | ConvertTo-Json -Depth 10
 ~~~
 
 Risk is an ordinal, advisory assessment based on impact and available runtime
-evidence. Inspect uncertainty, stale evidence, truncation, and limitations rather
-than treating a risk level as authorization. See §13.
+evidence. Inspect each risk entry's `uncertain` and `stale` flags rather than
+treating a risk level as authorization. The risk response does not expose truncation
+or `limitations` fields; consult the impact or simulation response for related
+bounded-result details where applicable. See §13.
 
 #### 4. Simulate a hypothetical change — TWIN_ANALYZE
 
