@@ -685,9 +685,14 @@ $baseUrl = "http://localhost:8080"
 ~~~
 
 Every request below sends the Authorization: Bearer <token> header. The token must
-be valid for the configured issuer and accepted audience, and its trusted role claim
-must grant the role listed for that operation. Missing/invalid tokens return **401**;
-a valid token without the required role returns **403**.
+be valid for the configured issuer and accepted audience. Role checks use the
+application's role mapping and security rules (`JwtGrantedAuthoritiesConverter.java`
+and `SecurityConfig.java`): **TWIN_ADMIN inherits TWIN_READ, TWIN_ANALYZE, and
+TWIN_OPERATOR**. Therefore, a trusted token with `TWIN_ADMIN` can satisfy checks for
+those three roles. **TWIN_APPROVER is explicit-only**: `TWIN_ADMIN` does not inherit
+it, so a token must be granted `TWIN_APPROVER` to pass an approver-only check.
+Missing/invalid tokens return **401**; a valid token without the required role (after
+role inheritance is applied) returns **403**.
 
 #### 1. Synchronize the local twin — TWIN_OPERATOR plus loopback guard
 
