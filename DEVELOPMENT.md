@@ -783,7 +783,9 @@ $policyParams = @{
   Body = $proposal
 }
 $policy = Invoke-RestMethod @policyParams
-$policy | Select-Object decision, policyVersion, rulesFired, limitations |
+$policy | Select-Object decision, policyVersion, rulesFired,
+  @{ Name = "limitations"; Expression = { $_.simulation.limitations } },
+  advisory |
   ConvertTo-Json -Depth 10
 ~~~
 
