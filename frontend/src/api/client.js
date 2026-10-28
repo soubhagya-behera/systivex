@@ -5,6 +5,7 @@ import { ApiError, ErrorKind } from './errors.js';
 const API_PREFIX = '/api/';
 
 function kindForStatus(status) {
+  if (status === 400) return ErrorKind.BAD_REQUEST;
   if (status === 401) return ErrorKind.UNAUTHORIZED;
   if (status === 403) return ErrorKind.FORBIDDEN;
   if (status === 404) return ErrorKind.NOT_FOUND;

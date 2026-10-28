@@ -3,6 +3,7 @@ import { AppShell } from '../components/AppShell.jsx';
 import { ErrorPanel, LoadingPanel } from '../components/StatePanels.jsx';
 import { useAsyncResource } from '../hooks/useAsyncResource.js';
 import { useNow } from '../hooks/useNow.js';
+import { createAnalysisApi } from '../api/analysis.js';
 import { createApiClient } from '../api/client.js';
 import { ErrorKind } from '../api/errors.js';
 import { createTwinApi } from '../api/twin.js';
@@ -12,6 +13,7 @@ import { Overview } from '../views/Overview.jsx';
 import { Entities } from '../views/Entities.jsx';
 import { Relationships } from '../views/Relationships.jsx';
 import { GraphView } from '../views/GraphView.jsx';
+import { ImpactRisk } from '../views/ImpactRisk.jsx';
 
 const NAV = [
   { key: 'overview', label: 'Overview', icon: '◎' },
@@ -19,6 +21,8 @@ const NAV = [
   { key: 'relationships', label: 'Relationships', icon: '⇄' },
   { key: 'graph', label: 'Graph', icon: '◈' },
 ];
+
+const ANALYSIS_NAV = { key: 'impact-risk', label: 'Impact & Risk', icon: '⚠' };
 
 const ACCESS_STATES = {
   supplied: {
@@ -78,10 +82,13 @@ export function TwinConsole({ token, onDisconnect, preview = false, previewData 
   const [focusDetail, setFocusDetail] = useState(false);
   const now = useNow();
 
-  const twinApi = useMemo(() => {
-    if (preview) return null;
+  const { twinApi, analysisApi } = useMemo(() => {
+    if (preview) return { twinApi: null, analysisApi: null };
     const client = createApiClient({ getToken: () => token });
-    return createTwinApi(client);
+    return {
+      twinApi: createTwinApi(client),
+      analysisApi: createAnalysisApi(client),
+    };
   }, [token, preview]);
 
   const { data, error, status, reload } = useAsyncResource(async () => {
@@ -130,12 +137,12 @@ export function TwinConsole({ token, onDisconnect, preview = false, previewData 
 
   const navItems = useMemo(
     () =>
-      NAV.map((item) => {
+      (preview ? NAV : [...NAV, ANALYSIS_NAV]).map((item) => {
         if (item.key === 'entities') return { ...item, count: entities.length };
         if (item.key === 'relationships') return { ...item, count: relationships.length };
         return item;
       }),
-    [entities.length, relationships.length],
+    [preview, entities.length, relationships.length],
   );
 
   const loading = !error && status !== 'success';
@@ -225,6 +232,12 @@ export function TwinConsole({ token, onDisconnect, preview = false, previewData 
           relTypes={relTypes}
           onSelectEntity={selectEntity}
           preview={preview}
+        />
+      ) : view === 'impact-risk' && !preview ? (
+        <ImpactRisk
+          entities={entities}
+          entityTypes={entityTypes}
+          analysisApi={analysisApi}
         />
       ) : (
         <GraphView

@@ -103,13 +103,15 @@ APIs; no cross-module persistence access; every consequential action crosses
 the policy/execution boundary (see §6).
 
 The **frontend is a local-development-only read-only operator console**
-(Phase 13 S1, `DECISIONS.md` D33; it is not a control-plane module). It lives in
-`frontend/` as a React + Vite + **JavaScript** (no TypeScript) app whose System
-Twin explorer reads existing `TWIN_READ` GET endpoints. It adds no backend
-endpoint or CORS rule: the Vite dev server binds to `127.0.0.1` and proxies
-`/api` to `http://127.0.0.1:8080`. It stays local-development-only until the
-serving and identity requirements for a shared environment are reviewed, and no
-production/static hosting exists.
+(Phase 13 S1 merged, `DECISIONS.md` D33; Phase 13 S2 implemented locally pending
+review/merge, D35; it is not a control-plane module). It lives in `frontend/` as
+a React + Vite + **JavaScript** (no TypeScript) app. The S1 System Twin explorer
+reads existing `TWIN_READ` GET endpoints; S2 adds a live-only Impact & Risk view
+that reads the existing impact and risk GETs for one root UUID. It adds no
+backend endpoint or CORS rule: the Vite dev server binds to `127.0.0.1` and
+proxies `/api` to `http://127.0.0.1:8080`. It stays local-development-only until
+the serving and identity requirements for a shared environment are reviewed,
+and no production/static hosting or live OIDC login exists.
 
 ## 4. Target microservices (Phase 2B persistent runtime; observation planned)
 
@@ -266,8 +268,10 @@ Phase 6, validated runtime annotation: health plus the six allowlisted
 business counters pulled from the loopback Actuator surface into a
 namespaced `runtime` metadata key (`telemetry` package,
 `POST /api/v1/twin/observations`; trace/log presence deliberately absent).
-No twin package beyond `twin` + `observation` + `intelligence` +
-`telemetry` + `policy` + `security`, no approval workflow or execution yet.
+Current packages are `twin`, `observation`, `intelligence`, `telemetry`,
+`policy`, `security`, and `proposal`; governed proposals, approvals, and the
+tamper-evident audit exist since Phase 11, but no execution or verification
+module exists.
 
 ## 6. Trust boundaries
 
@@ -329,16 +333,19 @@ See `THREAT_MODEL.md` for the principles these boundaries enforce.
   `TWIN_ADMIN`);
   `GET /actuator/health` anonymous (status only),
   `/actuator/prometheus` requires `TWIN_READ`, all else denied.
-- **Read-only operator console (implemented, local-development only).**
-  `DECISIONS.md` D33 (Phase 13 S1) scopes the `frontend/` React + Vite +
-  JavaScript console to existing `TWIN_READ` GET endpoints only
-  (`/api/v1/twin/entities[/{id}]`, `/api/v1/twin/relationships[/{id}]`). No API
-  surface is added and no CORS rule is configured; the Vite proxy makes it
-  same-origin during development.
+- **Read-only operator console (S1 merged; S2 implemented locally, local
+  development only).** `DECISIONS.md` D33 scopes the `frontend/` React + Vite +
+  JavaScript console to existing `TWIN_READ` GET endpoints only: S1 reads
+  `/api/v1/twin/entities[/{id}]` and
+  `/api/v1/twin/relationships[/{id}]`; D35's S2 Impact & Risk view reads
+  `/api/v1/twin/impact?from=<UUID>` and `/api/v1/twin/risk?from=<UUID>` for one
+  selected root. No API surface is added and no CORS rule is configured; the
+  Vite proxy makes it same-origin during development. S2 remains pending
+  review/merge and does not change the security or execution boundary.
 - **SSE** for streaming long-running analysis/simulation progress (planned).
 - No WebSockets at this stage (see `DECISIONS.md`).
 
-## 8. Current implementation status (documentation reviewed 2026-10-18; last runtime test verification 2026-10-16, Phase 11 S6)
+## 8. Current implementation status (documentation reviewed 2026-10-28; last live frontend verification 2026-10-28, Phase 13 S2 browser smoke)
 
 Implemented:
 
@@ -428,8 +435,10 @@ Implemented:
   policy with loopback guards still authoritative behind
   `TWIN_OPERATOR`; anonymous status-only health,
   `TWIN_READ`-restricted Prometheus metrics, deny-by-default otherwise
-  (see `DECISIONS.md` D28). Automated JWT tests use local test keys
-  only — live IdP verification pending a configured trusted issuer.
+  (see `DECISIONS.md` D28). Automated JWT tests use local test keys; D34's
+  local-development Keycloak setup has been used for manual token validation.
+  Production issuer configuration and live OIDC sign-in remain unimplemented
+  and are not claimed.
 - Governed change proposals (Phase 11 S1–S6, see §3 and `DECISIONS.md`
   D29): Flyway `V2__proposal_governance.sql` adds immutable
   revision-numbered `proposal_revision`, `audit_event`, and the singleton
@@ -444,18 +453,31 @@ Implemented:
   executes nothing. Verified in tests (full `./mvnw clean test` suite: 398
   tests, 0 failures; see `PROJECT_STATUS.md` Phase 11 S1–S6). No new
   dependencies, no target-service change.
-- Read-only operator console (Phase 13 S1, see §7 and `DECISIONS.md` D33):
-  `frontend/` is a React + Vite + **JavaScript** (no TypeScript) System Twin
-  explorer over the existing `TWIN_READ` GETs only
+- Read-only operator console (Phase 13 S1 merged; S2 implemented locally
+  pending review/merge; see §7 and `DECISIONS.md` D33/D35): `frontend/` is a
+  React + Vite + **JavaScript** (no TypeScript) read-only console. S1 provides
+  the System Twin explorer over the existing `TWIN_READ` GETs
   (`/api/v1/twin/entities[/{id}]`, `/api/v1/twin/relationships[/{id}]`) with
   client-side filtering, a dependency-graph view, and accessible
-  loading/empty/error states. The developer-supplied bearer token is kept in
-  memory only (never persisted, logged, or placed in a URL). It is
-  **local-development only**: Vite binds `127.0.0.1` and proxies `/api` to
-  `http://127.0.0.1:8080`, adding no backend CORS rule, endpoint, or hosting.
-  Node 24 LTS drives `npm test` (Vitest + Testing Library) and `npm run build`
-  in `.github/workflows/frontend-ci.yml`. Live OIDC sign-in is **not**
-  implemented (no trusted issuer/client configured).
+  loading/empty/error states. S2 adds a live-only Impact & Risk view that
+  selects one loaded root, requires an explicit Analyze action, and issues only
+  `GET /api/v1/twin/impact` and `GET /api/v1/twin/risk` with `from=<UUID>` and
+  no other query parameters; backend defaults (`maxDepth=6`;
+  `SERVICE,API,DATABASE,TABLE`) apply. Results are all-or-nothing, keep impact
+  and risk computation timestamps separate, expose impact
+  truncation/cycle/limits, and state that risk has no truncation or cycle
+  fields. The developer-supplied bearer token is kept in memory only (never
+  persisted, logged, or placed in a URL). It is **local-development only**:
+  Vite binds `127.0.0.1` and proxies `/api` to `http://127.0.0.1:8080`, adding
+  no backend CORS rule, endpoint, or hosting. Node 24 LTS drives `npm test`
+  (Vitest + Testing Library; 110 tests, including 20 focused S2 tests) and
+  `npm run build`; the S2 build passed and `npm audit --audit-level=high`
+  reported zero vulnerabilities. A headless-Chrome smoke test passed 41/41
+  checks against the local twin (15 entities, 18 relationships, 14 impacted
+  entities, 24 evidence paths, 14 risk entries); the rejected-token case used
+  an invalid-signature token, not a naturally expired token. Live OIDC sign-in
+  is **not** implemented or tested (no trusted production issuer/client
+  configured).
 
 Phase 12 S0–S1 (2026-10-16/17) is **design and feasibility work only, not
 runtime implementation**: `DECISIONS.md` D30 records the controlled-execution
@@ -483,9 +505,10 @@ Intentionally absent (not bugs — deferred by decision):
   approvals, and the tamper-evident audit are Phase 11, above).
 - Redis, Spring AI / Ollama, and target-service authentication (still
   deferred). The frontend's Node toolchain and CI job exist, but the console is
-  **local-development-only** (Phase 13 S1, D33): no production/static hosting,
-  no deployed surface, and no live OIDC sign-in (the trusted issuer/client are
-  still missing).
+  **local-development-only** (Phase 13 S1 merged, D33; Phase 13 S2 implemented
+  locally pending review/merge, D35): no production/static hosting, no deployed
+  surface, and no live OIDC sign-in (trusted production issuer/client details
+  are still missing).
 - Grafana log dashboards, Tempo trace UI, unified trace/log UI, anomaly
   detection, any agent use of telemetry (later 3B slices and later).
 - Docker packaging of the Java services, Kafka / RabbitMQ / Kubernetes /
@@ -503,8 +526,10 @@ operation has a meaningful, independently verifiable target actuator
 business POSTs and a read-only Actuator surface only). `APPROVED`
 stays terminal (D29) until a specific operation and actuator satisfy
 the gate and a D29 change is explicitly decided. Phase 13 S1 — the scoped,
-read-only System Twin console (`DECISIONS.md` D33, `frontend/`) — is
-**implemented but local-development-only**: it reads the twin over existing
-`TWIN_READ` GETs and performs no mutation, execution, or simulation. Execution
-stays gated and separate; the console is never exposed beyond the local machine
-before the deferred authentication story lands.
+read-only System Twin console (`DECISIONS.md` D33, `frontend/`) — is **merged
+but local-development-only**. Phase 13 S2 — the Impact & Risk view
+(`DECISIONS.md` D35) — is implemented locally and smoke-verified but **pending
+review/merge**. Both read existing `TWIN_READ` GETs and perform no mutation,
+execution, or simulation. Execution stays gated and separate; the console is
+never exposed beyond the local machine before the deferred authentication story
+lands.

@@ -2,8 +2,9 @@
 
 Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B) +
 telemetry pipeline (Phase 3A) + twin observation (Phase 4) + read-only operator
-console (Phase 13 S1)**. §§1–7 cover the control plane in `backend/`; §8 covers
-the target services in `backend/target-services/`; §9 covers the local telemetry
+console (Phase 13 S1 merged; S2 implemented locally)**. §§1–7 cover the control
+plane in `backend/`; §8 covers the target services in
+`backend/target-services/`; §9 covers the local telemetry
 infrastructure in `observability/`; §10 covers twin synchronization; §18 covers
 the local-development-only React console in `frontend/`.
 No cache or AI runtime is required yet; the frontend is optional and only
@@ -20,7 +21,7 @@ needed for console work.
 | Docker | Docker Desktop (daemon running) | Required for `./mvnw test` (Testcontainers spins up PG 18) and for the Phase 3A telemetry collector (`observability/`) |
 | Redis | **Not required** in this phase | Deferred, only when justified |
 | Ollama / Spring AI | **Not required** in this phase | Deferred |
-| Node / React | **24 LTS** (`frontend/.nvmrc`) | Optional — only for the Phase 13 S1 console (§18); not needed for backend work |
+| Node / React | **24 LTS** (`frontend/.nvmrc`) | Optional — only for the Phase 13 S1/S2 console (§18); not needed for backend work |
 | K8s / brokers | **Not required** (services run locally, not containerized) | Deferred |
 
 > Environment setup (2026-09-28, updated): the machine default `JAVA_HOME`/PATH
@@ -191,7 +192,7 @@ at the same time as the code — docs must reflect reality.
 1. Do not add dependencies unless required for the current phase (recorded in `DECISIONS.md`).
 2. Do not create placeholder packages or speculative modules.
 3. Do not add Docker Compose, Redis/AI configuration, or frontend work beyond
-   the Phase 13 S1 read-only console (see §18).
+   the Phase 13 S1/S2 read-only console (see §18).
 4. Do not weaken tests to make them pass.
 5. Do not claim features work unless verified by `./mvnw test` / startup / endpoint check.
 6. Never commit `application.properties`, credentials, or machine-local settings.
@@ -667,10 +668,12 @@ systivex.security.jwt.allowed-roles=TWIN_READ,TWIN_ANALYZE,TWIN_OPERATOR,TWIN_AD
 
 Set `$env:SYSTIVEX_ISSUER_URI="https://<trusted-issuer>"` before
 starting; without it the application fails fast instead of serving an
-unauthenticated API, and `enabled=false` is rejected. Tests use locally
-generated signing keys (`security/TestJwt.java`) — automated JWT
-coverage, not live identity-provider verification. The four
-target-service APIs are unchanged (open local-only endpoints).
+unauthenticated API, and `enabled=false` is rejected. Automated tests use
+locally generated signing keys (`security/TestJwt.java`). D34's
+local-development Keycloak setup has been used for manual local token
+validation, but it is not production identity configuration and the console
+does not implement live OIDC login. The four target-service APIs are unchanged
+(open local-only endpoints).
 
 
 ### Authenticated manual workflow: sync → impact → risk → simulation → policy
@@ -820,39 +823,109 @@ hard `(issuer, subject)` separation of duties; a hash-chained audit log
 that is tamper-evident, not tamper-proof; every mutation transactional
 with its audit event; no execution endpoints.
 
-## 18. Read-only operator console (Phase 13 S1, local development only)
+## 18. Read-only operator console (Phase 13 S1 merged; S2 implemented locally, local development only)
 
-`frontend/` is a React + Vite + **JavaScript** (no TypeScript) System Twin
-explorer, authorized by `DECISIONS.md` D33 and scoped to the existing
-`TWIN_READ` GET endpoints only: `GET /api/v1/twin/entities[/{id}]` and
-`GET /api/v1/twin/relationships[/{id}]`. It performs no sync, observation,
+`frontend/` is a React + Vite + **JavaScript** (no TypeScript) read-only
+operator console. Phase 13 S1, authorized by `DECISIONS.md` D33 and merged,
+provides the System Twin explorer over the existing `TWIN_READ` GET endpoints
+`GET /api/v1/twin/entities[/{id}]` and
+`GET /api/v1/twin/relationships[/{id}]`. Phase 13 S2, authorized by D35 and
+implemented locally pending review/merge, adds the live-only **Impact & Risk**
+view over the existing `GET /api/v1/twin/impact` and
+`GET /api/v1/twin/risk` endpoints. The console performs no sync, observation,
 write, simulation, policy, or proposal mutation and adds no backend endpoint,
 CORS rule, or hosting.
 
 Prerequisites: **Node.js 24 LTS** (`frontend/.nvmrc`; `engines` requires
-`>=24`). The backend must be running locally (`§5`, Tomcat on `127.0.0.1:8080`)
-for the console to fetch data. Every command runs from `frontend/`:
+`>=24`). The backend must be running locally (`§5`, Tomcat on `127.0.0.1:8080`
+by default) for the console to fetch data. Every command runs from `frontend/`:
 
 ```powershell
 cd frontend
 npm ci            # reproducible install from package-lock.json
-npm test          # Vitest + Testing Library (51 tests)
+npm test          # Vitest + Testing Library (110 tests; 20 focused S2 tests)
 npm run build     # production bundle in frontend/dist/
 npm run dev       # Vite dev server at http://127.0.0.1:5173
 ```
 
 The Vite dev server binds to `127.0.0.1` (`strictPort`) and proxies browser
 calls to `/api` through to `http://127.0.0.1:8080`, so no backend CORS rule is
-needed and the API is same-origin during development. Open the console, paste a
-bearer token you already hold (the control plane still requires a valid JWT with
-`TWIN_READ`, `§16`), and browse entities, relationships, and the dependency
-graph.
+needed and the API is same-origin during development. If 8080 is occupied,
+`SYSTIVEX_BACKEND_PORT` may select a numeric loopback port; the host, scheme,
+and `/api` path remain fixed. Open the console, paste a bearer token you already
+hold (the control plane still requires a valid JWT with `TWIN_READ`, `§16`), and
+browse entities, relationships, the dependency graph, and Impact & Risk.
 
 Token handling: the token is held in memory for the tab only, cleared on
 reload, and never written to `localStorage`, `sessionStorage`, `IndexedDB`,
-cookies, a URL, or logs. There is **no login flow and no identity provider** —
-the trusted issuer/client details remain unavailable, so live OIDC sign-in is
-not implemented and is not claimed. CI (`.github/workflows/frontend-ci.yml`)
-installs from the lockfile, audits dependencies, runs the test suite, and builds
-the bundle on Node 24. Do not add production/static hosting or shared serving
-without a separately reviewed decision (D33).
+cookies, a URL, or logs. There is **no login flow and no bundled identity
+provider** — the trusted production issuer/client details remain unavailable,
+so live OIDC sign-in is not implemented and is not claimed. CI
+(`.github/workflows/frontend-ci.yml`) installs from the lockfile, audits
+dependencies, runs the test suite, and builds the bundle on Node 24. Do not add
+production/static hosting or shared serving without a separately reviewed
+decision (D33).
+
+### Impact & Risk view (Phase 13 S2)
+
+- Select one root entity from the already-loaded S1 snapshot. Selection itself
+  sends no request. Choose **Analyze impact and risk** to issue exactly two
+  GETs: `/api/v1/twin/impact?from=<UUID>` and
+  `/api/v1/twin/risk?from=<UUID>`. No other query parameters are sent.
+- S2 does not expose analysis-depth (`maxDepth`), impact type-filter
+  (`includeTypes`), or multi-root controls. The root picker retains the existing
+  S1 entity TypeFilter for choosing the analysis root. Backend defaults apply:
+  `maxDepth=6` (allowed 1–10) and reported types
+  `SERVICE,API,DATABASE,TABLE`; traversal still passes through other types.
+  Impact caps are 500 nodes and 2,000 paths. Starts are not counted as
+  impacted, and every impacted entity has at least one evidence path.
+- Both responses are required: a failure shows one safe error and no partial
+  result. Retry repeats both reads.
+- Impact results show entity type/name/external ref, depth, `viaStart`, ordered
+  `FORWARD`/`REVERSE` evidence steps with explanations, `entityCount`,
+  `relationshipCount`, `nodeCount`, `pathCount`, `maxDepth`, `truncated`,
+  `truncationReason`, `cycleEncountered`, `limits`, and the advisory note.
+  "No truncation reported" does not imply completeness.
+- Risk results show the backend severity order, level, reasons,
+  `uncertain`/`stale`, taxonomy version, counts, and advisory note. The risk
+  response has **no truncation or cycle fields**, so the view cannot verify
+  risk completeness or risk traversal truncation. Do not infer or fabricate
+  either.
+- Impact and risk `snapshotObservedAt` values are separate computation times
+  from separate calls; the UI labels them separately. Neither is a snapshot
+  sync time or a general "last updated" time.
+
+### Local verification and smoke procedure
+
+The S2 checkpoint recorded 20 focused tests and 110 total frontend tests
+passing, a successful production build, and zero high-severity audit findings.
+A headless-Chrome smoke test against local Keycloak and the backend passed
+**41/41 checks** using the real local twin: 15 entities, 18 relationships, 14
+impacted entities, 24 evidence paths, and 14 risk entries. That run verified
+the two GETs, root selection without requests, explicit Analyze, evidence
+keyboard controls, root-change clearing, preview exclusion, token
+storage/network checks, reload clearing, 401 handling, retry, and recovery with
+a fresh valid token. The rejected-token case used an **invalid-signature
+token**, not a naturally expired token.
+
+To repeat the smoke locally:
+
+1. Start PostgreSQL, the backend (`§5`), and the local Keycloak setup if using
+   D34. Obtain a valid `TWIN_READ` bearer token out of band. Never put a real
+   token in a script, URL, screenshot, log, or repository.
+2. From `frontend/`, run `npm ci`, `npm test`, `npm run build`, then
+   `npm run dev`. Open `http://127.0.0.1:5173`.
+3. Paste the token, load the twin, open **Impact & Risk**, select one root, and
+   choose Analyze. In browser devtools, confirm exactly the two illustrated GET
+   requests with one `from` UUID each and HTTP 200.
+4. Check impacted/evidence fields, both response timestamps, risk flags and
+   ordering, the risk-completeness caveat, root-change clearing, and that the
+   token is not present in storage, the URL, the DOM, or logs.
+
+Live OIDC login was not implemented or tested; D34's Keycloak is a local
+verification setup, not production identity configuration. The optional
+`observability/` telemetry collector is not required by the console. If it is
+not running, the backend may emit non-fatal OTLP export warnings.
+
+S2 remains local-only and pending review/merge. Do not describe it as merged,
+as live-OIDC-integrated, or as evidence of production hosting.

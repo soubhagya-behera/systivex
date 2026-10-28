@@ -2,7 +2,7 @@ import { ErrorKind } from '../api/errors.js';
 
 export function LoadingPanel({ label = 'Loading' }) {
   return (
-    <div className="state" role="status" aria-live="polite">
+    <div className="state" role="status" aria-live="polite" aria-label={label}>
       <span className="visually-hidden">{label}</span>
       <div className="skeleton-row" />
       <div className="skeleton-row" />
@@ -28,7 +28,7 @@ const VARIANT = {
   [ErrorKind.UNAUTHORIZED]: 'state--forbidden',
 };
 
-export function ErrorPanel({ error, onRetry }) {
+export function ErrorPanel({ error, onRetry, hint = null }) {
   const kind = error?.kind ?? ErrorKind.UNEXPECTED;
   return (
     <div className={`state state--error ${VARIANT[kind] ?? ''}`} role="alert">
@@ -45,6 +45,7 @@ export function ErrorPanel({ error, onRetry }) {
       {kind === ErrorKind.FORBIDDEN ? (
         <p className="hint">This view only reads the twin; no writes are performed.</p>
       ) : null}
+      {hint ? <p className="hint">{hint}</p> : null}
       {onRetry ? (
         <button type="button" className="btn" onClick={onRetry}>
           Retry

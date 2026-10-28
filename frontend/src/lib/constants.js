@@ -20,4 +20,10 @@ export const RELATIONSHIP_TYPES = [
   'CONFIGURES',
 ];
 
-export const VIEWS = ['overview', 'entities', 'relationships', 'graph'];
+export const VIEWS = [
+  'overview',
+  'entities',
+  'relationships',
+  'graph',
+  'impact-risk',
+];

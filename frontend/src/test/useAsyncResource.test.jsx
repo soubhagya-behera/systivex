@@ -47,6 +47,29 @@ describe('useAsyncResource', () => {
     expect(result.current.error).toMatchObject({ message: 'new failure' });
   });
 
+  it('returns to idle and ignores an in-flight result after reset', async () => {
+    const pending = deferred();
+    const loader = vi.fn(() => pending.promise);
+    const { result } = renderHook(() => useAsyncResource(loader, []));
+
+    await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      result.current.reset();
+    });
+    expect(result.current.status).toBe('idle');
+    expect(result.current.data).toBeNull();
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      pending.resolve('stale success');
+    });
+    await flush();
+
+    expect(result.current.status).toBe('idle');
+    expect(result.current.data).toBeNull();
+  });
+
   it('ignores an older failure that settles after a newer success', async () => {
     const older = deferred();
     const newer = deferred();

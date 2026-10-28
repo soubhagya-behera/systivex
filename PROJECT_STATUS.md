@@ -1,21 +1,27 @@
 # Systivex Project Status
 
-Last verified: **2026-10-24** (Asia/Kolkata). This document must be updated
+Last verified: **2026-10-28** (Asia/Kolkata). This document must be updated
 whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 13 S1 — Read-only operator console (implemented 2026-10-18 on
-`feat/phase-13-s1-twin-explorer`; pending review/merge).**
-`DECISIONS.md` D33 authorizes a scoped, read-only React + Vite + JavaScript
-operator console beginning with the System Twin explorer. The first slice is
-implemented in `frontend/`: entity and relationship browsing, a deterministic
-dependency graph, client-side search/filter, and accessible
-loading/empty/error states over the existing `TWIN_READ` GETs. It is
-local-development-only (in-memory token, Vite `127.0.0.1` proxy, no backend
-CORS or hosting) and live OIDC remains blocked (no trusted issuer/client
-configured). D29–D31 are unchanged and controlled execution stays gated.
-Phases 0–12 below are kept as history.
+**Phase 13 S2 — Impact & Risk investigation UI (implemented locally 2026-10-28
+on `feat/phase-13-s2-impact-risk`; live smoke-verified; pending review and
+merge).**
+`DECISIONS.md` D35 authorizes a scoped, read-only impact/risk view in the
+existing React + Vite + JavaScript console. It extends the merged Phase 13 S1
+System Twin explorer with one searchable root selected from the already-loaded
+snapshot, an explicit Analyze action, and only the existing
+`GET /api/v1/twin/impact` and `GET /api/v1/twin/risk` calls with
+`from=<entity UUID>` and no other query parameters. The verified backend
+defaults apply: `maxDepth=6` and `includeTypes=SERVICE,API,DATABASE,TABLE`.
+Results load all-or-nothing, keep the impact and risk computation timestamps
+separate, and show impact truncation/cycle/limits plus the risk-completeness
+caveat rather than inventing risk completeness. S1 is merged; S2 is
+local-development-only, uses the existing manual in-memory bearer token, and
+implements no live OIDC login. No backend endpoint, schema, dependency, CORS,
+hosting, or security change was made. D29–D31 are unchanged and controlled
+execution stays gated. Phases 0–12 below are kept as history.
 
 ## Gated, not scheduled — controlled execution
 
@@ -31,8 +37,55 @@ an explicit D29-change decision are all satisfied and approved. Until then
 execution remains unimplemented — stated plainly, not filled with
 scaffolding.
 
-## Phase 13 S1 — Read-only operator console (implemented 2026-10-18;
-`frontend/` landed on `feat/phase-13-s1-twin-explorer`, pending review)
+## Phase 13 S2 — Impact & Risk investigation UI (implemented locally 2026-10-28;
+`feat/phase-13-s2-impact-risk`, live smoke-verified, pending review/merge)
+
+- [x] `DECISIONS.md` D35 records the Phase 13 S2 decision: a scoped, read-only
+  Impact & Risk view in the existing **React + Vite + JavaScript** console. It
+  supports one root selected from the S1 snapshot, an explicit Analyze action,
+  and only the two existing `TWIN_READ` GET endpoints
+  (`GET /api/v1/twin/impact` and `GET /api/v1/twin/risk`) with
+  `from=<entity UUID>`.
+- [x] S2 sends no `maxDepth` or `includeTypes` parameters and exposes no
+  controls for them; the backend defaults apply (`maxDepth=6`;
+  `SERVICE,API,DATABASE,TABLE`). It supports no multiple roots, automatic
+  analysis, synthetic analysis preview, or entity-detail CTA.
+- [x] Results are loaded all-or-nothing. The view displays impact entity cards,
+  depth and `viaStart`, ordered `FORWARD`/`REVERSE` evidence paths with
+  explanations, impact `truncated`/`truncationReason`/`cycleEncountered`/
+  `limits`, and both advisory notes. The risk section displays levels, sorted
+  reasons, `uncertain`/`stale`, taxonomy version, and backend severity order,
+  with an explicit caveat that the risk response has no truncation or cycle
+  fields. Impact and risk computation timestamps remain separately labeled.
+- [x] Security posture remains the S1/D28 boundary: the manually supplied
+  bearer token is held in memory, cleared on reload, never rendered or
+  persisted, and attached only to local `/api` requests. HTTP 400 is mapped to
+  a fixed safe error; 401/403/404/5xx/network/malformed-response handling stays
+  safe. No backend CORS rule, endpoint, schema, dependency, hosting change, or
+  security-off mode was introduced.
+- [x] Verification (2026-10-28): focused S2 tests **20 passed**; full frontend
+  suite **110 passed**; production build passed;
+  `npm audit --audit-level=high` reported **zero vulnerabilities**.
+- [x] Live browser smoke test: **41/41 checks passed** in headless Chrome
+  against the local Keycloak/backend setup. Real data was **15 entities, 18
+  relationships, 14 impacted entities, 24 evidence paths, and 14 risk
+  entries**; both approved analysis GETs returned HTTP 200 and used exactly the
+  selected entity UUID as `from`.
+- [x] Browser checks covered root selection without analysis, explicit
+  Analyze, result fields and keyboard evidence controls, root-change clearing,
+  preview gating, token storage/network checks, reload token clearing, 401 UI,
+  retry of both reads, and recovery with a fresh valid token. The rejected
+  token used an **invalid signature**, not a naturally expired token.
+- [x] Live OIDC login remains unimplemented and was not tested. The console
+  continues to use the existing manual in-memory token bridge. D34's local
+  Keycloak is a verified local-development setup, not production
+  identity-provider configuration.
+- [x] No backend source, schema, authentication policy, database, dependency,
+  or CORS change was made. The optional telemetry collector was not running;
+  non-fatal OTLP export warnings may occur.
+- [ ] S2 remains **pending review and merge**; it is not merged.
+
+## Phase 13 S1 — Read-only operator console (implemented 2026-10-18; merged)
 
 - [x] `DECISIONS.md` D33 records the Phase 13 S1 decision: a scoped,
   read-only **React + Vite + JavaScript** operator console, starting with the
@@ -47,8 +100,9 @@ scaffolding.
   and never logged, rendered, placed in a URL, or persisted in
   `localStorage`, `sessionStorage`, `IndexedDB`, cookies, or other storage.
   No bundled identity provider, fake login, invented issuer, placeholder
-  production credentials, or security-off mode. Trusted issuer/client details
-  are still missing, so **live authentication verification remains blocked**.
+  production credentials, or security-off mode. Trusted production
+  issuer/client details remain unavailable, so **live OIDC sign-in remains
+  unimplemented**.
 - [x] S1 uses the **Vite development proxy** and adds no backend CORS rules;
   production serving is deferred to a separately reviewed decision. The UI is
   local-development-only until shared-environment serving, identity,
@@ -56,26 +110,25 @@ scaffolding.
 - [x] No new backend endpoints, database migrations, backend dependencies,
   executor role, or actuator are authorized by S1. D29–D31 remain unchanged
   and `APPROVED` stays terminal; no operation is executed.
-- [x] Frontend implementation (System Twin explorer) **landed on
-  `feat/phase-13-s1-twin-explorer`** (pending review/merge): `frontend/` is
-  React + Vite + JavaScript (no TypeScript) with a system overview, entity and
-  relationship explorers, a dependency graph, and client-side search/filter.
-  The graph is a pure, dependency-free layered SVG layout that handles
-  disconnected entities, missing endpoints, cycles, self-loops, and larger
-  graphs with explicit notices. Node 24 LTS drives `npm ci` → `npm test`
-  (51 Vitest tests) → `npm run build`; these checks pass locally (2026-10-24),
-  and `.github/workflows/frontend-ci.yml` defines the same sequence. The
-  workflow passed on GitHub for the committed HEAD (`7b9fb6c`); the current
-  uncommitted changes have only been verified locally. No backend code, schema,
-  security rule, or dependency changed.
+- [x] Frontend implementation (System Twin explorer) **is merged**:
+  `frontend/` is React + Vite + JavaScript (no TypeScript) with a system
+  overview, entity and relationship explorers, a dependency graph, and
+  client-side search/filter. The graph is a pure, dependency-free layered SVG
+  layout that handles disconnected entities, missing endpoints, cycles,
+  self-loops, and larger graphs with explicit notices. Node 24 LTS drives
+  `npm ci` → `npm test` (51 Vitest tests at S1) → `npm run build`;
+  `.github/workflows/frontend-ci.yml` defines the same sequence and passed on
+  GitHub for committed HEAD `7b9fb6c`. S2's later changes are verified
+  separately above. No backend code, schema, security rule, or dependency
+  changed.
 - [x] Security posture verified: the API client refuses to send before a token
   is supplied, attaches `Authorization: Bearer …` only to local `/api` paths
   (the Vite proxy keeps it same-origin), and maps 401/403/5xx/network errors to
   fixed safe messages without echoing response bodies or the token. A source
   scan found no `localStorage`/`sessionStorage`/`document.cookie`/`console` use
   in application code, and no JWT decoding.
-- [ ] Later UI slices (impact/risk, simulation/policy, governance/audit) each
-  require their own scope and verification checkpoint.
+- [ ] Later UI slices (simulation/policy, governance/audit) each require their
+  own scope and verification checkpoint.
 
 ## Phase 13 S0 — Open-source contributor readiness (recorded 2026-10-17;
 licensing + contributor docs + CI only, no application change)
@@ -1321,8 +1374,8 @@ These are **deferred by decision**, not missing by accident. Do not report them 
   control-plane API is JWT-protected; Phase 10, D28.)
 - Redis configuration or usage.
 - Spring AI / Ollama integration, model configuration.
-- Frontend work beyond the Phase 13 S1 read-only System Twin explorer
-  (`frontend/`); no impact/risk, simulation/policy, or governance/audit UI.
+- Frontend work beyond the Phase 13 S1/S2 read-only console (`frontend/`); no
+  simulation/policy or governance/audit UI.
 - Docker packaging of the Java services or any container orchestration
   (Compose exists only for the telemetry collector, `observability/`).
 - Cross-service database access, shared schemas, distributed transactions
