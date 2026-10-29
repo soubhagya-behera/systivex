@@ -26,4 +26,5 @@ export const VIEWS = [
   'relationships',
   'graph',
   'impact-risk',
+  'audit-integrity',
 ];
