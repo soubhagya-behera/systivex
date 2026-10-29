@@ -7,6 +7,7 @@
  */
 export const ErrorKind = {
   NO_TOKEN: 'no-token',
+  BAD_REQUEST: 'bad-request',
   UNAUTHORIZED: 'unauthorized',
   FORBIDDEN: 'forbidden',
   NOT_FOUND: 'not-found',
@@ -17,6 +18,8 @@ export const ErrorKind = {
 
 const SAFE_MESSAGES = {
   [ErrorKind.NO_TOKEN]: 'Enter a bearer token before requesting System Twin data.',
+  [ErrorKind.BAD_REQUEST]:
+    'The control plane rejected the request as invalid (400). Review the request and retry.',
   [ErrorKind.UNAUTHORIZED]:
     'Authentication required (401). The control plane did not accept the request.',
   [ErrorKind.FORBIDDEN]:

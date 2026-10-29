@@ -108,7 +108,7 @@ Full design, trust boundaries, and the deterministic-vs-advisory distinction liv
 | JWT-protected API | ✅ Implemented and tested |
 | Runtime observation and telemetry integration | ✅ Implemented and tested |
 | Controlled execution | 🚧 Design-only — gated by D30/D31 |
-| Frontend / operator console | 🚧 Phase 13 S1 System Twin explorer implemented (read-only, D33) |
+| Frontend / operator console | 🚧 Phase 13 S1 System Twin explorer merged; S2 Impact & Risk locally implemented and smoke-verified, pending review/merge (D33/D35) |
 | Agent orchestration, verification, Git integration | 📋 Planned, not implemented |
 
 Impact, risk, and simulation derive deterministically from the twin and never authorize
@@ -146,23 +146,31 @@ configuration, and `./mvnw spring-boot:run` — are in [`DEVELOPMENT.md`](DEVELO
 <details>
 <summary>Running the read-only operator console (frontend)</summary>
 
-The `frontend/` React + Vite + JavaScript console is **local-development only**
-(`DECISIONS.md` D33). It binds to `127.0.0.1` and proxies `/api` to a control plane
-running at `http://127.0.0.1:8080`; it adds no backend surface and has no
-production hosting.
+The `frontend/` React + Vite + JavaScript console is **local-development only**.
+Phase 13 S1 is merged (`DECISIONS.md` D33); Phase 13 S2 is locally implemented and
+smoke-verified but **pending review/merge** (D35). It binds to `127.0.0.1` and
+proxies `/api` to a control plane running at `http://127.0.0.1:8080`; it adds no
+backend surface and has no production hosting.
 
 ```bash
 cd frontend
 npm ci
-npm test        # Vitest + Testing Library
+npm test        # Vitest + Testing Library (110 tests; 20 focused S2 tests)
 npm run build   # production bundle
 npm run dev     # serve at http://127.0.0.1:5173 (start the backend first)
 ```
 
 Open the console, paste a bearer token you already hold — it is kept in memory for
-the tab only — and explore entities, relationships, and the dependency graph. There
-is no login flow and no identity provider: the console never persists the token and
-performs read-only `GET`s against the System Twin API.
+the tab only — and explore entities, relationships, the dependency graph, or the
+**Impact & Risk** view. Select one loaded root and choose Analyze explicitly; S2
+then sends only `GET /api/v1/twin/impact?from=<UUID>` and
+`GET /api/v1/twin/risk?from=<UUID>`, using the backend defaults (`maxDepth=6`;
+`SERVICE,API,DATABASE,TABLE`). The view shows impact evidence paths, truncation/
+cycle/limits, advisory risk entries, and separate impact/risk computation times;
+risk has no truncation or cycle fields, so risk completeness is not claimed.
+There is no live OIDC login flow and no bundled identity provider: the console
+never persists the token and performs read-only `GET`s against the System Twin
+API.
 
 </details>
 
@@ -175,26 +183,28 @@ performs read-only `GET`s against the System Twin API.
 
 Every `/api/v1/twin/*` endpoint requires a validated OAuth2 bearer token and an allowlisted
 role (`TWIN_READ`, `TWIN_ANALYZE`, `TWIN_OPERATOR`, `TWIN_ADMIN`, `TWIN_APPROVER`). There is
-no login flow, no bundled identity provider, and no default credentials; live
-identity-provider verification is pending and not claimed. Systivex is not an execution
-engine, agent, or tool broker, and no target actuator exists — report issues via
-[`SECURITY.md`](SECURITY.md).
+no live OIDC login flow, no bundled identity provider, and no default credentials. A
+local-development Keycloak setup has been used for manual token validation, but
+production identity-provider configuration and live OIDC sign-in are not implemented
+or claimed. Systivex is not an execution engine, agent, or tool broker, and no target
+actuator exists — report issues via [`SECURITY.md`](SECURITY.md).
 
 ---
 
 ## 🗂️ Project Structure
 
 `backend/` holds the Java 21 control plane (with its sample `target-services/`),
-`frontend/` holds the read-only React + Vite operator console (Phase 13 S1, local
-development only), and `observability/` holds a local telemetry stack (collector,
-Prometheus, Loki, Grafana).
+`frontend/` holds the read-only React + Vite operator console (Phase 13 S1 merged;
+S2 locally implemented pending review/merge; local development only), and
+`observability/` holds a local telemetry stack (collector, Prometheus, Loki,
+Grafana).
 
 | Document | Purpose |
 | --- | --- |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | System design and trust boundaries |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | Build, test, run, and configuration |
 | [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | Phase-by-phase record of what exists |
-| [`DECISIONS.md`](DECISIONS.md) | Architectural decisions (D29–D33) |
+| [`DECISIONS.md`](DECISIONS.md) | Architectural decisions (D29–D35) |
 | [`THREAT_MODEL.md`](THREAT_MODEL.md) | Security principles and threat model |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Community expectations |

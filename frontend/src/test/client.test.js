@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createApiClient } from '../api/client.js';
-import { ApiError, ErrorKind } from '../api/errors.js';
+import { ApiError, ErrorKind, safeMessage } from '../api/errors.js';
 
 function jsonResponse(body, { status = 200 } = {}) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -45,6 +45,26 @@ describe('createApiClient', () => {
       expect(error.message).not.toContain('test-token');
       expect(error.message).not.toContain('detail');
     }
+  });
+
+  it('maps HTTP 400 to a fixed safe validation error', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ detail: 'test-token sensitive-response-body' }),
+    });
+    const client = createApiClient({ getToken: () => 'test-token', fetchImpl });
+
+    const error = await client
+      .request('/api/v1/twin/impact?from=x')
+      .catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.kind).toBe(ErrorKind.BAD_REQUEST);
+    expect(error.status).toBe(400);
+    expect(error.message).toBe(safeMessage(ErrorKind.BAD_REQUEST));
+    expect(error.message).not.toContain('test-token');
+    expect(error.message).not.toContain('sensitive-response-body');
   });
 
   it('maps network failures and server errors', async () => {

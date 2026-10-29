@@ -23,6 +23,11 @@ export function useAsyncResource(loader, deps = []) {
     };
   }, []);
 
+  const reset = useCallback(() => {
+    requestIdRef.current += 1;
+    setState(IDLE);
+  }, []);
+
   const reload = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
@@ -45,5 +50,5 @@ export function useAsyncResource(loader, deps = []) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
-  return { ...state, reload };
+  return { ...state, reload, reset };
 }
