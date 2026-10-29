@@ -108,7 +108,7 @@ Full design, trust boundaries, and the deterministic-vs-advisory distinction liv
 | JWT-protected API | ✅ Implemented and tested |
 | Runtime observation and telemetry integration | ✅ Implemented and tested |
 | Controlled execution | 🚧 Design-only — gated by D30/D31 |
-| Frontend / operator console | 🚧 Phase 13 S1 System Twin explorer merged; S2 Impact & Risk locally implemented and smoke-verified, pending review/merge (D33/D35) |
+| Frontend / operator console | 🚧 Phase 13 S1 and S2 merged; local-development-only |
 | Agent orchestration, verification, Git integration | 📋 Planned, not implemented |
 
 Impact, risk, and simulation derive deterministically from the twin and never authorize
@@ -147,10 +147,11 @@ configuration, and `./mvnw spring-boot:run` — are in [`DEVELOPMENT.md`](DEVELO
 <summary>Running the read-only operator console (frontend)</summary>
 
 The `frontend/` React + Vite + JavaScript console is **local-development only**.
-Phase 13 S1 is merged (`DECISIONS.md` D33); Phase 13 S2 is locally implemented and
-smoke-verified but **pending review/merge** (D35). It binds to `127.0.0.1` and
-proxies `/api` to a control plane running at `http://127.0.0.1:8080`; it adds no
-backend surface and has no production hosting.
+Phase 13 S1 is merged (`DECISIONS.md` D33); Phase 13 S2 was merged via PR #12 on
+2026-10-29 (merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`). It binds
+to `127.0.0.1` and proxies `/api` to a control plane running at
+`http://127.0.0.1:8080`; it adds no backend surface and has no production
+hosting.
 
 ```bash
 cd frontend
@@ -194,8 +195,8 @@ actuator exists — report issues via [`SECURITY.md`](SECURITY.md).
 ## 🗂️ Project Structure
 
 `backend/` holds the Java 21 control plane (with its sample `target-services/`),
-`frontend/` holds the read-only React + Vite operator console (Phase 13 S1 merged;
-S2 locally implemented pending review/merge; local development only), and
+`frontend/` holds the read-only React + Vite operator console (Phase 13 S1 and
+S2 merged; local development only), and
 `observability/` holds a local telemetry stack (collector, Prometheus, Loki,
 Grafana).
 
@@ -204,7 +205,7 @@ Grafana).
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | System design and trust boundaries |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | Build, test, run, and configuration |
 | [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | Phase-by-phase record of what exists |
-| [`DECISIONS.md`](DECISIONS.md) | Architectural decisions (D29–D35) |
+| [`DECISIONS.md`](DECISIONS.md) | Architectural decisions (D1–D33) |
 | [`THREAT_MODEL.md`](THREAT_MODEL.md) | Security principles and threat model |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Community expectations |
