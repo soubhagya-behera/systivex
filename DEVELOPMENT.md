@@ -2,8 +2,8 @@
 
 Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B) +
 telemetry pipeline (Phase 3A) + twin observation (Phase 4) + read-only operator
-console (Phase 13 S1 merged; S2 implemented locally)**. §§1–7 cover the control
-plane in `backend/`; §8 covers the target services in
+console (Phase 13 S1 merged; S2 merged via PR #12; local development only)**.
+§§1–7 cover the control plane in `backend/`; §8 covers the target services in
 `backend/target-services/`; §9 covers the local telemetry
 infrastructure in `observability/`; §10 covers twin synchronization; §18 covers
 the local-development-only React console in `frontend/`.
@@ -669,8 +669,8 @@ systivex.security.jwt.allowed-roles=TWIN_READ,TWIN_ANALYZE,TWIN_OPERATOR,TWIN_AD
 Set `$env:SYSTIVEX_ISSUER_URI="https://<trusted-issuer>"` before
 starting; without it the application fails fast instead of serving an
 unauthenticated API, and `enabled=false` is rejected. Automated tests use
-locally generated signing keys (`security/TestJwt.java`). D34's
-local-development Keycloak setup has been used for manual local token
+locally generated signing keys (`security/TestJwt.java`). The
+local Keycloak development setup has been used for manual local token
 validation, but it is not production identity configuration and the console
 does not implement live OIDC login. The four target-service APIs are unchanged
 (open local-only endpoints).
@@ -823,16 +823,17 @@ hard `(issuer, subject)` separation of duties; a hash-chained audit log
 that is tamper-evident, not tamper-proof; every mutation transactional
 with its audit event; no execution endpoints.
 
-## 18. Read-only operator console (Phase 13 S1 merged; S2 implemented locally, local development only)
+## 18. Read-only operator console (Phase 13 S1 merged; S2 merged via PR #12; local development only)
 
 `frontend/` is a React + Vite + **JavaScript** (no TypeScript) read-only
 operator console. Phase 13 S1, authorized by `DECISIONS.md` D33 and merged,
 provides the System Twin explorer over the existing `TWIN_READ` GET endpoints
 `GET /api/v1/twin/entities[/{id}]` and
-`GET /api/v1/twin/relationships[/{id}]`. Phase 13 S2, authorized by D35 and
-implemented locally pending review/merge, adds the live-only **Impact & Risk**
-view over the existing `GET /api/v1/twin/impact` and
-`GET /api/v1/twin/risk` endpoints. The console performs no sync, observation,
+`GET /api/v1/twin/relationships[/{id}]`. Phase 13 S2, merged via PR #12 on
+2026-10-29 (merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`), adds the
+live-only **Impact & Risk** view over the existing
+`GET /api/v1/twin/impact` and `GET /api/v1/twin/risk` endpoints. The console
+performs no sync, observation,
 write, simulation, policy, or proposal mutation and adds no backend endpoint,
 CORS rule, or hosting.
 
@@ -910,9 +911,9 @@ token**, not a naturally expired token.
 
 To repeat the smoke locally:
 
-1. Start PostgreSQL, the backend (`§5`), and the local Keycloak setup if using
-   D34. Obtain a valid `TWIN_READ` bearer token out of band. Never put a real
-   token in a script, URL, screenshot, log, or repository.
+1. Start PostgreSQL, the backend (`§5`), and the local Keycloak development
+   setup if using it. Obtain a valid `TWIN_READ` bearer token out of band.
+   Never put a real token in a script, URL, screenshot, log, or repository.
 2. From `frontend/`, run `npm ci`, `npm test`, `npm run build`, then
    `npm run dev`. Open `http://127.0.0.1:5173`.
 3. Paste the token, load the twin, open **Impact & Risk**, select one root, and
@@ -922,10 +923,10 @@ To repeat the smoke locally:
    ordering, the risk-completeness caveat, root-change clearing, and that the
    token is not present in storage, the URL, the DOM, or logs.
 
-Live OIDC login was not implemented or tested; D34's Keycloak is a local
-verification setup, not production identity configuration. The optional
-`observability/` telemetry collector is not required by the console. If it is
-not running, the backend may emit non-fatal OTLP export warnings.
+Live OIDC login was not implemented or tested; the local Keycloak development
+setup is a local verification setup, not production identity configuration. The
+optional `observability/` telemetry collector is not required by the console.
+If it is not running, the backend may emit non-fatal OTLP export warnings.
 
-S2 remains local-only and pending review/merge. Do not describe it as merged,
-as live-OIDC-integrated, or as evidence of production hosting.
+S2 is merged in PR #12, but the frontend remains local-development-only and is
+not production hosted or live-OIDC-integrated.

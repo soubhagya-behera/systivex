@@ -103,8 +103,9 @@ APIs; no cross-module persistence access; every consequential action crosses
 the policy/execution boundary (see §6).
 
 The **frontend is a local-development-only read-only operator console**
-(Phase 13 S1 merged, `DECISIONS.md` D33; Phase 13 S2 implemented locally pending
-review/merge, D35; it is not a control-plane module). It lives in `frontend/` as
+(Phase 13 S1 merged, `DECISIONS.md` D33; Phase 13 S2 merged via PR #12 on
+2026-10-29, merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`; it is not
+a control-plane module). It lives in `frontend/` as
 a React + Vite + **JavaScript** (no TypeScript) app. The S1 System Twin explorer
 reads existing `TWIN_READ` GET endpoints; S2 adds a live-only Impact & Risk view
 that reads the existing impact and risk GETs for one root UUID. It adds no
@@ -333,19 +334,19 @@ See `THREAT_MODEL.md` for the principles these boundaries enforce.
   `TWIN_ADMIN`);
   `GET /actuator/health` anonymous (status only),
   `/actuator/prometheus` requires `TWIN_READ`, all else denied.
-- **Read-only operator console (S1 merged; S2 implemented locally, local
-  development only).** `DECISIONS.md` D33 scopes the `frontend/` React + Vite +
-  JavaScript console to existing `TWIN_READ` GET endpoints only: S1 reads
+- **Read-only operator console (S1 and S2 merged; local development only).**
+  `DECISIONS.md` D33 scopes the `frontend/` React + Vite + JavaScript console to
+  existing `TWIN_READ` GET endpoints only: S1 reads
   `/api/v1/twin/entities[/{id}]` and
-  `/api/v1/twin/relationships[/{id}]`; D35's S2 Impact & Risk view reads
+  `/api/v1/twin/relationships[/{id}]`; S2's Impact & Risk view reads
   `/api/v1/twin/impact?from=<UUID>` and `/api/v1/twin/risk?from=<UUID>` for one
   selected root. No API surface is added and no CORS rule is configured; the
-  Vite proxy makes it same-origin during development. S2 remains pending
-  review/merge and does not change the security or execution boundary.
+  Vite proxy makes it same-origin during development. S2 merged via PR #12 on
+  2026-10-29 and does not change the security or execution boundary.
 - **SSE** for streaming long-running analysis/simulation progress (planned).
 - No WebSockets at this stage (see `DECISIONS.md`).
 
-## 8. Current implementation status (documentation reviewed 2026-10-28; last live frontend verification 2026-10-28, Phase 13 S2 browser smoke)
+## 8. Current implementation status (documentation reviewed 2026-10-29; last live frontend verification 2026-10-28, Phase 13 S2 browser smoke; Phase 13 S2 merged via PR #12 on 2026-10-29)
 
 Implemented:
 
@@ -435,8 +436,8 @@ Implemented:
   policy with loopback guards still authoritative behind
   `TWIN_OPERATOR`; anonymous status-only health,
   `TWIN_READ`-restricted Prometheus metrics, deny-by-default otherwise
-  (see `DECISIONS.md` D28). Automated JWT tests use local test keys; D34's
-  local-development Keycloak setup has been used for manual token validation.
+  (see `DECISIONS.md` D28). Automated JWT tests use local test keys; the
+  local Keycloak development setup has been used for manual token validation.
   Production issuer configuration and live OIDC sign-in remain unimplemented
   and are not claimed.
 - Governed change proposals (Phase 11 S1–S6, see §3 and `DECISIONS.md`
@@ -453,8 +454,8 @@ Implemented:
   executes nothing. Verified in tests (full `./mvnw clean test` suite: 398
   tests, 0 failures; see `PROJECT_STATUS.md` Phase 11 S1–S6). No new
   dependencies, no target-service change.
-- Read-only operator console (Phase 13 S1 merged; S2 implemented locally
-  pending review/merge; see §7 and `DECISIONS.md` D33/D35): `frontend/` is a
+- Read-only operator console (Phase 13 S1 and S2 merged; S2 merged via PR #12
+  on 2026-10-29; see §7 and `DECISIONS.md` D33): `frontend/` is a
   React + Vite + **JavaScript** (no TypeScript) read-only console. S1 provides
   the System Twin explorer over the existing `TWIN_READ` GETs
   (`/api/v1/twin/entities[/{id}]`, `/api/v1/twin/relationships[/{id}]`) with
@@ -505,10 +506,10 @@ Intentionally absent (not bugs — deferred by decision):
   approvals, and the tamper-evident audit are Phase 11, above).
 - Redis, Spring AI / Ollama, and target-service authentication (still
   deferred). The frontend's Node toolchain and CI job exist, but the console is
-  **local-development-only** (Phase 13 S1 merged, D33; Phase 13 S2 implemented
-  locally pending review/merge, D35): no production/static hosting, no deployed
-  surface, and no live OIDC sign-in (trusted production issuer/client details
-  are still missing).
+  **local-development-only** (Phase 13 S1 and S2 merged, D33; S2 merged via
+  PR #12 on 2026-10-29): no production/static hosting, no deployed surface, and
+  no live OIDC sign-in (trusted production issuer/client details are still
+  missing).
 - Grafana log dashboards, Tempo trace UI, unified trace/log UI, anomaly
   detection, any agent use of telemetry (later 3B slices and later).
 - Docker packaging of the Java services, Kafka / RabbitMQ / Kubernetes /
@@ -527,9 +528,11 @@ business POSTs and a read-only Actuator surface only). `APPROVED`
 stays terminal (D29) until a specific operation and actuator satisfy
 the gate and a D29 change is explicitly decided. Phase 13 S1 — the scoped,
 read-only System Twin console (`DECISIONS.md` D33, `frontend/`) — is **merged
-but local-development-only**. Phase 13 S2 — the Impact & Risk view
-(`DECISIONS.md` D35) — is implemented locally and smoke-verified but **pending
-review/merge**. Both read existing `TWIN_READ` GETs and perform no mutation,
-execution, or simulation. Execution stays gated and separate; the console is
+but local-development-only**. Phase 13 S2 — the Impact & Risk view — is
+**merged via PR #12 on 2026-10-29** (merge commit
+`62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`) and smoke-verified, and remains
+local-development-only. Both read existing `TWIN_READ` GETs and perform no
+mutation, execution, or simulation. Execution stays gated and separate; the
+console is
 never exposed beyond the local machine before the deferred authentication story
 lands.

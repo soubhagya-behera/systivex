@@ -1,15 +1,14 @@
 # Systivex Project Status
 
-Last verified: **2026-10-28** (Asia/Kolkata). This document must be updated
+Last verified: **2026-10-29** (Asia/Kolkata). This document must be updated
 whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 13 S2 — Impact & Risk investigation UI (implemented locally 2026-10-28
-on `feat/phase-13-s2-impact-risk`; live smoke-verified; pending review and
-merge).**
-`DECISIONS.md` D35 authorizes a scoped, read-only impact/risk view in the
-existing React + Vite + JavaScript console. It extends the merged Phase 13 S1
+**Phase 13 S2 — Impact & Risk investigation UI (merged via PR #12 on 2026-10-29;
+merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`).**
+Phase 13 S2 adds a scoped, read-only impact/risk view to the existing
+React + Vite + JavaScript console. It extends the merged Phase 13 S1
 System Twin explorer with one searchable root selected from the already-loaded
 snapshot, an explicit Analyze action, and only the existing
 `GET /api/v1/twin/impact` and `GET /api/v1/twin/risk` calls with
@@ -17,11 +16,11 @@ snapshot, an explicit Analyze action, and only the existing
 defaults apply: `maxDepth=6` and `includeTypes=SERVICE,API,DATABASE,TABLE`.
 Results load all-or-nothing, keep the impact and risk computation timestamps
 separate, and show impact truncation/cycle/limits plus the risk-completeness
-caveat rather than inventing risk completeness. S1 is merged; S2 is
-local-development-only, uses the existing manual in-memory bearer token, and
-implements no live OIDC login. No backend endpoint, schema, dependency, CORS,
-hosting, or security change was made. D29–D31 are unchanged and controlled
-execution stays gated. Phases 0–12 below are kept as history.
+caveat rather than inventing risk completeness. S1 and S2 are merged; the
+console remains local-development-only, uses the existing manual in-memory
+bearer token, and implements no live OIDC login. No backend endpoint, schema,
+dependency, CORS, hosting, or security change was made. D29–D31 are unchanged
+and controlled execution stays gated. Phases 0–12 below are kept as history.
 
 ## Gated, not scheduled — controlled execution
 
@@ -37,15 +36,14 @@ an explicit D29-change decision are all satisfied and approved. Until then
 execution remains unimplemented — stated plainly, not filled with
 scaffolding.
 
-## Phase 13 S2 — Impact & Risk investigation UI (implemented locally 2026-10-28;
-`feat/phase-13-s2-impact-risk`, live smoke-verified, pending review/merge)
+## Phase 13 S2 — Impact & Risk investigation UI (merged via PR #12 on 2026-10-29;
+merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`)
 
-- [x] `DECISIONS.md` D35 records the Phase 13 S2 decision: a scoped, read-only
-  Impact & Risk view in the existing **React + Vite + JavaScript** console. It
-  supports one root selected from the S1 snapshot, an explicit Analyze action,
-  and only the two existing `TWIN_READ` GET endpoints
-  (`GET /api/v1/twin/impact` and `GET /api/v1/twin/risk`) with
-  `from=<entity UUID>`.
+- [x] S2 provides a scoped, read-only Impact & Risk view in the existing
+  **React + Vite + JavaScript** console. It supports one root selected from the
+  S1 snapshot, an explicit Analyze action, and only the two existing
+  `TWIN_READ` GET endpoints (`GET /api/v1/twin/impact` and
+  `GET /api/v1/twin/risk`) with `from=<entity UUID>`.
 - [x] S2 sends no `maxDepth` or `includeTypes` parameters and exposes no
   controls for them; the backend defaults apply (`maxDepth=6`;
   `SERVICE,API,DATABASE,TABLE`). It supports no multiple roots, automatic
@@ -77,13 +75,15 @@ scaffolding.
   retry of both reads, and recovery with a fresh valid token. The rejected
   token used an **invalid signature**, not a naturally expired token.
 - [x] Live OIDC login remains unimplemented and was not tested. The console
-  continues to use the existing manual in-memory token bridge. D34's local
-  Keycloak is a verified local-development setup, not production
-  identity-provider configuration.
+  continues to use the existing manual in-memory token bridge. The local
+  Keycloak development setup is a verified local-development setup, not
+  production identity-provider configuration.
 - [x] No backend source, schema, authentication policy, database, dependency,
   or CORS change was made. The optional telemetry collector was not running;
   non-fatal OTLP export warnings may occur.
-- [ ] S2 remains **pending review and merge**; it is not merged.
+- [x] S2 is **merged** via PR #12 on 2026-10-29 (merge commit
+  `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`); the console remains
+  local-development-only.
 
 ## Phase 13 S1 — Read-only operator console (implemented 2026-10-18; merged)
 
