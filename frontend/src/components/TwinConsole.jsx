@@ -4,6 +4,7 @@ import { ErrorPanel, LoadingPanel } from '../components/StatePanels.jsx';
 import { useAsyncResource } from '../hooks/useAsyncResource.js';
 import { useNow } from '../hooks/useNow.js';
 import { createAnalysisApi } from '../api/analysis.js';
+import { createAuditApi } from '../api/audit.js';
 import { createApiClient } from '../api/client.js';
 import { ErrorKind } from '../api/errors.js';
 import { createTwinApi } from '../api/twin.js';
@@ -14,6 +15,7 @@ import { Entities } from '../views/Entities.jsx';
 import { Relationships } from '../views/Relationships.jsx';
 import { GraphView } from '../views/GraphView.jsx';
 import { ImpactRisk } from '../views/ImpactRisk.jsx';
+import { AuditIntegrity } from '../views/AuditIntegrity.jsx';
 
 const NAV = [
   { key: 'overview', label: 'Overview', icon: '◎' },
@@ -23,6 +25,7 @@ const NAV = [
 ];
 
 const ANALYSIS_NAV = { key: 'impact-risk', label: 'Impact & Risk', icon: '⚠' };
+const AUDIT_NAV = { key: 'audit-integrity', label: 'Audit Integrity', icon: '⛓' };
 
 const ACCESS_STATES = {
   supplied: {
@@ -82,12 +85,13 @@ export function TwinConsole({ token, onDisconnect, preview = false, previewData 
   const [focusDetail, setFocusDetail] = useState(false);
   const now = useNow();
 
-  const { twinApi, analysisApi } = useMemo(() => {
-    if (preview) return { twinApi: null, analysisApi: null };
+  const { twinApi, analysisApi, auditApi } = useMemo(() => {
+    if (preview) return { twinApi: null, analysisApi: null, auditApi: null };
     const client = createApiClient({ getToken: () => token });
     return {
       twinApi: createTwinApi(client),
       analysisApi: createAnalysisApi(client),
+      auditApi: createAuditApi(client),
     };
   }, [token, preview]);
 
@@ -137,7 +141,7 @@ export function TwinConsole({ token, onDisconnect, preview = false, previewData 
 
   const navItems = useMemo(
     () =>
-      (preview ? NAV : [...NAV, ANALYSIS_NAV]).map((item) => {
+      (preview ? NAV : [...NAV, ANALYSIS_NAV, AUDIT_NAV]).map((item) => {
         if (item.key === 'entities') return { ...item, count: entities.length };
         if (item.key === 'relationships') return { ...item, count: relationships.length };
         return item;
@@ -239,6 +243,8 @@ export function TwinConsole({ token, onDisconnect, preview = false, previewData 
           entityTypes={entityTypes}
           analysisApi={analysisApi}
         />
+      ) : view === 'audit-integrity' && !preview ? (
+        <AuditIntegrity auditApi={auditApi} />
       ) : (
         <GraphView
           entities={entities}
