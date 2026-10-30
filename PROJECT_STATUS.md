@@ -1,26 +1,28 @@
 # Systivex Project Status
 
-Last verified: **2026-10-29** (Asia/Kolkata). This document must be updated
+Last verified: **2026-10-30** (Asia/Kolkata). This document must be updated
 whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 13 S2 — Impact & Risk investigation UI (merged via PR #12 on 2026-10-29;
-merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`).**
-Phase 13 S2 adds a scoped, read-only impact/risk view to the existing
-React + Vite + JavaScript console. It extends the merged Phase 13 S1
-System Twin explorer with one searchable root selected from the already-loaded
-snapshot, an explicit Analyze action, and only the existing
-`GET /api/v1/twin/impact` and `GET /api/v1/twin/risk` calls with
-`from=<entity UUID>` and no other query parameters. The verified backend
-defaults apply: `maxDepth=6` and `includeTypes=SERVICE,API,DATABASE,TABLE`.
-Results load all-or-nothing, keep the impact and risk computation timestamps
-separate, and show impact truncation/cycle/limits plus the risk-completeness
-caveat rather than inventing risk completeness. S1 and S2 are merged; the
-console remains local-development-only, uses the existing manual in-memory
-bearer token, and implements no live OIDC login. No backend endpoint, schema,
-dependency, CORS, hosting, or security change was made. D29–D31 are unchanged
-and controlled execution stays gated. Phases 0–12 below are kept as history.
+**Phase 13 S3 — Audit Integrity UI (merged via PR #14 on 2026-10-29;
+merge commit `fef38681992f024ec0ccb2503e4167c9fd5e276c`).**
+Phase 13 S3 introduces scoped, read-only audit-chain verification in the
+existing React + Vite + JavaScript console. S3 adds a view to the existing
+console alongside the merged Phase 13 S1 System Twin explorer and Phase 13 S2
+Impact & Risk view with an explicit
+"Verify audit chain" action that issues only the existing
+`GET /api/v1/twin/audit/verify` (`TWIN_READ`) request. The view reports the
+bounded `OK`/`BROKEN` status, event count, head sequence, nullable first broken
+sequence, and the backend diagnostic detail, and never repairs or mutates the
+chain. The Audit Integrity navigation item is live-only: it is excluded from the
+synthetic local preview mode. S1, S2, and S3 are merged; the console remains
+local-development-only, uses the existing manual in-memory bearer token, and
+implements no live OIDC login or production hosting. No backend endpoint,
+schema, dependency, CORS, hosting, or security change was made. D29–D31 are
+unchanged and controlled execution stays gated. Proposal/revision/audit-event
+browsing and simulation/policy advisory UI remain **planned, not implemented**.
+Phases 0–12 below are kept as history.
 
 ## Gated, not scheduled — controlled execution
 
@@ -35,6 +37,41 @@ and dispatch-time revalidation, a durable intent/result/audit design, and
 an explicit D29-change decision are all satisfied and approved. Until then
 execution remains unimplemented — stated plainly, not filled with
 scaffolding.
+
+## Phase 13 S3 — Audit Integrity UI (merged via PR #14 on 2026-10-29;
+merge commit `fef38681992f024ec0ccb2503e4167c9fd5e276c`)
+
+- [x] S3 adds a read-only Audit Integrity view to the existing **React + Vite +
+  JavaScript** console. It provides one explicit "Verify audit chain" action and
+  calls only the existing `GET /api/v1/twin/audit/verify` endpoint with
+  `TWIN_READ`; no request is made until the operator acts.
+- [x] The API wrapper strictly validates the bounded response
+  (`status` `OK`/`BROKEN`, integer `eventCount`, integer `headSeq`, nullable
+  integer `brokenAtSeq`, string `detail`) and rejects malformed bodies. The view
+  distinguishes `OK` from `BROKEN` (a verification finding, not an HTTP error),
+  shows `brokenAtSeq` as "Not reported" when null, and states that verification
+  never repairs or changes the chain.
+- [x] The view is available only in live console mode. The Audit Integrity
+  navigation item is excluded from the synthetic local preview; preview mode
+  remains S1 explorer-only. No write, repair, append, or mutation control is
+  exposed.
+- [x] Token handling and error handling remain the S1/D28 boundary: the manual
+  bearer token stays in memory, is cleared on reload, is never rendered or
+  persisted, and is attached only to local `/api` requests. 400/401/403/404/
+  5xx/network/malformed responses map to fixed safe messages without echoing
+  response bodies or the token.
+- [x] Verification recorded in PR #14: 13 focused `AuditIntegrity` tests, full
+  frontend suite **144 passed** across 18 files, production build passed,
+  `npm audit --audit-level=high` reported zero vulnerabilities, and
+  `git diff --check` was clean.
+- [x] No backend source, endpoint, schema, migration, authentication policy,
+  database, dependency, CORS, hosting, or security change was made. No audit
+  write or repair capability exists, and controlled execution remains gated.
+- [x] S3 is **merged** via PR #14 on 2026-10-29 (merge commit
+  `fef38681992f024ec0ccb2503e4167c9fd5e276c`); the console remains
+  local-development-only with no live OIDC login or production hosting.
+- [ ] Proposal/revision/per-proposal-audit browsing and simulation/policy
+  advisory UI remain later slices; neither is implemented or approved here.
 
 ## Phase 13 S2 — Impact & Risk investigation UI (merged via PR #12 on 2026-10-29;
 merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`)
@@ -85,7 +122,7 @@ merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`)
   `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`); the console remains
   local-development-only.
 
-## Phase 13 S1 — Read-only operator console (implemented 2026-10-18; merged)
+## Phase 13 S1 — Read-only operator console (merged via PR #8 on 2026-10-26)
 
 - [x] `DECISIONS.md` D33 records the Phase 13 S1 decision: a scoped,
   read-only **React + Vite + JavaScript** operator console, starting with the
@@ -118,7 +155,7 @@ merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`)
   self-loops, and larger graphs with explicit notices. Node 24 LTS drives
   `npm ci` → `npm test` (51 Vitest tests at S1) → `npm run build`;
   `.github/workflows/frontend-ci.yml` defines the same sequence and passed on
-  GitHub for committed HEAD `7b9fb6c`. S2's later changes are verified
+  GitHub for committed HEAD `7b9fb6c`. S2's and S3's later changes are verified
   separately above. No backend code, schema, security rule, or dependency
   changed.
 - [x] Security posture verified: the API client refuses to send before a token
@@ -127,8 +164,11 @@ merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`)
   fixed safe messages without echoing response bodies or the token. A source
   scan found no `localStorage`/`sessionStorage`/`document.cookie`/`console` use
   in application code, and no JWT decoding.
-- [ ] Later UI slices (simulation/policy, governance/audit) each require their
-  own scope and verification checkpoint.
+- [x] Phase 13 S2 (Impact & Risk, PR #12) and Phase 13 S3 (Audit Integrity,
+  PR #14) followed as separate merged slices with their own verification.
+- [ ] Remaining UI slices — proposal/revision/audit-event browsing and
+  simulation/policy advisory views — each require their own scope and
+  verification checkpoint; none is implemented or approved.
 
 ## Phase 13 S0 — Open-source contributor readiness (recorded 2026-10-17;
 licensing + contributor docs + CI only, no application change)
@@ -1374,8 +1414,9 @@ These are **deferred by decision**, not missing by accident. Do not report them 
   control-plane API is JWT-protected; Phase 10, D28.)
 - Redis configuration or usage.
 - Spring AI / Ollama integration, model configuration.
-- Frontend work beyond the Phase 13 S1/S2 read-only console (`frontend/`); no
-  simulation/policy or governance/audit UI.
+- Frontend work beyond the Phase 13 S1/S2/S3 read-only console (`frontend/`);
+  proposal/revision/audit-event browsing and simulation/policy advisory UI
+  remain unimplemented.
 - Docker packaging of the Java services or any container orchestration
   (Compose exists only for the telemetry collector, `observability/`).
 - Cross-service database access, shared schemas, distributed transactions
