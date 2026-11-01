@@ -2,7 +2,7 @@
 
 Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B) +
 telemetry pipeline (Phase 3A) + twin observation (Phase 4) + read-only operator
-console (Phase 13 S1 merged; S2 merged via PR #12; local development only)**.
+console (Phase 13 S1, S2, and S3 merged; local development only)**.
 §§1–7 cover the control plane in `backend/`; §8 covers the target services in
 `backend/target-services/`; §9 covers the local telemetry
 infrastructure in `observability/`; §10 covers twin synchronization; §18 covers
@@ -21,7 +21,7 @@ needed for console work.
 | Docker | Docker Desktop (daemon running) | Required for `./mvnw test` (Testcontainers spins up PG 18) and for the Phase 3A telemetry collector (`observability/`) |
 | Redis | **Not required** in this phase | Deferred, only when justified |
 | Ollama / Spring AI | **Not required** in this phase | Deferred |
-| Node / React | **24 LTS** (`frontend/.nvmrc`) | Optional — only for the Phase 13 S1/S2 console (§18); not needed for backend work |
+| Node / React | **24 LTS** (`frontend/.nvmrc`) | Optional — only for the Phase 13 S1/S2/S3 console (§18); not needed for backend work |
 | K8s / brokers | **Not required** (services run locally, not containerized) | Deferred |
 
 > Environment setup (2026-09-28, updated): the machine default `JAVA_HOME`/PATH
@@ -192,7 +192,7 @@ at the same time as the code — docs must reflect reality.
 1. Do not add dependencies unless required for the current phase (recorded in `DECISIONS.md`).
 2. Do not create placeholder packages or speculative modules.
 3. Do not add Docker Compose, Redis/AI configuration, or frontend work beyond
-   the Phase 13 S1/S2 read-only console (see §18).
+   the Phase 13 S1/S2/S3 read-only console (see §18).
 4. Do not weaken tests to make them pass.
 5. Do not claim features work unless verified by `./mvnw test` / startup / endpoint check.
 6. Never commit `application.properties`, credentials, or machine-local settings.
@@ -823,19 +823,22 @@ hard `(issuer, subject)` separation of duties; a hash-chained audit log
 that is tamper-evident, not tamper-proof; every mutation transactional
 with its audit event; no execution endpoints.
 
-## 18. Read-only operator console (Phase 13 S1 merged; S2 merged via PR #12; local development only)
+## 18. Read-only operator console (Phase 13 S1, S2, and S3 merged; local development only)
 
 `frontend/` is a React + Vite + **JavaScript** (no TypeScript) read-only
-operator console. Phase 13 S1, authorized by `DECISIONS.md` D33 and merged,
-provides the System Twin explorer over the existing `TWIN_READ` GET endpoints
-`GET /api/v1/twin/entities[/{id}]` and
+operator console. Phase 13 S1, authorized by `DECISIONS.md` D33 and merged via
+PR #8, provides the System Twin explorer over the existing `TWIN_READ` GET
+endpoints `GET /api/v1/twin/entities[/{id}]` and
 `GET /api/v1/twin/relationships[/{id}]`. Phase 13 S2, merged via PR #12 on
 2026-10-29 (merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`), adds the
 live-only **Impact & Risk** view over the existing
-`GET /api/v1/twin/impact` and `GET /api/v1/twin/risk` endpoints. The console
-performs no sync, observation,
-write, simulation, policy, or proposal mutation and adds no backend endpoint,
-CORS rule, or hosting.
+`GET /api/v1/twin/impact` and `GET /api/v1/twin/risk` endpoints. Phase 13 S3,
+merged via PR #14 on 2026-10-29 (merge commit
+`fef38681992f024ec0ccb2503e4167c9fd5e276c`), adds the live-only **Audit
+Integrity** view over the existing `GET /api/v1/twin/audit/verify` endpoint.
+The console performs no sync, observation, write, simulation, policy, proposal
+mutation, audit append, or audit repair and adds no backend endpoint, CORS
+rule, or hosting.
 
 Prerequisites: **Node.js 24 LTS** (`frontend/.nvmrc`; `engines` requires
 `>=24`). The backend must be running locally (`§5`, Tomcat on `127.0.0.1:8080`
@@ -844,7 +847,7 @@ by default) for the console to fetch data. Every command runs from `frontend/`:
 ```powershell
 cd frontend
 npm ci            # reproducible install from package-lock.json
-npm test          # Vitest + Testing Library (110 tests; 20 focused S2 tests)
+npm test          # Vitest + Testing Library (144 tests; 20 focused S2, 13 focused S3)
 npm run build     # production bundle in frontend/dist/
 npm run dev       # Vite dev server at http://127.0.0.1:5173
 ```
@@ -855,7 +858,8 @@ needed and the API is same-origin during development. If 8080 is occupied,
 `SYSTIVEX_BACKEND_PORT` may select a numeric loopback port; the host, scheme,
 and `/api` path remain fixed. Open the console, paste a bearer token you already
 hold (the control plane still requires a valid JWT with `TWIN_READ`, `§16`), and
-browse entities, relationships, the dependency graph, and Impact & Risk.
+browse entities, relationships, the dependency graph, Impact & Risk, and Audit
+Integrity.
 
 Token handling: the token is held in memory for the tab only, cleared on
 reload, and never written to `localStorage`, `sessionStorage`, `IndexedDB`,
@@ -896,18 +900,39 @@ decision (D33).
   from separate calls; the UI labels them separately. Neither is a snapshot
   sync time or a general "last updated" time.
 
+### Audit Integrity view (Phase 13 S3)
+
+- The **Audit Integrity** item is live-only and is not present in the synthetic
+  preview; preview mode remains the S1 explorer.
+- Choose **Verify audit chain** to issue exactly one
+  `GET /api/v1/twin/audit/verify` request (`TWIN_READ`). Nothing is requested
+  until you act, and no other audit path is called.
+- The view shows `status` (`OK`/`BROKEN`), `eventCount`, `headSeq`,
+  `brokenAtSeq` (nullable; "Not reported" when null), and the bounded `detail`.
+  `BROKEN` is a verification finding returned as HTTP 200, not a transport
+  error. The view states that verification never repairs or changes the chain.
+- The response is strictly validated; malformed bodies produce a fixed safe
+  error. Retry repeats only the verification GET.
+- There is no audit append, repair, proposal, or execution control. The view
+  shows the chain state, not proposal contents; proposal/revision/audit-event
+  browsing remains planned and is not implemented.
+
 ### Local verification and smoke procedure
 
 The S2 checkpoint recorded 20 focused tests and 110 total frontend tests
 passing, a successful production build, and zero high-severity audit findings.
-A headless-Chrome smoke test against local Keycloak and the backend passed
-**41/41 checks** using the real local twin: 15 entities, 18 relationships, 14
-impacted entities, 24 evidence paths, and 14 risk entries. That run verified
+The S3 checkpoint recorded 13 focused `AuditIntegrity` tests and 144 total
+frontend tests across 18 files, a successful production build, zero
+high-severity audit findings, and a clean `git diff --check`.
+A Phase 13 S2 headless-Chrome smoke test against local Keycloak and the backend
+passed **41/41 checks** using the real local twin: 15 entities, 18 relationships,
+14 impacted entities, 24 evidence paths, and 14 risk entries. That run verified
 the two GETs, root selection without requests, explicit Analyze, evidence
 keyboard controls, root-change clearing, preview exclusion, token
 storage/network checks, reload clearing, 401 handling, retry, and recovery with
 a fresh valid token. The rejected-token case used an **invalid-signature
-token**, not a naturally expired token.
+token**, not a naturally expired token. S3 was verified by its automated suite
+and production build (PR #14); no separate S3 browser smoke run was recorded.
 
 To repeat the smoke locally:
 
@@ -922,11 +947,18 @@ To repeat the smoke locally:
 4. Check impacted/evidence fields, both response timestamps, risk flags and
    ordering, the risk-completeness caveat, root-change clearing, and that the
    token is not present in storage, the URL, the DOM, or logs.
+5. Open **Audit Integrity**, choose **Verify audit chain**, and confirm exactly
+   one `GET /api/v1/twin/audit/verify` request with HTTP 200. Check the
+   `OK`/`BROKEN` status, event/head counts, nullable `brokenAtSeq` handling, the
+   diagnostic detail, and that the token is still absent from storage, the URL,
+   the DOM, and logs. Confirm the Audit Integrity item is absent in preview mode.
 
 Live OIDC login was not implemented or tested; the local Keycloak development
 setup is a local verification setup, not production identity configuration. The
 optional `observability/` telemetry collector is not required by the console.
 If it is not running, the backend may emit non-fatal OTLP export warnings.
 
-S2 is merged in PR #12, but the frontend remains local-development-only and is
-not production hosted or live-OIDC-integrated.
+S1 is merged in PR #8, S2 in PR #12, and S3 in PR #14, but the frontend remains
+local-development-only and is not production hosted or live-OIDC-integrated.
+Proposal/revision/audit-event browsing and simulation/policy advisory UI remain
+planned and unimplemented.

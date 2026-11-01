@@ -108,7 +108,7 @@ Full design, trust boundaries, and the deterministic-vs-advisory distinction liv
 | JWT-protected API | ✅ Implemented and tested |
 | Runtime observation and telemetry integration | ✅ Implemented and tested |
 | Controlled execution | 🚧 Design-only — gated by D30/D31 |
-| Frontend / operator console | 🚧 Phase 13 S1 and S2 merged; local-development-only |
+| Frontend / operator console | 🚧 Phase 13 S1, S2, and S3 merged; local-development-only |
 | Agent orchestration, verification, Git integration | 📋 Planned, not implemented |
 
 Impact, risk, and simulation derive deterministically from the twin and never authorize
@@ -147,31 +147,39 @@ configuration, and `./mvnw spring-boot:run` — are in [`DEVELOPMENT.md`](DEVELO
 <summary>Running the read-only operator console (frontend)</summary>
 
 The `frontend/` React + Vite + JavaScript console is **local-development only**.
-Phase 13 S1 is merged (`DECISIONS.md` D33); Phase 13 S2 was merged via PR #12 on
-2026-10-29 (merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`). It binds
-to `127.0.0.1` and proxies `/api` to a control plane running at
-`http://127.0.0.1:8080`; it adds no backend surface and has no production
-hosting.
+Phase 13 S1 is merged via PR #8 (`DECISIONS.md` D33); Phase 13 S2 was merged via
+PR #12 on 2026-10-29 (merge commit
+`62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`); Phase 13 S3 was merged via PR #14
+on 2026-10-29 (merge commit
+`fef38681992f024ec0ccb2503e4167c9fd5e276c`). It binds to `127.0.0.1` and proxies
+`/api` to a control plane running at `http://127.0.0.1:8080`; it adds no backend
+surface and has no production hosting or live OIDC login.
 
 ```bash
 cd frontend
 npm ci
-npm test        # Vitest + Testing Library (110 tests; 20 focused S2 tests)
+npm test        # Vitest + Testing Library (144 tests; 20 focused S2, 13 focused S3)
 npm run build   # production bundle
 npm run dev     # serve at http://127.0.0.1:5173 (start the backend first)
 ```
 
 Open the console, paste a bearer token you already hold — it is kept in memory for
-the tab only — and explore entities, relationships, the dependency graph, or the
-**Impact & Risk** view. Select one loaded root and choose Analyze explicitly; S2
-then sends only `GET /api/v1/twin/impact?from=<UUID>` and
-`GET /api/v1/twin/risk?from=<UUID>`, using the backend defaults (`maxDepth=6`;
-`SERVICE,API,DATABASE,TABLE`). The view shows impact evidence paths, truncation/
-cycle/limits, advisory risk entries, and separate impact/risk computation times;
-risk has no truncation or cycle fields, so risk completeness is not claimed.
-There is no live OIDC login flow and no bundled identity provider: the console
-never persists the token and performs read-only `GET`s against the System Twin
-API.
+the tab only — and explore entities, relationships, the dependency graph, the
+**Impact & Risk** view, or the **Audit Integrity** view. Select one loaded root
+and choose Analyze explicitly; S2 then sends only `GET /api/v1/twin/impact?from=<UUID>`
+and `GET /api/v1/twin/risk?from=<UUID>`, using the backend defaults
+(`maxDepth=6`; `SERVICE,API,DATABASE,TABLE`). The view shows impact evidence
+paths, truncation/cycle/limits, advisory risk entries, and separate impact/risk
+computation times; risk has no truncation or cycle fields, so risk completeness
+is not claimed. The **Audit Integrity** view requires an explicit **Verify audit
+chain** action and sends only `GET /api/v1/twin/audit/verify`, displaying the
+bounded `OK`/`BROKEN` status, event and head counts, nullable first broken
+sequence, and diagnostic detail; it never repairs or mutates the chain. Both
+later views are live-only and are excluded from synthetic preview mode.
+Proposal/revision/audit-event browsing and simulation/policy advisory UI are
+planned but not implemented. There is no live OIDC login flow and no bundled
+identity provider: the console never persists the token and performs read-only
+`GET`s against the System Twin API.
 
 </details>
 
@@ -195,8 +203,8 @@ actuator exists — report issues via [`SECURITY.md`](SECURITY.md).
 ## 🗂️ Project Structure
 
 `backend/` holds the Java 21 control plane (with its sample `target-services/`),
-`frontend/` holds the read-only React + Vite operator console (Phase 13 S1 and
-S2 merged; local development only), and
+`frontend/` holds the read-only React + Vite operator console (Phase 13 S1, S2,
+and S3 merged; local development only), and
 `observability/` holds a local telemetry stack (collector, Prometheus, Loki,
 Grafana).
 

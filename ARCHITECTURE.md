@@ -103,16 +103,21 @@ APIs; no cross-module persistence access; every consequential action crosses
 the policy/execution boundary (see §6).
 
 The **frontend is a local-development-only read-only operator console**
-(Phase 13 S1 merged, `DECISIONS.md` D33; Phase 13 S2 merged via PR #12 on
-2026-10-29, merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`; it is not
-a control-plane module). It lives in `frontend/` as
-a React + Vite + **JavaScript** (no TypeScript) app. The S1 System Twin explorer
-reads existing `TWIN_READ` GET endpoints; S2 adds a live-only Impact & Risk view
-that reads the existing impact and risk GETs for one root UUID. It adds no
-backend endpoint or CORS rule: the Vite dev server binds to `127.0.0.1` and
-proxies `/api` to `http://127.0.0.1:8080`. It stays local-development-only until
-the serving and identity requirements for a shared environment are reviewed,
-and no production/static hosting or live OIDC login exists.
+(Phase 13 S1 merged via PR #8, `DECISIONS.md` D33; Phase 13 S2 merged via PR #12
+on 2026-10-29, merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`; Phase 13
+S3 merged via PR #14 on 2026-10-29, merge commit
+`fef38681992f024ec0ccb2503e4167c9fd5e276c`; it is not a control-plane module).
+It lives in `frontend/` as a React + Vite + **JavaScript** (no TypeScript) app.
+The S1 System Twin explorer reads existing `TWIN_READ` GET endpoints; S2 adds a
+live-only Impact & Risk view that reads the existing impact and risk GETs for
+one root UUID; S3 adds a live-only Audit Integrity view that reads only the
+existing `GET /api/v1/twin/audit/verify` endpoint and never repairs or mutates
+the chain. Both later views are excluded from synthetic preview mode. The
+console adds no backend endpoint or CORS rule: the Vite dev server binds to
+`127.0.0.1` and proxies `/api` to `http://127.0.0.1:8080`. It stays
+local-development-only until the serving and identity requirements for a shared
+environment are reviewed, and no production/static hosting or live OIDC login
+exists.
 
 ## 4. Target microservices (Phase 2B persistent runtime; observation planned)
 
@@ -334,19 +339,21 @@ See `THREAT_MODEL.md` for the principles these boundaries enforce.
   `TWIN_ADMIN`);
   `GET /actuator/health` anonymous (status only),
   `/actuator/prometheus` requires `TWIN_READ`, all else denied.
-- **Read-only operator console (S1 and S2 merged; local development only).**
+- **Read-only operator console (S1, S2, and S3 merged; local development only).**
   `DECISIONS.md` D33 scopes the `frontend/` React + Vite + JavaScript console to
-  existing `TWIN_READ` GET endpoints only: S1 reads
+  existing `TWIN_READ` GET endpoints only: S1 (PR #8) reads
   `/api/v1/twin/entities[/{id}]` and
-  `/api/v1/twin/relationships[/{id}]`; S2's Impact & Risk view reads
+  `/api/v1/twin/relationships[/{id}]`; S2's Impact & Risk view (PR #12) reads
   `/api/v1/twin/impact?from=<UUID>` and `/api/v1/twin/risk?from=<UUID>` for one
-  selected root. No API surface is added and no CORS rule is configured; the
-  Vite proxy makes it same-origin during development. S2 merged via PR #12 on
-  2026-10-29 and does not change the security or execution boundary.
+  selected root; S3's Audit Integrity view (PR #14) reads only
+  `/api/v1/twin/audit/verify` and never repairs or mutates the chain. No API
+  surface is added and no CORS rule is configured; the Vite proxy makes it
+  same-origin during development. The S2 and S3 views are live-only, and none
+  of the slices changes the security or execution boundary.
 - **SSE** for streaming long-running analysis/simulation progress (planned).
 - No WebSockets at this stage (see `DECISIONS.md`).
 
-## 8. Current implementation status (documentation reviewed 2026-10-29; last live frontend verification 2026-10-28, Phase 13 S2 browser smoke; Phase 13 S2 merged via PR #12 on 2026-10-29)
+## 8. Current implementation status (documentation reviewed 2026-10-30; last live frontend verification 2026-10-28, Phase 13 S2 browser smoke; Phase 13 S1, S2, and S3 merged)
 
 Implemented:
 
@@ -454,31 +461,35 @@ Implemented:
   executes nothing. Verified in tests (full `./mvnw clean test` suite: 398
   tests, 0 failures; see `PROJECT_STATUS.md` Phase 11 S1–S6). No new
   dependencies, no target-service change.
-- Read-only operator console (Phase 13 S1 and S2 merged; S2 merged via PR #12
-  on 2026-10-29; see §7 and `DECISIONS.md` D33): `frontend/` is a
-  React + Vite + **JavaScript** (no TypeScript) read-only console. S1 provides
-  the System Twin explorer over the existing `TWIN_READ` GETs
-  (`/api/v1/twin/entities[/{id}]`, `/api/v1/twin/relationships[/{id}]`) with
-  client-side filtering, a dependency-graph view, and accessible
-  loading/empty/error states. S2 adds a live-only Impact & Risk view that
-  selects one loaded root, requires an explicit Analyze action, and issues only
-  `GET /api/v1/twin/impact` and `GET /api/v1/twin/risk` with `from=<UUID>` and
-  no other query parameters; backend defaults (`maxDepth=6`;
-  `SERVICE,API,DATABASE,TABLE`) apply. Results are all-or-nothing, keep impact
-  and risk computation timestamps separate, expose impact
-  truncation/cycle/limits, and state that risk has no truncation or cycle
-  fields. The developer-supplied bearer token is kept in memory only (never
-  persisted, logged, or placed in a URL). It is **local-development only**:
-  Vite binds `127.0.0.1` and proxies `/api` to `http://127.0.0.1:8080`, adding
-  no backend CORS rule, endpoint, or hosting. Node 24 LTS drives `npm test`
-  (Vitest + Testing Library; 110 tests, including 20 focused S2 tests) and
-  `npm run build`; the S2 build passed and `npm audit --audit-level=high`
-  reported zero vulnerabilities. A headless-Chrome smoke test passed 41/41
-  checks against the local twin (15 entities, 18 relationships, 14 impacted
-  entities, 24 evidence paths, 14 risk entries); the rejected-token case used
-  an invalid-signature token, not a naturally expired token. Live OIDC sign-in
-  is **not** implemented or tested (no trusted production issuer/client
-  configured).
+- Read-only operator console (Phase 13 S1, S2, and S3 merged; S1 PR #8, S2
+  PR #12 on 2026-10-29, S3 PR #14 on 2026-10-29; see §7 and `DECISIONS.md`
+  D33): `frontend/` is a React + Vite + **JavaScript** (no TypeScript)
+  read-only console. S1 provides the System Twin explorer over the existing
+  `TWIN_READ` GETs (`/api/v1/twin/entities[/{id}]`,
+  `/api/v1/twin/relationships[/{id}]`) with client-side filtering, a
+  dependency-graph view, and accessible loading/empty/error states. S2 adds a
+  live-only Impact & Risk view that selects one loaded root, requires an
+  explicit Analyze action, and issues only `GET /api/v1/twin/impact` and
+  `GET /api/v1/twin/risk` with `from=<UUID>` and no other query parameters;
+  backend defaults (`maxDepth=6`; `SERVICE,API,DATABASE,TABLE`) apply. S3 adds
+  a live-only Audit Integrity view with one explicit verification action that
+  issues only `GET /api/v1/twin/audit/verify` and renders the bounded
+  `OK`/`BROKEN` result (`eventCount`, `headSeq`, nullable `brokenAtSeq`,
+  `detail`); it never repairs or mutates the chain. Only S1 exists in synthetic
+  preview mode. The developer-supplied bearer token is kept in memory only
+  (never persisted, logged, or placed in a URL). The console is
+  **local-development only**: Vite binds `127.0.0.1` and proxies `/api` to
+  `http://127.0.0.1:8080`, adding no backend CORS rule, endpoint, or hosting.
+  Node 24 LTS drives `npm test` (Vitest + Testing Library; 144 tests, including
+  20 focused S2 and 13 focused S3 tests) and `npm run build`; the S3 build
+  passed and `npm audit --audit-level=high` reported zero vulnerabilities. A
+  Phase 13 S2 headless-Chrome smoke test passed 41/41 checks against the local
+  twin (15 entities, 18 relationships, 14 impacted entities, 24 evidence paths,
+  14 risk entries); the rejected-token case used an invalid-signature token,
+  not a naturally expired token. S3 was verified by its automated suite and
+  build; no separate S3 browser smoke was recorded. Live OIDC sign-in and
+  production/static hosting are **not** implemented or tested (no trusted
+  production issuer/client is configured).
 
 Phase 12 S0–S1 (2026-10-16/17) is **design and feasibility work only, not
 runtime implementation**: `DECISIONS.md` D30 records the controlled-execution
@@ -506,10 +517,11 @@ Intentionally absent (not bugs — deferred by decision):
   approvals, and the tamper-evident audit are Phase 11, above).
 - Redis, Spring AI / Ollama, and target-service authentication (still
   deferred). The frontend's Node toolchain and CI job exist, but the console is
-  **local-development-only** (Phase 13 S1 and S2 merged, D33; S2 merged via
-  PR #12 on 2026-10-29): no production/static hosting, no deployed surface, and
+  **local-development-only** (Phase 13 S1, S2, and S3 merged, D33; S1 PR #8,
+  S2 PR #12, S3 PR #14): no production/static hosting, no deployed surface, and
   no live OIDC sign-in (trusted production issuer/client details are still
-  missing).
+  missing). Proposal/revision/audit-event browsing and simulation/policy
+  advisory UI are planned and unimplemented.
 - Grafana log dashboards, Tempo trace UI, unified trace/log UI, anomaly
   detection, any agent use of telemetry (later 3B slices and later).
 - Docker packaging of the Java services, Kafka / RabbitMQ / Kubernetes /
@@ -528,11 +540,15 @@ business POSTs and a read-only Actuator surface only). `APPROVED`
 stays terminal (D29) until a specific operation and actuator satisfy
 the gate and a D29 change is explicitly decided. Phase 13 S1 — the scoped,
 read-only System Twin console (`DECISIONS.md` D33, `frontend/`) — is **merged
-but local-development-only**. Phase 13 S2 — the Impact & Risk view — is
-**merged via PR #12 on 2026-10-29** (merge commit
-`62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`) and smoke-verified, and remains
-local-development-only. Both read existing `TWIN_READ` GETs and perform no
-mutation, execution, or simulation. Execution stays gated and separate; the
+via PR #8 but local-development-only**. Phase 13 S2 — the Impact & Risk view —
+is **merged via PR #12 on 2026-10-29** (merge commit
+`62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`) and smoke-verified. Phase 13 S3 —
+the Audit Integrity view — is **merged via PR #14 on 2026-10-29** (merge commit
+`fef38681992f024ec0ccb2503e4167c9fd5e276c`). All three remain
+local-development-only, read existing `TWIN_READ` GETs, and perform no
+mutation, execution, simulation, proposal mutation, or audit repair.
+Proposal/revision/audit-event browsing and simulation/policy advisory UI remain
+planned and unimplemented. Execution stays gated and separate; the
 console is
 never exposed beyond the local machine before the deferred authentication story
 lands.
