@@ -1085,6 +1085,285 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   files exist**). See `PROJECT_STATUS.md` Phase 13 S1. Nothing here is runtime
   behavior until a slice lands with verification.
 
+## D34. Local-development Keycloak issuer for D28 verification — decided (2026-10-26)
+
+- **Status:** Decided and adopted 2026-10-26. Installation, realm creation, and
+  configuration are authorized only within the local-development scope below.
+- **Decision:** Authorize a standalone, operator-installed Keycloak 26.8.x
+  instance as a **local-development-only** OIDC issuer for verifying the
+  existing D28 JWT resource-server design. It binds strictly to
+  `127.0.0.1:8180`, uses the dev profile and local dev-file storage, and uses
+  issuer `http://127.0.0.1:8180/realms/systivex-dev`. It is external to the
+  repository: no Docker/Compose, no bundled IdP, no application dependency, no
+  repo-hosted realm export, and no change to `SecurityConfig`.
+- **Compatibility with D28/D33:** D28 remains the authentication authority:
+  issuer, audience `systivex`, signature, expiry, `nbf`, and allowlist-only role
+  mapping stay enforced; there is no security-off mode. D33's manual in-memory
+  bearer-token bridge and no-application-login rule remain. Keycloak is not
+  bundled, is not a fake IdP, and is not a production identity decision. This
+  record narrowly supplements D33's current "no identity provider" state for
+  local verification only.
+- **Realm/client configuration:** realm `systivex-dev`; realm roles
+  `TWIN_READ`, `TWIN_ANALYZE`, `TWIN_OPERATOR`, `TWIN_ADMIN`, `TWIN_APPROVER`;
+  one public client with no client secret, Direct Access Grants disabled, and
+  Device Authorization Grant or Authorization Code + PKCE enabled. An Audience
+  mapper adds `systivex`; a User Realm Role mapper emits the top-level `roles`
+  array. `TWIN_ADMIN` inheritance remains backend-owned; `TWIN_APPROVER` is
+  granted explicitly. Dev users are separate, disposable identities.
+- **Configuration and secrets:** the backend receives only
+  `SYSTIVEX_ISSUER_URI` via the environment; `SYSTIVEX_JWK_SET_URI` stays unset
+  so real discovery is exercised. No passwords, client secrets, private keys,
+  tokens, or realm exports are committed, logged, placed in chat, or stored in
+  the repository. No default `admin/admin` account is used; temporary bootstrap
+  admins are removed. Dev credentials live in an OS credential store or password
+  manager.
+- **Verification:** fetch discovery/JWKS and confirm the exact issuer; test a
+  valid `TWIN_READ` token (200), missing/malformed token (401), insufficient
+  role (403), expired token beyond the 60-second skew (401), tampered/wrong-key
+  signature (401), wrong issuer via a second realm (401), and missing audience
+  (401). Confirm `TWIN_ADMIN` inheritance and explicit `TWIN_APPROVER`
+  behavior. Record results as local-dev verification only.
+- **Out of scope:** production IdP selection, TLS/proxy deployment, external
+  database, HA, backups, key rotation, MFA, identity proofing, account
+  lifecycle, frontend login, CORS changes, backend code changes, database
+  changes, and any production credential.
+- **Rejected alternatives:** Docker/Compose or a bundled IdP; fake tokens or a
+  security-off mode; a default admin account; committing realm exports or
+  credentials; exposing Keycloak beyond loopback; treating local Keycloak as a
+  production decision.
+- **State:** Decided and adopted 2026-10-26. Local implementation and
+  verification results are recorded in `PROJECT_STATUS.md`; this record does
+  not authorize a production identity provider.
+
+## D35. Phase 13 S2 — Impact & risk investigation UI — decided (2026-10-28)
+
+- **Status:** Decided and adopted 2026-10-28. Authorizes implementation only
+  within the S2 scope below and remains subject to the implementation
+  checkpoints in this record. No S2 code is implemented by this record.
+- **Decision:** Authorize only Phase 13 S2: a scoped, read-only impact/risk
+  investigation view in the existing React + Vite + JavaScript console. S2
+  selects one existing entity already loaded by S1 as the root and calls only
+  the existing `GET /api/v1/twin/impact` and `GET /api/v1/twin/risk` endpoints
+  with `from=<entity UUID>` and no other query parameters. The verified backend
+  defaults apply: `maxDepth=6` and
+  `includeTypes=SERVICE,API,DATABASE,TABLE`. S2 does not expose `maxDepth` or
+  `includeTypes` controls, does not support multiple roots, and does not add an
+  entity-detail CTA.
+- **Scope:** Add a live-only "Impact & risk" navigation view; a searchable
+  single-root picker over the S1 entity snapshot; explicit "Analyze" action; a
+  separate `frontend/src/api/analysis.js`; an additive `BAD_REQUEST` error kind
+  for HTTP 400; all-or-nothing loading of both endpoints; and accessible
+  loading, empty, validation, authentication-error, retry, and malformed-
+  response states. Display impacted entities, depth, `viaStart`, complete
+  evidence paths with ordered `FORWARD`/`REVERSE` steps and explanations, risk
+  level, reasons, `uncertain`, `stale`, taxonomy version, impact
+  `truncated`/`truncationReason`/`cycleEncountered`/`limits`, both advisory
+  notes, and separate impact and risk computation timestamps.
+- **Non-goals:** No backend endpoints, DTO changes, database migrations, schema
+  changes, backend dependencies, CORS changes, hosting changes, security
+  weakening, authentication-off mode, or new identity-provider integration. No
+  simulations, policy-evaluation POSTs, proposal mutations, sync, observations,
+  twin writes, or execution. No token persistence in `localStorage`,
+  `sessionStorage`, IndexedDB, cookies, URLs, logs, or rendered text. No
+  TypeScript, new frontend dependency, graph renderer, export, URL state,
+  synthetic analysis preview, risk-completeness invention, or multi-root/depth/
+  type controls.
+- **Authentication boundary:** The control plane remains the D28 OAuth2 JWT
+  resource server. Both endpoints require `TWIN_READ`. The browser continues to
+  use the D33 manually supplied bearer token held only in memory, cleared on
+  reload. The token is attached only to local `/api` requests through the
+  existing client and Vite proxy; no backend CORS rule is added. Live browser
+  OIDC login remains unimplemented and unclaimed. D34's local Keycloak is not a
+  dependency of S2; S2 adds no login flow or issuer/client configuration and
+  does not require Keycloak to be running.
+- **Endpoints and defaults:** Both requests are GET-only and are issued only
+  after an explicit Analyze action. `from` is the selected entity UUID. The
+  backend validates 1–10 starts, `maxDepth` default `6` with allowed `1..10`,
+  and repeatable `includeTypes` defaulting to `SERVICE`, `API`, `DATABASE`, and
+  `TABLE`; traversal still passes through types not reported by the default
+  filter. Traversal caps are 500 nodes and 2,000 paths. Starts are not counted
+  as impacted, and every impacted entity carries at least one evidence path.
+- **Error behavior:** Add `ErrorKind.BAD_REQUEST` with a fixed safe HTTP 400
+  message; raw response bodies, headers, tokens, and claims are never rendered.
+  Preserve safe handling for 401/403/404/5xx/network errors and malformed 2xx
+  payloads. HTTP 404 indicates the selected root may no longer exist; 400
+  indicates an invalid analysis request. Impact and risk load all-or-nothing:
+  if either request fails, no partial result is presented as a complete
+  analysis. Retry repeats both requests.
+- **Response semantics:** Do not merge the two observation timestamps.
+  `ImpactResponse.snapshotObservedAt` and `RiskResponse.snapshotObservedAt` are
+  separate analysis computation times produced by separate live calls; label
+  them separately as impact and risk computed times. Do not call either a
+  snapshot sync time, data freshness time, or "last updated" time. Show
+  `entityCount` and `relationshipCount` as counts read by each analysis.
+  Surface impact `truncated`, `truncationReason`, `cycleEncountered`, `limits`,
+  and `note`, using "no truncation reported" rather than claiming completeness.
+  Show risk level, sorted reasons, `uncertain`, `stale`, `taxonomyVersion`, and
+  `note`; preserve backend severity order. Explicitly disclose that
+  `RiskResponse` has no truncation or cycle fields, so S2 cannot verify risk
+  completeness or risk traversal truncation and does not fabricate them.
+- **Testing expectations:** API tests assert only the two approved GET paths,
+  exact `from` query construction, Bearer headers only on `/api`, no request
+  before an explicit action, no token persistence, and safe rejection of
+  malformed payloads. View tests cover root selection, all-or-nothing loading,
+  impacted entities, evidence paths and directions, risk levels/reasons/flags,
+  separate timestamps, impact truncation/cycle/limits, the risk-completeness
+  caveat, empty states, 400/401/403/404/5xx/network failures, retry, and preview
+  exclusion. Existing S1 tests, `npm test`, `npm run build`, and
+  `npm audit --audit-level=high` must pass. Manual smoke testing uses a
+  developer-supplied `TWIN_READ` token against the local backend and verifies
+  both network calls and the UI fields; no live OIDC verification is claimed.
+- **Implementation checkpoints:** D35 must be explicitly adopted before code.
+  The existing uncommitted D34 block and untracked root
+  `application.properties` must be preserved exactly. Implementation is
+  frontend-only, with no backend, database, dependency, security, or serving
+  changes. The `BAD_REQUEST` addition must remain additive and must not weaken
+  existing safe error handling. The slice is not complete until tests, build,
+  audit, manual smoke, and documentation updates are reviewed. No commit or
+  push occurs without explicit instruction.
+- **Compatibility with D28/D33/D34:** D28 remains the authentication authority.
+  D33 authorized only S1 and explicitly required impact/risk to have their own
+  scope and verification checkpoint; D35 is that checkpoint and does not
+  re-authorize or expand S1. D33's historical statements that no frontend files
+  exist are stale after S1 and must not be silently rewritten; S1's implemented
+  state is recorded in `PROJECT_STATUS.md`. D34 is local-development Keycloak
+  verification only and does not authorize frontend login, CORS, or production
+  identity; S2 does not use or alter it. No security boundary is weakened.
+- **Rejected alternatives:** Exposing `maxDepth`/`includeTypes` or multiple
+  roots in this slice; automatically analyzing on root selection; rendering
+  partial results when one endpoint fails; adding synthetic analysis to preview;
+  adding the entity-detail CTA now; inventing risk truncation/cycle data;
+  changing the backend risk response; adding backend endpoints, migrations,
+  CORS, or hosting; persisting tokens; adding TypeScript or a new dependency;
+  and adding simulations, policy POSTs, proposal mutations, sync, observations,
+  writes, or execution.
+- **State:** Decided and adopted 2026-10-28; documentation/decision only. No
+  runtime code is implemented by this record. S2 implementation remains subject
+  to the checkpoints above and separate review.
+
+## D36. Phase 13 S4 — Read-only Proposal Governance UI — decided and adopted (2026-11-01)
+
+- **Status:** Decided and adopted 2026-11-01. Authorizes only the read-only
+  Phase 13 S4 implementation within the scope below. No S4 code is implemented
+  by this record.
+- **Decision:** Authorize only Phase 13 S4: a scoped, read-only proposal
+  governance view in the existing **React + Vite + JavaScript** console. S4
+  reads governed proposal records and their per-proposal audit trail and adds no
+  mutation, execution, or new trust boundary.
+- **Approved endpoints (TWIN_READ GET only):**
+  `GET /api/v1/twin/proposals?page=<n>&size=<n>`,
+  `GET /api/v1/twin/proposals/{key}`,
+  `GET /api/v1/twin/proposals/{key}/revisions`,
+  `GET /api/v1/twin/proposals/{key}/revisions/{revisionNumber}`, and
+  `GET /api/v1/twin/proposals/{key}/audit`. No other endpoints, methods, or
+  query parameters are authorized.
+- **Loading contract:** entering S4 loads only the first proposal page
+  (`page=0&size=20`). Selecting a proposal loads only its latest revision
+  (`GET /proposals/{key}`). Revision history and audit data load only on
+  explicit navigation actions; selecting a revision uses
+  `GET /revisions/{revisionNumber}`. No proposal detail, history, or audit is
+  fetched before selection, and there is no prefetching, polling, or automatic
+  refresh.
+- **API limitations:** the proposal list supports only `page` and `size`
+  (0-based page; default size 20; maximum 100; the backend clamps values).
+  Revision history (`/revisions`) and per-proposal audit (`/audit`) are
+  **currently unpaginated**. S4 must not invent pagination parameters, filters,
+  sorting parameters, or backend endpoints, and must not imply that an
+  unpaginated response is paged or complete beyond what the server returns.
+- **Proposal list shape:** `ProposalListResponse` contains `items`
+  (`ProposalResponse[]`, the latest revision of each proposal), `page` (int),
+  `size` (int), and `total` (long).
+- **ProposalResponse fields (actual contract):** `proposalKey` (UUID,
+  non-null), `revisionNumber` (int, non-null), `status` (string, non-null:
+  `DRAFT`, `ASSESSED`, `AWAITING_APPROVAL`, `APPROVED`, `REJECTED`,
+  `WITHDRAWN`, `EXPIRED`, `SUPERSEDED`), `title` (string, non-null),
+  `description` (string, **nullable**), `operations` (JSON document,
+  non-null), `operationsHash` (string, non-null), `assessment` (JSON document,
+  **nullable**), `assessmentHash` (string, **nullable**), `policyDecision`
+  (string, **nullable**), `policyVersion` (string, **nullable**),
+  `riskTaxonomy` (string, **nullable**), `twinFingerprint` (string,
+  **nullable**), `snapshotObservedAt` (timestamp, **nullable**),
+  `proposerIssuer` (string, non-null), `proposerSubject` (string, non-null),
+  `approverIssuer` (string, **nullable**), `approverSubject` (string,
+  **nullable**), `reason` (string, **nullable**), `expiresAt` (timestamp,
+  **nullable**), `createdAt` (timestamp, non-null), and `updatedAt`
+  (timestamp, non-null). The nullable assessment metadata is exactly
+  `assessment`, `assessmentHash`, `policyDecision`, `policyVersion`,
+  `riskTaxonomy`, `twinFingerprint`, and `snapshotObservedAt`; nullable identity
+  and decision fields are `approverIssuer`, `approverSubject`, and `reason`.
+  Nullable values are shown explicitly as not reported/set; they are never
+  fabricated or inferred.
+- **AuditEventResponse fields (actual contract):** `id` (UUID, non-null),
+  `seq` (long, non-null), `occurredAt` (timestamp, non-null), `actorIssuer`
+  (string, **nullable**), `actorSubject` (string, non-null), `action` (string,
+  non-null: `CREATED`, `ASSESSED`, `SUBMITTED`, `APPROVED`, `REJECTED`,
+  `WITHDRAWN`, `EXPIRED`, `SUPERSEDED`), `outcome` (string, non-null:
+  `SUCCESS`, `FAILURE`), `proposalKey` (UUID, non-null), `revisionNumber`
+  (int, non-null), `operationsHash` (string, **nullable**), `assessmentHash`
+  (string, **nullable**), `reason` (string, **nullable**), `correlationId`
+  (string, **nullable**), `prevHash` (string, non-null), and `eventHash`
+  (string, non-null). Nullable audit fields are exactly `actorIssuer`,
+  `operationsHash`, `assessmentHash`, `reason`, and `correlationId`.
+- **Audit display boundary:** the per-proposal audit list is server-ordered
+  evidence display only. S4 must not compute, verify, or claim cryptographic
+  chain integrity from `prevHash`/`eventHash`, and must not present the list as
+  verified. S3's `GET /api/v1/twin/audit/verify` remains the only chain
+  verification view. Hashes are rendered as inert text, never HTML.
+- **Presentation:** show exact server strings and timestamps without merging
+  distinct values; render `operations` and `assessment` JSON as bounded,
+  collapsible, inert text (no `dangerouslySetInnerHTML` or equivalent); render
+  untrusted title/description/reason text as text; tolerate unknown
+  forward-compatible status/action/outcome strings without crashing. Pagination
+  uses only the returned `page`/`size`/`total`; history and audit render the
+  returned arrays without client-invented server paging.
+- **Live-only:** S4 is available only in live console mode and is excluded from
+  the synthetic local preview. Token handling remains the existing D33
+  in-memory bearer-token bridge: cleared on reload, never persisted in
+  `localStorage`/`sessionStorage`/IndexedDB/cookies/URLs, never logged or
+  rendered, and attached only to local `/api` requests through the existing
+  client and Vite proxy. Live OIDC login and production hosting remain
+  unimplemented and unclaimed.
+- **Explicitly prohibited:** proposal creation, withdrawal, assessment,
+  submission, amendment, approval, and rejection; execution, executor roles, or
+  execution controls; backend source, endpoint, DTO, schema, migration,
+  dependency, CORS, hosting, authentication, or database changes; new frontend
+  dependencies; TypeScript; token persistence; raw HTML rendering; synthetic
+  proposal preview; simulations; policy POSTs; sync; observations; twin writes;
+  client-side audit verification; export; URL/query state for proposal data;
+  and any prefetching or automatic analysis.
+- **APPROVED semantics:** `APPROVED` remains terminal and authorizes no
+  execution. S4 displays the state only and cannot advance, execute, or bypass
+  the D30/D31 gates.
+- **Error behavior:** 400/401/403/404/5xx/network/malformed payloads map to
+  fixed safe messages; response bodies, headers, tokens, and claims are never
+  echoed. An out-of-range proposal page shows an empty page with previous-page
+  navigation; empty history/audit states are explicit.
+- **Verification expectations:** API tests assert only the five approved GET
+  paths and exact query construction, no mutation verbs, no request before
+  selection, no detail fetch before selection, no token persistence, and safe
+  malformed-payload rejection. View tests cover first-page loading, selection,
+  latest revision, explicit history/audit navigation, revision selection,
+  pagination, all listed fields, nullable values, inert JSON/long text, empty
+  and error states, and live-only preview exclusion. Existing S1–S3 tests,
+  `npm test`, `npm run build`, and `npm audit --audit-level=high` must pass.
+  Manual smoke uses a developer-supplied `TWIN_READ` token and claims no live
+  OIDC verification.
+- **Implementation checkpoints:** D34 and D35 are preserved unchanged in this
+  record. Implementation is frontend-only. The slice is complete only after
+  tests, build, audit, manual smoke, and documentation updates are reviewed.
+  No commit or push occurs without explicit instruction.
+- **Compatibility:** D28 remains the authentication authority; D29 governance
+  state is read-only here; D33 console conventions and in-memory token handling
+  remain; D34 is not a dependency; D35 is unchanged; D30/D31 execution stays
+  gated; S3's verifier remains separate.
+- **Rejected alternatives:** any governance mutation or approval UI; execution
+  or executor roles; new backend read/filter endpoints; invented pagination for
+  unpaginated history/audit; unbounded list fetches; client-side audit
+  verification; TypeScript; new dependencies; token persistence; raw HTML;
+  synthetic proposal preview.
+- **State:** Decided and adopted 2026-11-01; documentation/decision only. No S4
+  runtime code is implemented by this record.
+
 ## Supersession rule
 
 New decisions amend this file with date and rationale; they never silently edit

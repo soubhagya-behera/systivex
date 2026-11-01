@@ -108,7 +108,7 @@ Full design, trust boundaries, and the deterministic-vs-advisory distinction liv
 | JWT-protected API | ✅ Implemented and tested |
 | Runtime observation and telemetry integration | ✅ Implemented and tested |
 | Controlled execution | 🚧 Design-only — gated by D30/D31 |
-| Frontend / operator console | 🚧 Phase 13 S1, S2, and S3 merged; local-development-only |
+| Frontend / operator console | 🚧 Phase 13 S1, S2, and S3 merged; S4 authorized, not implemented; local-development-only |
 | Agent orchestration, verification, Git integration | 📋 Planned, not implemented |
 
 Impact, risk, and simulation derive deterministically from the twin and never authorize
@@ -151,9 +151,11 @@ Phase 13 S1 is merged via PR #8 (`DECISIONS.md` D33); Phase 13 S2 was merged via
 PR #12 on 2026-10-29 (merge commit
 `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`); Phase 13 S3 was merged via PR #14
 on 2026-10-29 (merge commit
-`fef38681992f024ec0ccb2503e4167c9fd5e276c`). It binds to `127.0.0.1` and proxies
-`/api` to a control plane running at `http://127.0.0.1:8080`; it adds no backend
-surface and has no production hosting or live OIDC login.
+`fef38681992f024ec0ccb2503e4167c9fd5e276c`). Phase 13 S4 (read-only proposal
+governance) is authorized by `DECISIONS.md` D36 but not implemented. The console
+binds to `127.0.0.1` and proxies `/api` to a control plane running at
+`http://127.0.0.1:8080`; it adds no backend surface and has no production
+hosting or live OIDC login.
 
 ```bash
 cd frontend
@@ -176,8 +178,9 @@ chain** action and sends only `GET /api/v1/twin/audit/verify`, displaying the
 bounded `OK`/`BROKEN` status, event and head counts, nullable first broken
 sequence, and diagnostic detail; it never repairs or mutates the chain. Both
 later views are live-only and are excluded from synthetic preview mode.
-Proposal/revision/audit-event browsing and simulation/policy advisory UI are
-planned but not implemented. There is no live OIDC login flow and no bundled
+Proposal/revision/audit-event browsing is authorized by D36 but not
+implemented; simulation/policy advisory UI is planned but not implemented.
+There is no live OIDC login flow and no bundled
 identity provider: the console never persists the token and performs read-only
 `GET`s against the System Twin API.
 
@@ -204,7 +207,7 @@ actuator exists — report issues via [`SECURITY.md`](SECURITY.md).
 
 `backend/` holds the Java 21 control plane (with its sample `target-services/`),
 `frontend/` holds the read-only React + Vite operator console (Phase 13 S1, S2,
-and S3 merged; local development only), and
+and S3 merged; S4 authorized, not implemented; local development only), and
 `observability/` holds a local telemetry stack (collector, Prometheus, Loki,
 Grafana).
 
@@ -213,7 +216,7 @@ Grafana).
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | System design and trust boundaries |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | Build, test, run, and configuration |
 | [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | Phase-by-phase record of what exists |
-| [`DECISIONS.md`](DECISIONS.md) | Architectural decisions (D1–D33) |
+| [`DECISIONS.md`](DECISIONS.md) | Architectural decisions (D1–D36) |
 | [`THREAT_MODEL.md`](THREAT_MODEL.md) | Security principles and threat model |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Community expectations |
