@@ -1,6 +1,6 @@
 # Systivex Project Status
 
-Last verified: **2026-10-30** (Asia/Kolkata). This document must be updated
+Last verified: **2026-11-01** (Asia/Kolkata). This document must be updated
 whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
@@ -21,10 +21,11 @@ local-development-only, uses the existing manual in-memory bearer token, and
 implements no live OIDC login or production hosting. No backend endpoint,
 schema, dependency, CORS, hosting, or security change was made. D29–D31 are
 unchanged and controlled execution stays gated. Proposal/revision/audit-event
-browsing and simulation/policy advisory UI remain **planned, not implemented**.
-Phases 0–12 below are kept as history.
+browsing is authorized by D36 but **not implemented**; simulation/policy
+advisory UI remains **planned, not implemented**. Phases 0–12 below are kept as
+history.
 
-## P0 local network exposure hardening (implemented + live verified 2026-10-30; uncommitted working tree)
+## P0 local network exposure hardening (implemented + live verified 2026-10-30; merged via PR #16 on 2026-11-01; merge commit ed2d2b7f535657b933aa892da1d75e7c1cfca3d1)
 
 - [x] The four target services now fail closed on binding: each has a
   last-ordered `LoopbackBindingConfiguration` web-server customizer that reads
@@ -63,12 +64,27 @@ Phases 0–12 below are kept as history.
   both main and management listeners were `127.0.0.1`, management health was
   `UP`, and `--management.server.address=0.0.0.0` failed startup with the
   loopback refusal. The other three management guards are covered by tests.
-- [x] Docker host-to-container connectivity was re-verified with
-  `host.docker.internal`; the pull-based scrape path is unchanged. No OTLP
-  metrics push, D19 change, authentication change, or production-exposure
-  claim was introduced.
-- [ ] Commit/PR pending. This hardening made no change to `DECISIONS.md` or
-  `backend/src/main/resources/application.properties`.
+- [x] Container-to-host connectivity was re-verified: the collector container
+  reaches the host-published target services through `host.docker.internal`;
+  the pull-based scrape path is unchanged. No OTLP metrics push, D19 change,
+  authentication change, or production-exposure claim was introduced.
+- [x] Merged via PR #16 on 2026-11-01 (merge commit
+  `ed2d2b7f535657b933aa892da1d75e7c1cfca3d1`). This hardening made no change to
+  `DECISIONS.md` or `backend/src/main/resources/application.properties`.
+
+## Phase 13 S4 — Proposal Governance UI (authorized by D36 on 2026-11-01; not implemented)
+
+- [x] `DECISIONS.md` D36 records the Phase 13 S4 decision: a scoped, read-only
+  proposal governance view in the existing React + Vite + JavaScript console.
+- [ ] Implementation has not started. S4 is authorized but not implemented; no
+  frontend code, test, backend, schema, dependency, configuration, or hosting
+  change exists for this slice.
+- [ ] Planned read-only surface: the first proposal page with server-side
+  pagination; selection of one proposal and its latest revision; revision
+  history; selected revision detail; and the per-proposal audit trail, using
+  only the five existing `TWIN_READ` GET endpoints. No creation, withdrawal,
+  assessment, submission, amendment, approval, rejection, execution, or
+  client-side chain verification is authorized.
 
 ## Gated, not scheduled — controlled execution
 
