@@ -268,6 +268,25 @@ in tracked files — ports, downstream URLs, and datasource URLs/usernames are
 safe to commit; passwords arrive only via `ORDER_DB_PASSWORD`,
 `PAYMENT_DB_PASSWORD`, `INVENTORY_DB_PASSWORD`.
 
+Each target service also ships a fail-closed loopback guard
+(`LoopbackBindingConfiguration`). It runs as the last web-server factory
+customizer, so it sees the fully bound `ServerProperties`: an unset
+`server.address` becomes `127.0.0.1`, while wildcard or non-loopback values
+fail startup before the connector opens. The guard therefore cannot be
+bypassed by ignored `application.properties`, active profiles,
+`SERVER_ADDRESS`, CLI arguments, or `SPRING_APPLICATION_JSON`; the tracked
+examples also set `server.address=127.0.0.1` explicitly. Non-loopback
+exposure requires authentication and a recorded review, not a local override.
+
+When `management.server.port` differs from `server.port`, Boot creates a
+separate management child context. Each service registers a
+`@ManagementContextConfiguration(ManagementContextType.CHILD)` through
+`META-INF/spring/org.springframework.boot.actuate.autoconfigure.web.ManagementContextConfiguration.imports`.
+That child customizer applies the same binding rule to
+`management.server.address`: unset becomes `127.0.0.1`, and wildcard or
+non-loopback values fail startup. When management uses the same port, the
+main guard covers the single connector.
+
 Run all four (one shell each, inventory/payment first, then order, then
 gateway — or any order; each waits on its own port):
 
@@ -294,8 +313,8 @@ recorded in their service's database. Checkout is not atomic across the three
 databases (see `ARCHITECTURE.md` §4): a FAILED order can coexist with a
 standing reservation.
 
-Tests (57 total across the four services, Testcontainers PostgreSQL, no local databases touched): each
-service has real-HTTP boundary tests — inventory/payment/order boot against
+Tests (136 total across the four services, Testcontainers PostgreSQL, no local databases touched): gateway 27, order 43, payment 31, and inventory 35.
+Each service has real-HTTP boundary tests — inventory/payment/order boot against
 throwaway containers (Flyway-migrated, so migration startup is covered),
 order/gateway tests stub only the downstream side with loopback stub servers.
 Inventory additionally covers stock-decrease persistence, rejection paths, a
@@ -305,7 +324,9 @@ counters, and (gateway/order) W3C traceparent propagation to stubbed
 downstream hops — no collector needed for tests. Order-service additionally
 has two telemetry privacy tests proving downstream 4xx bodies never reach
 recorded span data (positive span-event assertions plus a negative-direction
-test that fails with the sanitizer unregistered).
+test that fails with the sanitizer unregistered). Guard tests cover unset
+defaults, loopback ranges, IPv4-mapped IPv6, wildcard rejection, and the
+management-child import/address behavior.
 
 ## 9. Telemetry pipeline (Phase 3A) + visualization (Phase 3B-1)
 
@@ -323,6 +344,15 @@ log (debug exporter — the trace verification path), scrapes each service's
 `/actuator/prometheus` (ports 8080–8084 via `host.docker.internal`), and
 re-exposes the collected metrics Prometheus-compatible on :8889. Collector
 health: `GET http://localhost:13133/`.
+
+All seven published host ports are loopback-only:
+`127.0.0.1:4317`, `:4318`, `:8889`, `:13133` (collector), `:3100` (Loki),
+`:9090` (Prometheus), and `:3000` (Grafana). The container-internal receiver
+bindings and container-to-container paths are unchanged, so Prometheus still
+scrapes only the collector's `:8889`, the collector still scrapes the local
+services through `host.docker.internal`, and Loki still receives OTLP at
+`http://loki:3100/otlp`. Local UI/API access remains
+`http://localhost:<port>`.
 
 Phase 3B-1 adds, in the same Compose file: Prometheus on :9090 scrapes
 only the collector's `:8889` (never the Java services directly — single
@@ -405,15 +435,16 @@ Notes and limits:
   are created/updated. Manual rows are preserved; an identity collision
   fails the whole sync with 409 and rolls back (nothing partial).
 - Bad roots fail with 400 before any write. The run is one transaction.
-- Localhost-only: the tracked `application.example.properties` binds
-  `127.0.0.1`, and the endpoint refuses non-loopback peers with 403.
-  A pre-existing live `application.properties` does NOT inherit the example
-  file (verified 2026-10-10: the live file has no `server.address` line),
-  so for local runs either add `server.address=127.0.0.1` to the live file
-  or start with the environment override `SERVER_ADDRESS=127.0.0.1`
-  (relaxed binding for `server.address`). Do not bind `0.0.0.0` without an
-  authentication story and a recorded review. No watchers, schedulers, Git
-  remotes, or telemetry ingestion — those are deferred by decision.
+- Localhost-only: this control-plane endpoint relies on the control plane's
+  loopback listener (the live root `application.properties` sets
+  `server.address=127.0.0.1`) and `LoopbackGuard`, which refuses non-loopback
+  peers with 403. The target-service guards do **not** protect this endpoint;
+  they only bind the four target services. The control plane has no
+  code-level binding guard analogous to the target services, so do not rely
+  on the example template or a live file alone. Do not bind `0.0.0.0`
+  without an authentication story and a recorded review. No watchers,
+  schedulers, Git remotes, or telemetry
+  ingestion — those are deferred by decision.
 
 ## 11. Change-impact analysis (Phase 5)
 
