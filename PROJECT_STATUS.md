@@ -24,6 +24,52 @@ unchanged and controlled execution stays gated. Proposal/revision/audit-event
 browsing and simulation/policy advisory UI remain **planned, not implemented**.
 Phases 0–12 below are kept as history.
 
+## P0 local network exposure hardening (implemented + live verified 2026-10-30; uncommitted working tree)
+
+- [x] The four target services now fail closed on binding: each has a
+  last-ordered `LoopbackBindingConfiguration` web-server customizer that reads
+  the fully bound `ServerProperties`, defaults an unset `server.address` to
+  `127.0.0.1`, and rejects wildcard or non-loopback addresses before the
+  connector starts. This covers ignored local properties, profiles,
+  `SERVER_ADDRESS`, CLI overrides, and `SPRING_APPLICATION_JSON`.
+- [x] A separately configured management server is covered too: each service
+  registers a `@ManagementContextConfiguration(ManagementContextType.CHILD)`
+  through
+  `META-INF/spring/org.springframework.boot.actuate.autoconfigure.web.ManagementContextConfiguration.imports`.
+  The child customizer applies the same rule to `management.server.address`:
+  unset becomes `127.0.0.1`, and wildcard or non-loopback values fail startup.
+  When management shares the main port, the main guard covers the connector.
+- [x] All four `application.example.properties` files set
+  `server.address=127.0.0.1`. Every published host port in
+  `observability/docker-compose.yml` is now loopback-only.
+- [x] `scripts/verify-loopback.mjs` statically checks examples, main and
+  management guard files/imports, and Compose host bindings, and optionally
+  checks live listeners with `--running`. CI now runs the four target-service
+  test suites and the loopback verifier.
+- [x] Verification completed: target-service suites green — gateway 27,
+  order 43, payment 31, inventory 35 (136 total); four `package -DskipTests`
+  builds succeeded; `node scripts/verify-loopback.mjs` passed;
+  `docker compose config --quiet` passed.
+- [x] Live verification with a temporary PostgreSQL container and the
+  observability stack: all four target services reached
+  `/actuator/health` `UP`; a checkout through the gateway returned
+  `CONFIRMED`; inventory over-reservation and payment decline both returned
+  `422`; listeners for `8081`–`8084`, `3000`, `3100`, `4317`, `4318`,
+  `8889`, `9090`, and `13133` were `127.0.0.1` only;
+  `verify-loopback.mjs --running` passed; the collector re-exposed metrics
+  carrying `server_port` `8081`–`8084`; and Prometheus reported the
+  `otel-collector` target `up`.
+- [x] The gateway management child was live-probed on a separate random port:
+  both main and management listeners were `127.0.0.1`, management health was
+  `UP`, and `--management.server.address=0.0.0.0` failed startup with the
+  loopback refusal. The other three management guards are covered by tests.
+- [x] Docker host-to-container connectivity was re-verified with
+  `host.docker.internal`; the pull-based scrape path is unchanged. No OTLP
+  metrics push, D19 change, authentication change, or production-exposure
+  claim was introduced.
+- [ ] Commit/PR pending. This hardening made no change to `DECISIONS.md` or
+  `backend/src/main/resources/application.properties`.
+
 ## Gated, not scheduled — controlled execution
 
 **Execution implementation — gated by the D31 feasibility gate.** No

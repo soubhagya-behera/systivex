@@ -35,12 +35,12 @@ services:
       - ./otel-collector.yml:/etc/otel-collector.yml:ro
     ports:
       # OTLP receivers (apps ship spans and log records here)
-      - "4317:4317"
-      - "4318:4318"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
       # Collected metrics, Prometheus-compatible exposition
-      - "8889:8889"
+      - "127.0.0.1:8889:8889"
       # Collector health
-      - "13133:13133"
+      - "127.0.0.1:13133:13133"
     depends_on:
       - loki
   loki:
@@ -51,7 +51,7 @@ services:
       - loki-data:/loki
     ports:
       # Loki HTTP API (push + query)
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
   prometheus:
     image: prom/prometheus:v3.5.0
     command:
@@ -62,7 +62,7 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
       # Prometheus UI + HTTP API
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     depends_on:
       - otel-collector
   grafana:
@@ -72,7 +72,7 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       # Grafana UI
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - prometheus
       - loki

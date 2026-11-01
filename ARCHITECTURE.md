@@ -156,6 +156,14 @@ and never migrates.
 - Downstream URLs and datasource credentials come from configuration (env vars
   with localhost defaults), never from source. Fixed dev ports (8081–8084);
   control plane stays on 8080.
+- Each target service enforces loopback at startup: a last-ordered server
+  factory customizer defaults an unset `server.address` to `127.0.0.1` and
+  rejects wildcard or non-loopback values before bind. This applies after
+  normal Boot configuration binding, so ignored local properties, profiles,
+  environment variables, CLI arguments, and `SPRING_APPLICATION_JSON` cannot
+  bypass it. When `management.server.port` is separate, a child-context
+  `@ManagementContextConfiguration` applies the same rule to
+  `management.server.address`.
 - Checkout persists at every step: PENDING row first, then reserve, then
   authorize, then CONFIRMED — or FAILED when any downstream step fails. Failed
   attempts are recorded, never dropped and never falsely CONFIRMED.
@@ -204,8 +212,13 @@ Boot-managed dependencies. Collection is local only:
           └─────────────▶│  Grafana :3000    │  (provisioned)
                          │  Metrics dashboard│  (Phase 3B-1)
                          │  Explore logs     │  (Phase 3B-2)
-                         └──────────────────┘
+                          └──────────────────┘
  ```
+
+Compose publishes the seven host-facing telemetry ports on `127.0.0.1`
+only. Container-internal receiver bindings and container-to-container paths
+are unchanged; metrics stay pull-based through the collector's Prometheus
+receiver and Prometheus still scrapes only the collector's `:8889`.
 
 Phase 3B-1 adds visualization without touching the collection path:
 Prometheus scrapes only the collector's `:8889` exposition (never the

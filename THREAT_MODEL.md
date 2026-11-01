@@ -141,6 +141,24 @@ itself a place data can leak. The following holds for the current pipeline
   locally and nothing is reachable beyond the machine. Exposing any of
   these beyond localhost requires authentication and a recorded review
   (see §4: actuator surface).
+- **P0 local network exposure hardening (2026-10-30).** The four target
+  services enforce loopback at startup: a last-ordered
+  `WebServerFactoryCustomizer` reads the fully bound `ServerProperties`,
+  defaults an unset `server.address` to `127.0.0.1`, and rejects wildcard or
+  non-loopback addresses before the connector starts. Because it runs after
+  normal Boot configuration binding, ignored `application.properties`,
+  active profiles, `SERVER_ADDRESS`, CLI arguments, and
+  `SPRING_APPLICATION_JSON` cannot bypass it. A separately configured
+  management server is covered by a child-context
+  `@ManagementContextConfiguration` that defaults an unset
+  `management.server.address` to `127.0.0.1` and rejects wildcard or
+  non-loopback values; when management shares the main port, the main guard
+  covers the single connector. All seven Compose host ports (`4317`, `4318`,
+  `8889`, `13133`, `3100`, `9090`, `3000`) are published on `127.0.0.1` only.
+  Container-internal receiver bindings and the pull-based Prometheus path are
+  unchanged (D19 untouched). The live `host.docker.internal` probe was
+  validated on Docker Desktop for Windows; native Linux Docker networking
+  needs a separate reviewed decision, not an untested switch.
 - **Phase 4 sync trigger (2026-10-09): same boundary, one new mutating
   surface.** `POST /api/v1/twin/sync` writes to the twin, so it gets two
   loopback layers instead of one: the server binds `127.0.0.1` by default
@@ -169,12 +187,12 @@ itself a place data can leak. The following holds for the current pipeline
   authentication infrastructure is introduced: like the existing twin GETs,
   this endpoint is local-development-only and must not be exposed beyond
   the machine without the deferred auth story (see §3: still open).
-  **Binding caveat (evidence, not assumption):** the tracked example binds
-  `127.0.0.1`, but a pre-existing live `application.properties` does not
-  inherit it — verified 2026-10-10 that the live file carries no
-   `server.address` line — so the effective bind is the framework default
-   unless `SERVER_ADDRESS=127.0.0.1` is set or the live file is given the
-   bind (see `DECISIONS.md` D23, `DEVELOPMENT.md` §10–§11). Impact results
+  **Binding caveat:** this is a control-plane endpoint. Its protection comes
+  from the control plane's loopback listener and `LoopbackGuard`, not from
+  the target-service guards, which only bind the four target services. Keep
+  `server.address=127.0.0.1` in the control plane's live config; the
+  target-service guard's fail-closed behavior is documented separately in
+  `DEVELOPMENT.md` §8b. Impact results
    are advisory reachability ("potentially affected", per-path evidence
    included), never authorization or fact about the live system (T1/T3):
    over-approximation (`WRITES` is per-database, no `READS` edges) and
