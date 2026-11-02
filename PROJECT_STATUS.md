@@ -1,29 +1,28 @@
 # Systivex Project Status
 
-Last verified: **2026-11-01** (Asia/Kolkata). This document must be updated
+Last verified: **2026-11-02** (Asia/Kolkata). This document must be updated
 whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 13 S3 — Audit Integrity UI (merged via PR #14 on 2026-10-29;
-merge commit `fef38681992f024ec0ccb2503e4167c9fd5e276c`).**
-Phase 13 S3 introduces scoped, read-only audit-chain verification in the
-existing React + Vite + JavaScript console. S3 adds a view to the existing
-console alongside the merged Phase 13 S1 System Twin explorer and Phase 13 S2
-Impact & Risk view with an explicit
-"Verify audit chain" action that issues only the existing
-`GET /api/v1/twin/audit/verify` (`TWIN_READ`) request. The view reports the
-bounded `OK`/`BROKEN` status, event count, head sequence, nullable first broken
-sequence, and the backend diagnostic detail, and never repairs or mutates the
-chain. The Audit Integrity navigation item is live-only: it is excluded from the
-synthetic local preview mode. S1, S2, and S3 are merged; the console remains
-local-development-only, uses the existing manual in-memory bearer token, and
-implements no live OIDC login or production hosting. No backend endpoint,
-schema, dependency, CORS, hosting, or security change was made. D29–D31 are
-unchanged and controlled execution stays gated. Proposal/revision/audit-event
-browsing is authorized by D36 but **not implemented**; simulation/policy
-advisory UI remains **planned, not implemented**. Phases 0–12 below are kept as
-history.
+**Phase 13 S4 — Proposal Governance UI (implemented on
+`feat/phase-13-s4-proposal-governance`; authenticated live smoke partially
+exercised because the database contained zero proposals; review pending; not
+merged).**
+Phase 13 S4 adds a scoped, read-only proposal governance view to the existing
+React + Vite + JavaScript console. Entry loads only the first proposal page;
+selecting a proposal loads only its latest revision; revision history, a
+selected revision, and the per-proposal audit trail load only on explicit
+operator action. The view uses only the five D36 `TWIN_READ` GET endpoints and
+exposes no creation, withdrawal, assessment, submission, amendment, approval,
+rejection, execution, or client-side chain-verification control. The view is
+live-only and excluded from synthetic preview. S1, S2, and S3 remain merged; the
+console remains local-development-only, uses the existing manual in-memory
+bearer token, and implements no live OIDC login or production hosting. No
+backend endpoint, schema, dependency, CORS, hosting, or security change was
+made. D29–D31 are unchanged and controlled execution stays gated.
+Simulation/policy advisory UI remains **planned, not implemented**. Phases 0–12
+below are kept as history.
 
 ## P0 local network exposure hardening (implemented + live verified 2026-10-30; merged via PR #16 on 2026-11-01; merge commit ed2d2b7f535657b933aa892da1d75e7c1cfca3d1)
 
@@ -72,19 +71,67 @@ history.
   `ed2d2b7f535657b933aa892da1d75e7c1cfca3d1`). This hardening made no change to
   `DECISIONS.md` or `backend/src/main/resources/application.properties`.
 
-## Phase 13 S4 — Proposal Governance UI (authorized by D36 on 2026-11-01; not implemented)
+## Phase 13 S4 — Proposal Governance UI (implemented on branch; authenticated live smoke partially exercised — zero proposals in the database; review pending; not merged)
 
 - [x] `DECISIONS.md` D36 records the Phase 13 S4 decision: a scoped, read-only
   proposal governance view in the existing React + Vite + JavaScript console.
-- [ ] Implementation has not started. S4 is authorized but not implemented; no
-  frontend code, test, backend, schema, dependency, configuration, or hosting
-  change exists for this slice.
-- [ ] Planned read-only surface: the first proposal page with server-side
-  pagination; selection of one proposal and its latest revision; revision
-  history; selected revision detail; and the per-proposal audit trail, using
-  only the five existing `TWIN_READ` GET endpoints. No creation, withdrawal,
-  assessment, submission, amendment, approval, rejection, execution, or
-  client-side chain verification is authorized.
+- [x] Frontend-only implementation on `feat/phase-13-s4-proposal-governance`:
+  `api/proposals.js` strictly validates the five response shapes;
+  `views/ProposalGovernance.jsx` provides the read-only surface; the live-only
+  `Proposals` navigation entry is excluded from synthetic preview. No backend,
+  schema, migration, dependency, configuration, authentication, or hosting
+  change was made.
+- [x] Loading contract implemented: entering the view requests only
+  `GET /api/v1/twin/proposals?page=0&size=20`; selecting a proposal requests
+  only `GET /proposals/{key}`; revision history, a selected revision, and audit
+  evidence are requested only after explicit actions. There is no prefetching,
+  polling, or automatic refresh.
+- [x] The view displays all D36 proposal and audit fields, explicit
+  "Not reported" values for nullable fields, unknown forward-compatible
+  status/action/outcome strings, bounded collapsible inert JSON, and stored
+  hashes as plain text. It does not compute or claim audit-chain verification.
+- [x] Pagination uses only the returned `page`/`size`/`total`; history and audit
+  arrays render in server order without invented paging, sorting, or filters.
+  Out-of-range pages show an empty state with previous-page navigation.
+- [x] Fixed safe errors cover 400/401/403/404/5xx/network/malformed payloads,
+  with retry actions; tokens remain memory-only and are never persisted,
+  logged, rendered, or placed in URLs.
+- [x] Verification on 2026-11-01: focused S4 tests **56 passed** across
+  `proposals.test.js` (39), `ProposalGovernance.test.jsx` (15), and
+  `proposalGovernanceIntegration.test.jsx` (2); full frontend suite **200
+  passed** across 21 files; `npm run build` passed; `git diff --check` clean;
+  `npm audit --audit-level=high` reported **0 high/critical** vulnerabilities
+  (one pre-existing moderate Vite advisory remains below the gate).
+- [x] Authenticated live smoke on 2026-11-02 used the existing local
+  development setup: backend health `GET /actuator/health` returned **200** with
+  status `UP`; Keycloak discovery returned the exact issuer
+  `http://127.0.0.1:8180/realms/systivex-dev`; and the **Device Authorization +
+  PKCE S256** flow completed through browser sign-in as the existing
+  `dev-reader` identity. No Direct Access Grant, fabricated token, or
+  authorization weakening was used.
+- [x] Live authenticated evidence: the first proposal page
+  `GET /api/v1/twin/proposals?page=0&size=20` returned **200** with
+  `page=0`, `size=20`, and `total=0`. An unauthenticated proposal read returned
+  **401**. The console also loaded `GET /api/v1/twin/entities` and
+  `GET /api/v1/twin/relationships` with **200**.
+- [x] Live request safety: only approved `GET` requests were observed; every
+  `/api` request carried an `Authorization` header; no mutation, approval,
+  rejection, execution, sync, observation, simulation, policy, or
+  `/audit/verify` request occurred. The development React StrictMode
+  double-effect produced duplicate `entities`, `relationships`, and first-page
+  proposal `GET`s, each returning **200**; these were duplicate reads, not
+  additional or unapproved endpoints.
+- [x] Token handling in the live run: the bearer token remained memory-only,
+  absent from `localStorage`, `sessionStorage`, cookies, the DOM, the URL,
+  console output, and request URLs; reload cleared it and made no further API
+  calls.
+- [ ] The database contained **zero proposals**, so proposal detail, revision
+  history, selected historical revision, per-proposal audit evidence display,
+  and multi-page pagination were **not live-exercised**. These workflows remain
+  covered by the automated test suite, not live data verification. No synthetic
+  proposal or database mutation was created to manufacture coverage; the live
+  audit-evidence claim is therefore unverified.
+- [ ] Review and merge remain pending; the slice is not merged.
 
 ## Gated, not scheduled — controlled execution
 
