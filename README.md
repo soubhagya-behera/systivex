@@ -108,7 +108,7 @@ Full design, trust boundaries, and the deterministic-vs-advisory distinction liv
 | JWT-protected API | ✅ Implemented and tested |
 | Runtime observation and telemetry integration | ✅ Implemented and tested |
 | Controlled execution | 🚧 Design-only — gated by D30/D31 |
-| Frontend / operator console | 🚧 Phase 13 S1, S2, and S3 merged; S4 implemented on branch (authenticated live smoke partial — empty proposal database), review pending; local-development-only |
+| Frontend / operator console | 🚧 Phase 13 S1, S2, S3, and S4 merged (S4 via PR #18, merge commit `b31e9bd8c05b75d20937f48c2b70675133684cb2`; authenticated live smoke partial — empty proposal database); local-development-only |
 | Agent orchestration, verification, Git integration | 📋 Planned, not implemented |
 
 Impact, risk, and simulation derive deterministically from the twin and never authorize
@@ -152,12 +152,13 @@ PR #12 on 2026-10-29 (merge commit
 `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`); Phase 13 S3 was merged via PR #14
 on 2026-10-29 (merge commit
 `fef38681992f024ec0ccb2503e4167c9fd5e276c`). Phase 13 S4 (read-only proposal
-governance) is implemented on `feat/phase-13-s4-proposal-governance` under
-`DECISIONS.md` D36. An authenticated live smoke on 2026-11-02 verified the
-authenticated list/auth/empty-state path with a live `TWIN_READ` token, but the
-database contained zero proposals, so proposal detail, revision history,
+governance) was merged via PR #18 on 2026-11-02 (merge commit
+`b31e9bd8c05b75d20937f48c2b70675133684cb2`) under `DECISIONS.md` D36. An
+authenticated live smoke on 2026-11-02 verified the authenticated
+list/auth/empty-state path with a live `TWIN_READ` token, but the database
+contained zero proposals, so proposal detail, revision history,
 historical-revision detail, per-proposal audit evidence, and multi-page
-pagination were not live-exercised. It is not merged. The console binds to
+pagination were not live-exercised. The console binds to
 `127.0.0.1` and proxies `/api` to a control plane running at
 `http://127.0.0.1:8080`; it adds no backend surface and has no production
 hosting or live OIDC login.
@@ -217,8 +218,8 @@ actuator exists — report issues via [`SECURITY.md`](SECURITY.md).
 
 `backend/` holds the Java 21 control plane (with its sample `target-services/`),
 `frontend/` holds the read-only React + Vite operator console (Phase 13 S1, S2,
-and S3 merged; S4 implemented on branch with partial authenticated live smoke
-and review pending; local development only), and
+S3, and S4 merged; S4 via PR #18 with partial authenticated live smoke; local
+development only), and
 `observability/` holds a local telemetry stack (collector, Prometheus, Loki,
 Grafana).
 
