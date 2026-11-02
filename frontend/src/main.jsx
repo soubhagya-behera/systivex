@@ -6,6 +6,7 @@ import './styles/components.css';
 import './styles/graph.css';
 import './styles/trust.css';
 import './styles/analysis.css';
+import './styles/proposals.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

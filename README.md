@@ -108,7 +108,7 @@ Full design, trust boundaries, and the deterministic-vs-advisory distinction liv
 | JWT-protected API | ✅ Implemented and tested |
 | Runtime observation and telemetry integration | ✅ Implemented and tested |
 | Controlled execution | 🚧 Design-only — gated by D30/D31 |
-| Frontend / operator console | 🚧 Phase 13 S1, S2, and S3 merged; S4 authorized, not implemented; local-development-only |
+| Frontend / operator console | 🚧 Phase 13 S1, S2, and S3 merged; S4 implemented on branch (authenticated live smoke partial — empty proposal database), review pending; local-development-only |
 | Agent orchestration, verification, Git integration | 📋 Planned, not implemented |
 
 Impact, risk, and simulation derive deterministically from the twin and never authorize
@@ -152,22 +152,28 @@ PR #12 on 2026-10-29 (merge commit
 `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`); Phase 13 S3 was merged via PR #14
 on 2026-10-29 (merge commit
 `fef38681992f024ec0ccb2503e4167c9fd5e276c`). Phase 13 S4 (read-only proposal
-governance) is authorized by `DECISIONS.md` D36 but not implemented. The console
-binds to `127.0.0.1` and proxies `/api` to a control plane running at
+governance) is implemented on `feat/phase-13-s4-proposal-governance` under
+`DECISIONS.md` D36. An authenticated live smoke on 2026-11-02 verified the
+authenticated list/auth/empty-state path with a live `TWIN_READ` token, but the
+database contained zero proposals, so proposal detail, revision history,
+historical-revision detail, per-proposal audit evidence, and multi-page
+pagination were not live-exercised. It is not merged. The console binds to
+`127.0.0.1` and proxies `/api` to a control plane running at
 `http://127.0.0.1:8080`; it adds no backend surface and has no production
 hosting or live OIDC login.
 
 ```bash
 cd frontend
 npm ci
-npm test        # Vitest + Testing Library (144 tests; 20 focused S2, 13 focused S3)
+npm test        # Vitest + Testing Library (200 tests; 20 focused S2, 13 focused S3, 56 focused S4)
 npm run build   # production bundle
 npm run dev     # serve at http://127.0.0.1:5173 (start the backend first)
 ```
 
 Open the console, paste a bearer token you already hold — it is kept in memory for
 the tab only — and explore entities, relationships, the dependency graph, the
-**Impact & Risk** view, or the **Audit Integrity** view. Select one loaded root
+**Impact & Risk** view, the **Audit Integrity** view, or the **Proposals** view.
+Select one loaded root
 and choose Analyze explicitly; S2 then sends only `GET /api/v1/twin/impact?from=<UUID>`
 and `GET /api/v1/twin/risk?from=<UUID>`, using the backend defaults
 (`maxDepth=6`; `SERVICE,API,DATABASE,TABLE`). The view shows impact evidence
@@ -176,13 +182,17 @@ computation times; risk has no truncation or cycle fields, so risk completeness
 is not claimed. The **Audit Integrity** view requires an explicit **Verify audit
 chain** action and sends only `GET /api/v1/twin/audit/verify`, displaying the
 bounded `OK`/`BROKEN` status, event and head counts, nullable first broken
-sequence, and diagnostic detail; it never repairs or mutates the chain. Both
-later views are live-only and are excluded from synthetic preview mode.
-Proposal/revision/audit-event browsing is authorized by D36 but not
-implemented; simulation/policy advisory UI is planned but not implemented.
-There is no live OIDC login flow and no bundled
-identity provider: the console never persists the token and performs read-only
-`GET`s against the System Twin API.
+sequence, and diagnostic detail; it never repairs or mutates the chain. The
+**Proposals** view loads only the first proposal page on entry, then loads one
+proposal's latest revision on selection; revision history, a selected revision,
+and the per-proposal audit trail load only after explicit actions. It uses only
+the five D36 `TWIN_READ` GET endpoints, displays nullable fields and stored
+hashes as inert text, and performs no approval, rejection, execution, or
+client-side chain verification. The later views are live-only and are excluded
+from synthetic preview mode. Simulation/policy advisory UI is planned but not
+implemented. There is no live OIDC login flow and no bundled identity provider:
+the console never persists the token and performs read-only `GET`s against the
+System Twin API.
 
 </details>
 
@@ -207,7 +217,8 @@ actuator exists — report issues via [`SECURITY.md`](SECURITY.md).
 
 `backend/` holds the Java 21 control plane (with its sample `target-services/`),
 `frontend/` holds the read-only React + Vite operator console (Phase 13 S1, S2,
-and S3 merged; S4 authorized, not implemented; local development only), and
+and S3 merged; S4 implemented on branch with partial authenticated live smoke
+and review pending; local development only), and
 `observability/` holds a local telemetry stack (collector, Prometheus, Loki,
 Grafana).
 
