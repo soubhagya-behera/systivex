@@ -5,10 +5,9 @@ whenever the implemented state changes. Planned items are not claimed as done.
 
 ## Current phase
 
-**Phase 13 S4 — Proposal Governance UI (implemented on
-`feat/phase-13-s4-proposal-governance`; authenticated live smoke partially
-exercised because the database contained zero proposals; review pending; not
-merged).**
+**Phase 13 S4 — Proposal Governance UI (merged via PR #18 on 2026-11-02; merge
+commit `b31e9bd8c05b75d20937f48c2b70675133684cb2`; authenticated live smoke
+partially exercised because the database contained zero proposals).**
 Phase 13 S4 adds a scoped, read-only proposal governance view to the existing
 React + Vite + JavaScript console. Entry loads only the first proposal page;
 selecting a proposal loads only its latest revision; revision history, a
@@ -71,11 +70,12 @@ below are kept as history.
   `ed2d2b7f535657b933aa892da1d75e7c1cfca3d1`). This hardening made no change to
   `DECISIONS.md` or `backend/src/main/resources/application.properties`.
 
-## Phase 13 S4 — Proposal Governance UI (implemented on branch; authenticated live smoke partially exercised — zero proposals in the database; review pending; not merged)
+## Phase 13 S4 — Proposal Governance UI (merged via PR #18 on 2026-11-02; merge commit `b31e9bd8c05b75d20937f48c2b70675133684cb2`; authenticated live smoke partially exercised — zero proposals in the database)
 
 - [x] `DECISIONS.md` D36 records the Phase 13 S4 decision: a scoped, read-only
   proposal governance view in the existing React + Vite + JavaScript console.
-- [x] Frontend-only implementation on `feat/phase-13-s4-proposal-governance`:
+- [x] Frontend-only implementation merged from
+  `feat/phase-13-s4-proposal-governance` via PR #18:
   `api/proposals.js` strictly validates the five response shapes;
   `views/ProposalGovernance.jsx` provides the read-only surface; the live-only
   `Proposals` navigation entry is excluded from synthetic preview. No backend,
@@ -131,7 +131,8 @@ below are kept as history.
   covered by the automated test suite, not live data verification. No synthetic
   proposal or database mutation was created to manufacture coverage; the live
   audit-evidence claim is therefore unverified.
-- [ ] Review and merge remain pending; the slice is not merged.
+- [x] Merged via PR #18 on 2026-11-02 (merge commit
+  `b31e9bd8c05b75d20937f48c2b70675133684cb2`); the feature branch was retained.
 
 ## Gated, not scheduled — controlled execution
 
