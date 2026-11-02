@@ -96,7 +96,7 @@ below are kept as history.
 - [x] Fixed safe errors cover 400/401/403/404/5xx/network/malformed payloads,
   with retry actions; tokens remain memory-only and are never persisted,
   logged, rendered, or placed in URLs.
-- [x] Verification on 2026-11-01: focused S4 tests **56 passed** across
+- [x] Verification on 2026-11-02: focused S4 tests **56 passed** across
   `proposals.test.js` (39), `ProposalGovernance.test.jsx` (15), and
   `proposalGovernanceIntegration.test.jsx` (2); full frontend suite **200
   passed** across 21 files; `npm run build` passed; `git diff --check` clean;
