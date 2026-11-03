@@ -1,8 +1,9 @@
 # Systivex Development Guide
 
 Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B) +
-telemetry pipeline (Phase 3A) + twin observation (Phase 4) + read-only operator
-console (Phase 13 S1, S2, and S3 merged; local development only)**.
+telemetry pipeline (Phase 3A) + twin observation (Phase 4) + operator console
+(Phase 13 S1–S4 merged; S5 implemented and automated-verified but
+uncommitted/unmerged, with live verification blocked; local development only)**.
 §§1–7 cover the control plane in `backend/`; §8 covers the target services in
 `backend/target-services/`; §9 covers the local telemetry
 infrastructure in `observability/`; §10 covers twin synchronization; §18 covers
@@ -21,7 +22,7 @@ needed for console work.
 | Docker | Docker Desktop (daemon running) | Required for `./mvnw test` (Testcontainers spins up PG 18) and for the Phase 3A telemetry collector (`observability/`) |
 | Redis | **Not required** in this phase | Deferred, only when justified |
 | Ollama / Spring AI | **Not required** in this phase | Deferred |
-| Node / React | **24 LTS** (`frontend/.nvmrc`) | Optional — only for the Phase 13 S1/S2/S3 console (§18); not needed for backend work |
+| Node / React | **24 LTS** (`frontend/.nvmrc`) | Optional — only for the Phase 13 S1–S5 console (§18); not needed for backend work |
 | K8s / brokers | **Not required** (services run locally, not containerized) | Deferred |
 
 > Environment setup (2026-09-28, updated): the machine default `JAVA_HOME`/PATH
@@ -126,9 +127,11 @@ $env:Path="C:\Program Files\Java\jdk-21.0.10\bin;" + $env:Path
 ./mvnw test
 ```
 
-Expected (verified 2026-10-15): full suite green — service unit tests
-plus Testcontainers-backed migration, repository, and API integration
-tests, 2 observability tests (tracing active, health UP),
+Expected (verified 2026-11-03 for Phase 13 S5): full suite green — **398
+tests, 0 failures/errors**, including service unit tests and
+Testcontainers-backed migration, repository, and API integration tests.
+S5 is frontend-only and changes no backend test. The suite includes
+2 observability tests (tracing active, health UP),
 20 Phase 4 observation tests (scanner mapping/fail-closed, sync
 idempotency/ownership/rollback, HTTP trigger, loopback guard),
 37 Phase 5 impact tests (18 deterministic BFS unit tests + 19 HTTP/API
@@ -192,7 +195,8 @@ at the same time as the code — docs must reflect reality.
 1. Do not add dependencies unless required for the current phase (recorded in `DECISIONS.md`).
 2. Do not create placeholder packages or speculative modules.
 3. Do not add Docker Compose, Redis/AI configuration, or frontend work beyond
-   the Phase 13 S1/S2/S3 read-only console (see §18).
+   the Phase 13 S1–S5 console (see §18). S5 is limited to the two D37 advisory
+   POSTs and adds no backend or mutation surface.
 4. Do not weaken tests to make them pass.
 5. Do not claim features work unless verified by `./mvnw test` / startup / endpoint check.
 6. Never commit `application.properties`, credentials, or machine-local settings.
@@ -854,12 +858,12 @@ hard `(issuer, subject)` separation of duties; a hash-chained audit log
 that is tamper-evident, not tamper-proof; every mutation transactional
 with its audit event; no execution endpoints.
 
-## 18. Read-only operator console (Phase 13 S1, S2, and S3 merged; local development only)
+## 18. Operator console (Phase 13 S1–S4 merged; S5 implemented and unmerged; local development only)
 
-`frontend/` is a React + Vite + **JavaScript** (no TypeScript) read-only
-operator console. Phase 13 S1, authorized by `DECISIONS.md` D33 and merged via
-PR #8, provides the System Twin explorer over the existing `TWIN_READ` GET
-endpoints `GET /api/v1/twin/entities[/{id}]` and
+`frontend/` is a React + Vite + **JavaScript** (no TypeScript) operator
+console. Phase 13 S1, authorized by `DECISIONS.md` D33 and merged via PR #8,
+provides the System Twin explorer over the existing `TWIN_READ` GET endpoints
+`GET /api/v1/twin/entities[/{id}]` and
 `GET /api/v1/twin/relationships[/{id}]`. Phase 13 S2, merged via PR #12 on
 2026-10-29 (merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`), adds the
 live-only **Impact & Risk** view over the existing
@@ -867,9 +871,17 @@ live-only **Impact & Risk** view over the existing
 merged via PR #14 on 2026-10-29 (merge commit
 `fef38681992f024ec0ccb2503e4167c9fd5e276c`), adds the live-only **Audit
 Integrity** view over the existing `GET /api/v1/twin/audit/verify` endpoint.
-The console performs no sync, observation, write, simulation, policy, proposal
-mutation, audit append, or audit repair and adds no backend endpoint, CORS
-rule, or hosting.
+Phase 13 S4, merged via PR #18 on 2026-11-02 under `DECISIONS.md` D36, adds the
+live-only, read-only **Proposals** view over five `TWIN_READ` GET endpoints.
+Phase 13 S5, implemented under D37 on `feat/phase-13-s5-simulation-policy`,
+adds the live-only **Simulation & Policy** view over only
+`POST /api/v1/twin/simulations` and
+`POST /api/v1/twin/policy-evaluations` with `TWIN_ANALYZE`. S5 is
+uncommitted/unmerged pending review, and its live verification is **blocked**.
+The console performs no sync, observation, twin write, proposal mutation,
+approval, execution, audit append, or audit repair. The two S5 POSTs are
+advisory and non-persistent. The console adds no backend endpoint, CORS rule,
+or hosting.
 
 Prerequisites: **Node.js 24 LTS** (`frontend/.nvmrc`; `engines` requires
 `>=24`). The backend must be running locally (`§5`, Tomcat on `127.0.0.1:8080`
@@ -878,7 +890,7 @@ by default) for the console to fetch data. Every command runs from `frontend/`:
 ```powershell
 cd frontend
 npm ci            # reproducible install from package-lock.json
-npm test          # Vitest + Testing Library (144 tests; 20 focused S2, 13 focused S3)
+npm test          # Vitest + Testing Library (258 tests; 58 focused S5/409)
 npm run build     # production bundle in frontend/dist/
 npm run dev       # Vite dev server at http://127.0.0.1:5173
 ```
@@ -888,9 +900,10 @@ calls to `/api` through to `http://127.0.0.1:8080`, so no backend CORS rule is
 needed and the API is same-origin during development. If 8080 is occupied,
 `SYSTIVEX_BACKEND_PORT` may select a numeric loopback port; the host, scheme,
 and `/api` path remain fixed. Open the console, paste a bearer token you already
-hold (the control plane still requires a valid JWT with `TWIN_READ`, `§16`), and
-browse entities, relationships, the dependency graph, Impact & Risk, and Audit
-Integrity.
+hold (the control plane still requires a valid JWT; S1–S4 reads need
+`TWIN_READ`, while S5 needs `TWIN_ANALYZE`, `§16`), and browse entities,
+relationships, the dependency graph, Impact & Risk, Audit Integrity, Proposals,
+and Simulation & Policy.
 
 Token handling: the token is held in memory for the tab only, cleared on
 reload, and never written to `localStorage`, `sessionStorage`, `IndexedDB`,

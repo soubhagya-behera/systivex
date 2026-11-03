@@ -28,4 +28,5 @@ export const VIEWS = [
   'impact-risk',
   'audit-integrity',
   'proposals',
+  'simulation-policy',
 ];

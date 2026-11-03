@@ -11,6 +11,7 @@ export const ErrorKind = {
   UNAUTHORIZED: 'unauthorized',
   FORBIDDEN: 'forbidden',
   NOT_FOUND: 'not-found',
+  CONFLICT: 'conflict',
   SERVER: 'server',
   NETWORK: 'network',
   UNEXPECTED: 'unexpected',
@@ -25,6 +26,8 @@ const SAFE_MESSAGES = {
   [ErrorKind.FORBIDDEN]:
     'Access denied (403). The authenticated identity lacks the required TWIN_READ role.',
   [ErrorKind.NOT_FOUND]: 'The requested record was not found (404).',
+  [ErrorKind.CONFLICT]:
+    'The proposal conflicts with the current twin state (409). Review the change and retry.',
   [ErrorKind.SERVER]:
     'The control plane returned a server error. Please retry shortly.',
   [ErrorKind.NETWORK]:

@@ -1364,6 +1364,164 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
 - **State:** Decided and adopted 2026-11-01; documentation/decision only. No S4
   runtime code is implemented by this record.
 
+## D37 — Phase 13 S5: Hypothetical Simulation & Advisory Policy UI
+
+- **Status:** Decided and adopted 2026-11-03.
+- **Scope:** A new live-only **Simulation & Policy** frontend view over the
+  existing Phase 8 and Phase 9 endpoints, plus additive frontend
+  `ErrorKind.CONFLICT` handling for HTTP 409. No other runtime behavior is in
+  scope.
+- **Purpose:** Let an operator build a hypothetical change proposal from one
+  loaded twin root, run a server-side simulation, and independently request an
+  advisory policy evaluation. Both results are read-only evidence over
+  server-computed data; neither authorizes, approves, or executes anything.
+- **Approved endpoints (POST only):**
+  `POST /api/v1/twin/simulations` and
+  `POST /api/v1/twin/policy-evaluations`. No other endpoints, methods, query
+  parameters, or alternate request shapes are authorized. Both requests use
+  JSON `Content-Type` and the existing in-memory bearer token through the
+  shared API client. The policy endpoint independently re-runs simulation
+  server-side; it does not consume a previous simulation response.
+- **Request contract:** `SimulationRequest` contains `from` (required list of
+  1-10 UUIDs or external references), optional `maxDepth` (default 6, range
+  1-10), optional `includeTypes` (default `SERVICE`, `API`, `DATABASE`,
+  `TABLE`), and optional `operations`. Canonical camelCase wire fields are
+  used. A missing, null, or empty `operations` list is a baseline-only
+  request and must be sent as `operations: []`. Only `REMOVE_ENTITY`,
+  `ADD_RELATIONSHIP`, and `REMOVE_RELATIONSHIP` are supported. `REMOVE_ENTITY`
+  requires `entity`; relationship operations require `source`, `target`, and
+  `relationshipType`. Valid relationship types are exactly `CALLS`,
+  `DEPENDS_ON`, `READS`, `WRITES`, `DEPLOYED_AS`, `EXPOSES`, `CONTAINS`, and
+  `CONFIGURES`.
+- **Operation builder limit:** The S5 builder allows at most 10 operations.
+  This is a frontend usability limit only, not a backend validation or
+  security limit. The UI must say so and must never present the cap as an API
+  restriction or as protection.
+- **Simulation response contract:** `SimulationResponse` contains `simulated`
+  (always true), the exact advisory `SIMULATED — NOT EXECUTED`, `settings`
+  (`maxDepth`, `includeTypes`, `rootCount`), `before` and `after` scopes, the
+  seven-value `graph` summary, the `delta`, and `limitations`. Each scope
+  contains a complete `impact` response and a complete `risk` response.
+  Impact fields include starts, impacted entities, evidence paths and steps,
+  traversal counts, truncation cause, cycle state, limits, snapshot timestamp,
+  twin counts, and note. Risk fields include starts, risk entries, taxonomy
+  version, snapshot timestamp, twin counts, and note; each risk entry includes
+  id, type, name, external reference, depth, via-start, level, reasons,
+  uncertainty, and stale state. The four impact/risk snapshot timestamps are
+  distinct values and must never be merged.
+- **Graph summary semantics:** `baselineEntityCount`,
+  `hypotheticalEntityCount`, `baselineRelationshipCount`,
+  `hypotheticalRelationshipCount`, `removedEntityCount`,
+  `addedRelationshipCount`, and `removedRelationshipCount` are whole twin
+  working-set counts, not impacted-subgraph counts. Removed relationships
+  include explicitly removed edges and edges cascaded away with a removed
+  entity.
+- **Delta semantics:** The delta contains before/after impacted counts,
+  impacted added/removed counts and references, before/after risk counts,
+  risk added/removed counts, risk-level changes, uncertain before/after
+  counts, and `truncationChanged`. `riskLevelChanges` may move up or down;
+  they must be displayed as changes, not automatically as increases. The
+  contract does not include risk-added or risk-removed reference lists, so
+  they must not be invented. S5 renders a complete server response and does
+  not recompute or reinterpret it.
+- **Policy response contract:** `PolicyEvaluationResponse` contains
+  `decision` (`ALLOW`, `REVIEW`, or `DENY`), `policyVersion`, the exact
+  advisory `ADVISORY POLICY EVALUATION — NOT AN AUTHORIZATION; NOT EXECUTED`,
+  `settings`, `rulesFired` in server order, a bounded `simulation` summary
+  containing only `graph`, `delta`, and `limitations`, and `note`. Every fired
+  rule shows `code`, `outcome`, and `detail`; an empty list shows an explicit
+  "No rules fired" state. The policy response has no before/after scopes,
+  server timestamps, `simulated` flag, or risk taxonomy version. S5 must say
+  that it is a bounded simulation summary and must not imply otherwise.
+- **Independent results:** Simulation and policy have separate action
+  buttons, loading state, error state, and retained result. There is no
+  combined "Run both" action and no automatic request on view entry, root
+  selection, or operation editing. Results are retained independently and
+  labeled as separate server computations. No atomicity, shared snapshot, or
+  shared execution semantics are implied.
+- **State and failure behavior:** Changing the root or operations invalidates
+  results tied to the previous request. Stale responses must not overwrite
+  newer results. Retry repeats only the action that failed. Explicit states
+  cover empty, loading, client validation, HTTP 400/401/403/404/409/5xx,
+  network failure, and malformed responses. Malformed responses fail closed
+  as `UNEXPECTED`; no partially valid result is rendered. Responses are
+  strictly shape-validated while unknown forward-compatible string values of
+  the correct type are preserved rather than allowlisted.
+- **Error safety:** HTTP 409 maps additively to `ErrorKind.CONFLICT` with a
+  fixed safe message; all pre-existing mappings remain unchanged. Error text
+  is fixed and safe. Raw response bodies, headers, tokens, claims, and stack
+  traces are never echoed, logged, or rendered.
+- **Security and roles:** Both endpoints require `TWIN_ANALYZE`.
+  `TWIN_READ` alone is insufficient and returns 403; `TWIN_ADMIN` inherits
+  `TWIN_ANALYZE`. The UI explains the required role. The bearer token remains
+  in React memory only: no `localStorage`, `sessionStorage`, IndexedDB,
+  cookies, URL state, logging, or token display. The token is attached only
+  to local `/api` requests through the existing client and Vite proxy.
+- **Root and validation rules:** The analysis root is one entity from the
+  already-loaded S1 snapshot. The builder must prevent removing that selected
+  root and must show clear inline validation. Local conflict hints are
+  advisory only; the server remains authoritative for identifier resolution,
+  proposal conflicts, and all validation.
+- **Presentation:** S5 is live-only and excluded from synthetic preview; no
+  synthetic simulation or policy data is added. Entering the view sends no
+  request. Server advisory strings are shown exactly. Simulation shows
+  settings, all seven graph values as baseline/hypothetical twin working-set
+  counts, before/after impact and risk scopes, all delta fields, all
+  limitations, impact truncation/cycle/limits/evidence-path detail and
+  timestamps, and risk level/reasons/uncertainty/stale state/taxonomy/timestamp
+  detail without merging the four timestamps. Policy shows decision, policy
+  version, every fired rule in server order, empty-rule state, settings,
+  advisory, note, graph summary, delta, limitations, and the bounded-summary
+  limitation. Untrusted text and JSON are rendered inertly as text; no raw
+  HTML injection is permitted.
+- **Non-persistence and non-execution:** Simulation and policy are read-only:
+  the backend uses read-only transactions and in-memory hypothetical graph
+  copies, and S5 neither triggers nor implies execution, approval, proposal
+  lifecycle mutation, persistence, or target-system modification. The UI must
+  not add execution, actuator, approval, or proposal mutation controls.
+- **Explicitly prohibited:** Backend source, endpoint, DTO, schema, migration,
+  database, dependency, CORS, authentication, hosting, or role changes; new
+  frontend dependencies; TypeScript; token persistence; raw HTML rendering;
+  synthetic preview data; automatic simulation/policy requests; a combined
+  action; execution/actuator/approval/proposal mutation controls; proposal
+  creation or lifecycle changes; and any behavior outside the two approved
+  POST endpoints.
+- **Testing expectations:** API tests cover exact POST paths, exact request
+  JSON for every operation type and baseline-only, no request before explicit
+  action, no automatic requests, bearer and JSON headers, no-token behavior,
+  all listed HTTP/network/malformed cases, strict response validation,
+  forward-compatible strings, and safe error text. View tests cover all
+  simulation and policy fields and semantics, independent retained results,
+  independent loading/error/retry, stale-response invalidation, the ten
+  operation UI limit, and preview exclusion. Integration tests cover
+  live-only navigation with no POST on entry. Existing S1-S4 tests remain
+  green.
+- **Verification expectations:** Frontend `npm test`, `npm run build`, and
+  `npm audit --audit-level=high`; backend regression via the existing Maven
+  wrapper; `git diff --check`; Docker/Testcontainers integration when Docker
+  is available. Live verification uses only an already securely available
+  local `TWIN_ANALYZE` identity, with separate baseline simulation and policy
+  requests and no fabricated credentials. If credentials or infrastructure
+  are unavailable, live verification is recorded as BLOCKED, never as passed.
+- **Compatibility:** This decision is compatible with D28-D36 and preserves
+  D29-D31 unchanged. D28 remains the authentication authority; D29 governance
+  state and APPROVED semantics remain read-only and terminal; D30/D31
+  execution gates remain closed; D33 console conventions, D34, and D35 are
+  unchanged; D36 proposal presentation is unaffected. No execution or
+  approval authority is created here.
+- **Implementation checkpoints:** Record this decision before implementation.
+  Implementation is frontend-only except for no backend change at all. The
+  slice is complete only after the tests, build, audit, regression checks,
+  live verification or recorded blocker, and documentation review. No push,
+  PR, or merge occurs without explicit instruction.
+- **Rejected alternatives:** A combined run-both action; automatic requests;
+  synthetic simulation/policy fixtures; a backend operation cap presented as
+  security; client-side recomputation of risk or deltas; invented risk
+  references; merging timestamps; treating policy as authorization or
+  execution; reusing a prior simulation response for policy; backend,
+  database, schema, dependency, CORS, authentication, or hosting changes; and
+  persistence of proposals, results, or tokens.
+
 ## Supersession rule
 
 New decisions amend this file with date and rationale; they never silently edit

@@ -6,6 +6,7 @@ import { useNow } from '../hooks/useNow.js';
 import { createAnalysisApi } from '../api/analysis.js';
 import { createAuditApi } from '../api/audit.js';
 import { createProposalsApi } from '../api/proposals.js';
+import { createSimulationApi } from '../api/simulations.js';
 import { createApiClient } from '../api/client.js';
 import { ErrorKind } from '../api/errors.js';
 import { createTwinApi } from '../api/twin.js';
@@ -18,6 +19,7 @@ import { GraphView } from '../views/GraphView.jsx';
 import { ImpactRisk } from '../views/ImpactRisk.jsx';
 import { AuditIntegrity } from '../views/AuditIntegrity.jsx';
 import { ProposalGovernance } from '../views/ProposalGovernance.jsx';
+import { SimulationPolicy } from '../views/SimulationPolicy.jsx';
 
 const NAV = [
   { key: 'overview', label: 'Overview', icon: '◎' },
@@ -29,6 +31,11 @@ const NAV = [
 const ANALYSIS_NAV = { key: 'impact-risk', label: 'Impact & Risk', icon: '⚠' };
 const AUDIT_NAV = { key: 'audit-integrity', label: 'Audit Integrity', icon: '⛓' };
 const PROPOSALS_NAV = { key: 'proposals', label: 'Proposals', icon: '▤' };
+const SIMULATION_NAV = {
+  key: 'simulation-policy',
+  label: 'Simulation & Policy',
+  icon: '◇',
+};
 
 const ACCESS_STATES = {
   supplied: {
@@ -88,13 +95,14 @@ export function TwinConsole({ token, onDisconnect, preview = false, previewData 
   const [focusDetail, setFocusDetail] = useState(false);
   const now = useNow();
 
-  const { twinApi, analysisApi, auditApi, proposalsApi } = useMemo(() => {
+  const { twinApi, analysisApi, auditApi, proposalsApi, simulationApi } = useMemo(() => {
     if (preview) {
       return {
         twinApi: null,
         analysisApi: null,
         auditApi: null,
         proposalsApi: null,
+        simulationApi: null,
       };
     }
     const client = createApiClient({ getToken: () => token });
@@ -103,6 +111,7 @@ export function TwinConsole({ token, onDisconnect, preview = false, previewData 
       analysisApi: createAnalysisApi(client),
       auditApi: createAuditApi(client),
       proposalsApi: createProposalsApi(client),
+      simulationApi: createSimulationApi(client),
     };
   }, [token, preview]);
 
@@ -152,7 +161,10 @@ export function TwinConsole({ token, onDisconnect, preview = false, previewData 
 
   const navItems = useMemo(
     () =>
-      (preview ? NAV : [...NAV, ANALYSIS_NAV, AUDIT_NAV, PROPOSALS_NAV]).map((item) => {
+      (preview
+        ? NAV
+        : [...NAV, ANALYSIS_NAV, AUDIT_NAV, PROPOSALS_NAV, SIMULATION_NAV]
+      ).map((item) => {
         if (item.key === 'entities') return { ...item, count: entities.length };
         if (item.key === 'relationships') return { ...item, count: relationships.length };
         return item;
@@ -258,6 +270,11 @@ export function TwinConsole({ token, onDisconnect, preview = false, previewData 
         <AuditIntegrity auditApi={auditApi} />
       ) : view === 'proposals' && !preview ? (
         <ProposalGovernance proposalApi={proposalsApi} />
+      ) : view === 'simulation-policy' && !preview ? (
+        <SimulationPolicy
+          entities={entities}
+          simulationApi={simulationApi}
+        />
       ) : (
         <GraphView
           entities={entities}
