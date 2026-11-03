@@ -108,7 +108,7 @@ Full design, trust boundaries, and the deterministic-vs-advisory distinction liv
 | JWT-protected API | ✅ Implemented and tested |
 | Runtime observation and telemetry integration | ✅ Implemented and tested |
 | Controlled execution | 🚧 Design-only — gated by D30/D31 |
-| Frontend / operator console | 🚧 Phase 13 S1, S2, S3, and S4 merged (S4 via PR #18, merge commit `b31e9bd8c05b75d20937f48c2b70675133684cb2`; authenticated live smoke partial — empty proposal database); local-development-only |
+| Frontend / operator console | 🚧 Phase 13 S1–S4 merged (S4 via PR #18); S5 implemented and automated-verified on an unmerged branch, live verification **blocked**; local-development-only |
 | Agent orchestration, verification, Git integration | 📋 Planned, not implemented |
 
 Impact, risk, and simulation derive deterministically from the twin and never authorize
@@ -147,34 +147,28 @@ configuration, and `./mvnw spring-boot:run` — are in [`DEVELOPMENT.md`](DEVELO
 <summary>Running the read-only operator console (frontend)</summary>
 
 The `frontend/` React + Vite + JavaScript console is **local-development only**.
-Phase 13 S1 is merged via PR #8 (`DECISIONS.md` D33); Phase 13 S2 was merged via
-PR #12 on 2026-10-29 (merge commit
-`62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`); Phase 13 S3 was merged via PR #14
-on 2026-10-29 (merge commit
-`fef38681992f024ec0ccb2503e4167c9fd5e276c`). Phase 13 S4 (read-only proposal
-governance) was merged via PR #18 on 2026-11-02 (merge commit
-`b31e9bd8c05b75d20937f48c2b70675133684cb2`) under `DECISIONS.md` D36. An
-authenticated live smoke on 2026-11-02 verified the authenticated
-list/auth/empty-state path with a live `TWIN_READ` token, but the database
-contained zero proposals, so proposal detail, revision history,
-historical-revision detail, per-proposal audit evidence, and multi-page
-pagination were not live-exercised. The console binds to
-`127.0.0.1` and proxies `/api` to a control plane running at
-`http://127.0.0.1:8080`; it adds no backend surface and has no production
-hosting or live OIDC login.
+Phase 13 S1 is merged via PR #8 (`DECISIONS.md` D33); S2 via PR #12, S3 via
+PR #14, and S4 via PR #18. Phase 13 S5 (Hypothetical Simulation & Advisory
+Policy UI) is implemented under `DECISIONS.md` D37 and automated-verified on
+`feat/phase-13-s5-simulation-policy`, but remains **uncommitted and unmerged**
+pending review. S5 live verification is **blocked**: no local control-plane
+listener or securely available live `TWIN_ANALYZE` identity was present, so no
+live simulation or policy call is claimed. The console binds to `127.0.0.1`
+and proxies `/api` to a control plane running at `http://127.0.0.1:8080`; it
+adds no backend surface and has no production hosting or live OIDC login.
 
 ```bash
 cd frontend
 npm ci
-npm test        # Vitest + Testing Library (200 tests; 20 focused S2, 13 focused S3, 56 focused S4)
+npm test        # Vitest + Testing Library (258 tests; 58 focused S5/409 tests)
 npm run build   # production bundle
 npm run dev     # serve at http://127.0.0.1:5173 (start the backend first)
 ```
 
 Open the console, paste a bearer token you already hold — it is kept in memory for
 the tab only — and explore entities, relationships, the dependency graph, the
-**Impact & Risk** view, the **Audit Integrity** view, or the **Proposals** view.
-Select one loaded root
+**Impact & Risk** view, the **Audit Integrity** view, the **Proposals** view, or
+the **Simulation & Policy** view. Select one loaded root
 and choose Analyze explicitly; S2 then sends only `GET /api/v1/twin/impact?from=<UUID>`
 and `GET /api/v1/twin/risk?from=<UUID>`, using the backend defaults
 (`maxDepth=6`; `SERVICE,API,DATABASE,TABLE`). The view shows impact evidence
@@ -189,11 +183,24 @@ proposal's latest revision on selection; revision history, a selected revision,
 and the per-proposal audit trail load only after explicit actions. It uses only
 the five D36 `TWIN_READ` GET endpoints, displays nullable fields and stored
 hashes as inert text, and performs no approval, rejection, execution, or
-client-side chain verification. The later views are live-only and are excluded
-from synthetic preview mode. Simulation/policy advisory UI is planned but not
-implemented. There is no live OIDC login flow and no bundled identity provider:
-the console never persists the token and performs read-only `GET`s against the
-System Twin API.
+client-side chain verification.
+
+The **Simulation & Policy** view requires `TWIN_ANALYZE` (not `TWIN_READ`
+alone). Select one root, optionally add up to 10 hypothetical operations, then
+choose **Run simulation** or **Evaluate policy** independently. Entering the
+view, selecting a root, or editing operations sends no request; there is no
+combined action and no automatic request. The view calls only
+`POST /api/v1/twin/simulations` and
+`POST /api/v1/twin/policy-evaluations`; the policy endpoint independently
+re-runs simulation server-side. The 10-operation cap is a frontend usability
+limit only, not an API restriction. Results are advisory and read-only: the UI
+does not execute, approve, persist, or mutate a proposal or target system, and
+it shows the server advisories exactly (`SIMULATED — NOT EXECUTED` and
+`ADVISORY POLICY EVALUATION — NOT AN AUTHORIZATION; NOT EXECUTED`). The S2–S5
+views are live-only and are excluded from synthetic preview mode. There is no
+live OIDC login flow and no bundled identity provider: the console never
+persists the token, performs read-only `GET`s, and adds only those two approved
+advisory `POST`s against the System Twin API.
 
 </details>
 
@@ -217,9 +224,9 @@ actuator exists — report issues via [`SECURITY.md`](SECURITY.md).
 ## 🗂️ Project Structure
 
 `backend/` holds the Java 21 control plane (with its sample `target-services/`),
-`frontend/` holds the read-only React + Vite operator console (Phase 13 S1, S2,
-S3, and S4 merged; S4 via PR #18 with partial authenticated live smoke; local
-development only), and
+`frontend/` holds the React + Vite operator console (Phase 13 S1–S4 merged;
+S5 implemented and automated-verified on an unmerged branch with live
+verification blocked; local development only), and
 `observability/` holds a local telemetry stack (collector, Prometheus, Loki,
 Grafana).
 
@@ -228,7 +235,7 @@ Grafana).
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | System design and trust boundaries |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | Build, test, run, and configuration |
 | [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | Phase-by-phase record of what exists |
-| [`DECISIONS.md`](DECISIONS.md) | Architectural decisions (D1–D36) |
+| [`DECISIONS.md`](DECISIONS.md) | Architectural decisions (D1–D37) |
 | [`THREAT_MODEL.md`](THREAT_MODEL.md) | Security principles and threat model |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Community expectations |

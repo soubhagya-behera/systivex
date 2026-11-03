@@ -67,6 +67,26 @@ describe('createApiClient', () => {
     expect(error.message).not.toContain('sensitive-response-body');
   });
 
+  it('maps HTTP 409 to the additive safe conflict kind', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({ detail: 'test-token sensitive-response-body' }),
+    });
+    const client = createApiClient({ getToken: () => 'test-token', fetchImpl });
+
+    const error = await client
+      .request('/api/v1/twin/simulations')
+      .catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.kind).toBe(ErrorKind.CONFLICT);
+    expect(error.status).toBe(409);
+    expect(error.message).toBe(safeMessage(ErrorKind.CONFLICT));
+    expect(error.message).not.toContain('test-token');
+    expect(error.message).not.toContain('sensitive-response-body');
+  });
+
   it('maps network failures and server errors', async () => {
     const offline = createApiClient({
       getToken: () => 't',

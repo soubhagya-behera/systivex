@@ -9,6 +9,7 @@ function kindForStatus(status) {
   if (status === 401) return ErrorKind.UNAUTHORIZED;
   if (status === 403) return ErrorKind.FORBIDDEN;
   if (status === 404) return ErrorKind.NOT_FOUND;
+  if (status === 409) return ErrorKind.CONFLICT;
   if (status >= 500) return ErrorKind.SERVER;
   return ErrorKind.UNEXPECTED;
 }

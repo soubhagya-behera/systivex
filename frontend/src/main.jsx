@@ -7,6 +7,7 @@ import './styles/graph.css';
 import './styles/trust.css';
 import './styles/analysis.css';
 import './styles/proposals.css';
+import './styles/simulation.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

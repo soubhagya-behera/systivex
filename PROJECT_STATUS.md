@@ -1,27 +1,103 @@
 # Systivex Project Status
 
-Last verified: **2026-11-02** (Asia/Kolkata). This document must be updated
-whenever the implemented state changes. Planned items are not claimed as done.
+Last verified: **2026-11-03** (Asia/Kolkata); automated verification only for
+Phase 13 S5. This document must be updated whenever the implemented state
+changes. Planned items are not claimed as done; live verification is recorded
+separately and is not inferred from automated tests.
 
 ## Current phase
 
-**Phase 13 S4 — Proposal Governance UI (merged via PR #18 on 2026-11-02; merge
-commit `b31e9bd8c05b75d20937f48c2b70675133684cb2`; authenticated live smoke
-partially exercised because the database contained zero proposals).**
-Phase 13 S4 adds a scoped, read-only proposal governance view to the existing
-React + Vite + JavaScript console. Entry loads only the first proposal page;
-selecting a proposal loads only its latest revision; revision history, a
-selected revision, and the per-proposal audit trail load only on explicit
-operator action. The view uses only the five D36 `TWIN_READ` GET endpoints and
-exposes no creation, withdrawal, assessment, submission, amendment, approval,
-rejection, execution, or client-side chain-verification control. The view is
-live-only and excluded from synthetic preview. S1, S2, and S3 remain merged; the
-console remains local-development-only, uses the existing manual in-memory
-bearer token, and implements no live OIDC login or production hosting. No
-backend endpoint, schema, dependency, CORS, hosting, or security change was
-made. D29–D31 are unchanged and controlled execution stays gated.
-Simulation/policy advisory UI remains **planned, not implemented**. Phases 0–12
-below are kept as history.
+**Phase 13 S5 — Hypothetical Simulation & Advisory Policy UI (implemented and
+automated-verified 2026-11-03 on `feat/phase-13-s5-simulation-policy`;
+uncommitted and not merged; live verification blocked).**
+Phase 13 S5 adds a live-only **Simulation & Policy** view to the existing
+React + Vite + JavaScript console under D37, which was adopted in commit
+`996ca27`. An operator selects one loaded twin root, optionally builds up to 10
+hypothetical operations, and independently chooses **Run simulation**
+(`POST /api/v1/twin/simulations`) or **Evaluate policy**
+(`POST /api/v1/twin/policy-evaluations`). Both require `TWIN_ANALYZE`; enter,
+root selection, and operation editing send no request, and there is no combined
+action. The 10-operation cap is a frontend usability limit only, not an API or
+security limit. Simulation and policy retain independent results and errors;
+the policy endpoint independently re-runs simulation server-side. The view is
+advisory and read-only: it neither executes, approves, persists, nor mutates a
+proposal or target system. It is excluded from synthetic preview. S1–S4 remain
+merged; the console remains local-development-only, uses the existing manual
+in-memory bearer token, and implements no live OIDC login or production hosting.
+No backend, endpoint, schema, dependency, CORS, hosting, authentication, or role
+change was made for S5. D29–D36 are unchanged, D37 is the only new decision, and
+controlled execution stays gated. Phases 0–12 below are kept as history.
+
+## Phase 13 S5 — Hypothetical Simulation & Advisory Policy UI (implemented and automated-verified 2026-11-03; uncommitted, not merged; live verification blocked)
+
+- [x] `DECISIONS.md` D37 is **Decided and adopted 2026-11-03**. It authorizes a
+  new live-only frontend view over the existing Phase 8/9 POST endpoints plus
+  additive frontend `ErrorKind.CONFLICT` handling for HTTP 409.
+- [x] Work is on `feat/phase-13-s5-simulation-policy` from
+  `14bc864ab0f4bb797dee25b9eff0297e693854c2`; D37 was adopted in commit
+  `996ca27`. The implementation remains uncommitted pending review.
+- [x] Frontend-only implementation: `api/simulations.js` strictly validates
+  both response shapes; `views/SimulationPolicy.jsx` owns separate
+  simulation/policy state, explicit actions, stale-response guards, and
+  root/operation invalidation; `ProposalBuilder.jsx`, `SimulationResult.jsx`,
+  and `PolicyResult.jsx` render the builder and complete server responses.
+  `TwinConsole.jsx` exposes the live-only navigation and API only; preview
+  remains S1 explorer-only.
+- [x] Endpoint and role contract: only the two D37 POST routes are called, both
+  with the shared in-memory bearer token and JSON content type. Both require
+  `TWIN_ANALYZE`; `TWIN_READ` alone yields 403 and `TWIN_ADMIN` inherits
+  `TWIN_ANALYZE`. No other method, endpoint, query parameter, or alternate
+  request shape was added.
+- [x] Proposal behavior: one root from the loaded S1 snapshot; optional
+  operations limited to `REMOVE_ENTITY`, `ADD_RELATIONSHIP`, and
+  `REMOVE_RELATIONSHIP`; the selected root cannot be removed; empty operations
+  are sent as `operations: []` for a baseline-only request. The 10-operation
+  cap is labeled as a frontend usability limit only. Local validation is
+  advisory; the server remains authoritative for resolution and conflicts.
+- [x] Independent workflow: separate buttons, loading, error, retry, and
+  retained result for simulation and policy; no automatic request and no
+  combined action. Editing the root or operations clears results tied to the
+  previous request, and stale responses are ignored. Retry repeats only the
+  failed action.
+- [x] Presentation: exact `SIMULATED — NOT EXECUTED` and
+  `ADVISORY POLICY EVALUATION — NOT AN AUTHORIZATION; NOT EXECUTED` advisories;
+  all seven graph values as whole twin working-set counts; four distinct
+  impact/risk timestamps; all delta fields, including risk-level changes in
+  either direction; limitations; policy rules in server order or an explicit
+  empty state; the policy response's bounded-summary limitation is stated
+  without inventing scopes or timestamps.
+- [x] Safety: HTTP 409 maps additively to `ErrorKind.CONFLICT` with a fixed safe
+  message while existing mappings remain unchanged. Raw bodies, headers,
+  tokens, claims, and stack traces are never echoed. The bearer token remains
+  memory-only and is never persisted, logged, rendered, or placed in a URL.
+- [x] Scope preserved: no backend, endpoint, DTO, schema, migration, database,
+  dependency, CORS, authentication, hosting, or role change; no TypeScript,
+  new dependency, token persistence, raw HTML rendering, synthetic S5 preview
+  data, execution/actuator/approval/proposal-mutation controls, or automatic
+  requests. D29–D36 remain byte-for-byte unchanged.
+- [x] Automated verification on 2026-11-03: full frontend suite **258 passed
+  across 24 files**, including **58 focused S5/409 tests** — `simulations.test.js`
+  33, `SimulationPolicy.test.jsx` 22, `simulationPolicyIntegration.test.jsx` 2,
+  and one additive 409 test in `client.test.js`. `npm run build` passed;
+  `npm audit --audit-level=high` reported no high/critical findings (one
+  pre-existing moderate Vite advisory remains below the gate); `git diff
+  --check` was clean. Full backend regression `.\mvnw.cmd test` passed **398
+  tests, 0 failures/errors**, including Docker/Testcontainers PostgreSQL
+  integration tests. Existing S1–S4 tests remain green.
+- [x] Protected local files still match: root untracked `application.properties`
+  SHA-256
+  `A02E895EE1800A926BCC6112F2ADCB8855B5E86D6C09C02446B0B70772728C2B`
+  and backend `application.properties` SHA-256
+  `4C14345C364C26DE2E8339FDE0AD6646BA5BEC9A32050411FE00C88AB6BFE810`.
+  Only the root file remains untracked; neither file was modified.
+- [ ] **LIVE VERIFICATION BLOCKED (2026-11-03):** no control-plane listener was
+  available on `127.0.0.1:8080`, and no securely available live `TWIN_ANALYZE`
+  identity was present. The no-credential probe could not connect, so live
+  simulation/policy calls, live 401/403 behavior, and live UI rendering were
+  **not exercised**. No token was fabricated, no credentials were weakened, and
+  no request is claimed to have succeeded. Automated tests are not live
+  verification.
+- [ ] Not committed, pushed, opened as a PR, or merged.
 
 ## P0 local network exposure hardening (implemented + live verified 2026-10-30; merged via PR #16 on 2026-11-01; merge commit ed2d2b7f535657b933aa892da1d75e7c1cfca3d1)
 
