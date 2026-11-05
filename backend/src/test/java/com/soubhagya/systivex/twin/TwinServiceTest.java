@@ -15,6 +15,7 @@ import com.soubhagya.systivex.twin.model.SystemRelationshipType;
 import com.soubhagya.systivex.twin.repository.SystemEntityRepository;
 import com.soubhagya.systivex.twin.repository.SystemRelationshipRepository;
 import com.soubhagya.systivex.twin.service.EntityNotFoundException;
+import com.soubhagya.systivex.twin.service.TwinGraphSnapshot;
 import com.soubhagya.systivex.twin.service.TwinService;
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +25,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class TwinServiceTest {
@@ -143,4 +147,127 @@ class TwinServiceTest {
         assertThatThrownBy(() -> service.getRelationship(id))
                 .isInstanceOf(EntityNotFoundException.class);
     }
+    private Page<SystemEntity> entityPage(List<SystemEntity> rows) {
+        return new PageImpl<>(rows);
+    }
+
+    private Page<SystemRelationship> relationshipPage(List<SystemRelationship> rows) {
+        return new PageImpl<>(rows);
+    }
+
+    @Test
+    void readGraphSnapshotEmptyGraphIsAvailable() {
+        when(entities.findAll(any(Pageable.class))).thenReturn(entityPage(List.of()));
+        when(relationships.findAll(any(Pageable.class))).thenReturn(relationshipPage(List.of()));
+
+        TwinGraphSnapshot snapshot = service.readGraphSnapshot();
+
+        assertThat(snapshot.entities()).isEmpty();
+        assertThat(snapshot.relationships()).isEmpty();
+        assertThat(snapshot.entityCount()).isZero();
+        assertThat(snapshot.relationshipCount()).isZero();
+        assertThat(snapshot.truncated()).isFalse();
+        assertThat(snapshot.availableForAnalysis()).isTrue();
+        assertThat(snapshot.consistent()).isTrue();
+    }
+
+    @Test
+    void readGraphSnapshotExactly500EntitiesIsAvailable() {
+        List<SystemEntity> rows = new java.util.ArrayList<>();
+        for (int i = 0; i < 500; i++) {
+            rows.add(entity(SystemEntityType.SERVICE, "s" + i));
+        }
+        when(entities.findAll(any(Pageable.class))).thenReturn(entityPage(rows));
+        when(relationships.findAll(any(Pageable.class))).thenReturn(relationshipPage(List.of()));
+
+        TwinGraphSnapshot snapshot = service.readGraphSnapshot();
+
+        assertThat(snapshot.entities()).hasSize(500);
+        assertThat(snapshot.entityCount()).isEqualTo(500);
+        assertThat(snapshot.truncated()).isFalse();
+        assertThat(snapshot.availableForAnalysis()).isTrue();
+    }
+
+    @Test
+    void readGraphSnapshot501EntitiesIsTruncatedAndUnavailable() {
+        List<SystemEntity> rows = new java.util.ArrayList<>();
+        for (int i = 0; i < 501; i++) {
+            rows.add(entity(SystemEntityType.SERVICE, "s" + i));
+        }
+        when(entities.findAll(any(Pageable.class))).thenReturn(entityPage(rows));
+        when(relationships.findAll(any(Pageable.class))).thenReturn(relationshipPage(List.of()));
+
+        TwinGraphSnapshot snapshot = service.readGraphSnapshot();
+
+        assertThat(snapshot.entities()).hasSize(500);
+        assertThat(snapshot.entityCount()).isEqualTo(501);
+        assertThat(snapshot.truncated()).isTrue();
+        assertThat(snapshot.availableForAnalysis()).isFalse();
+    }
+
+    @Test
+    void readGraphSnapshotExactly2000RelationshipsIsAvailable() {
+        SystemEntity source = entity(SystemEntityType.SERVICE, "source");
+        SystemEntity target = entity(SystemEntityType.DATABASE, "target");
+        List<SystemRelationship> rows = new java.util.ArrayList<>();
+        for (int i = 0; i < 2000; i++) {
+            rows.add(new SystemRelationship(source, target, SystemRelationshipType.READS));
+        }
+        when(entities.findAll(any(Pageable.class))).thenReturn(entityPage(List.of(source, target)));
+        when(relationships.findAll(any(Pageable.class))).thenReturn(relationshipPage(rows));
+
+        TwinGraphSnapshot snapshot = service.readGraphSnapshot();
+
+        assertThat(snapshot.relationships()).hasSize(2000);
+        assertThat(snapshot.relationshipCount()).isEqualTo(2000);
+        assertThat(snapshot.truncated()).isFalse();
+        assertThat(snapshot.availableForAnalysis()).isTrue();
+    }
+
+    @Test
+    void readGraphSnapshot2001RelationshipsIsTruncatedAndUnavailable() {
+        SystemEntity source = entity(SystemEntityType.SERVICE, "source");
+        SystemEntity target = entity(SystemEntityType.DATABASE, "target");
+        List<SystemRelationship> rows = new java.util.ArrayList<>();
+        for (int i = 0; i < 2001; i++) {
+            rows.add(new SystemRelationship(source, target, SystemRelationshipType.READS));
+        }
+        when(entities.findAll(any(Pageable.class))).thenReturn(entityPage(List.of(source, target)));
+        when(relationships.findAll(any(Pageable.class))).thenReturn(relationshipPage(rows));
+
+        TwinGraphSnapshot snapshot = service.readGraphSnapshot();
+
+        assertThat(snapshot.relationships()).hasSize(2000);
+        assertThat(snapshot.relationshipCount()).isEqualTo(2001);
+        assertThat(snapshot.truncated()).isTrue();
+        assertThat(snapshot.availableForAnalysis()).isFalse();
+    }
+
+    @Test
+    void readGraphSnapshotMissingRelationshipEndpointIsUnavailable() {
+        SystemEntity source = entity(SystemEntityType.SERVICE, "source");
+        SystemEntity target = entity(SystemEntityType.DATABASE, "target");
+        SystemEntity missing = entity(SystemEntityType.DATABASE, "missing");
+        SystemRelationship relationship = new SystemRelationship(source, missing, SystemRelationshipType.READS);
+        when(entities.findAll(any(Pageable.class))).thenReturn(entityPage(List.of(source, target)));
+        when(relationships.findAll(any(Pageable.class))).thenReturn(relationshipPage(List.of(relationship)));
+
+        TwinGraphSnapshot snapshot = service.readGraphSnapshot();
+
+        assertThat(snapshot.availableForAnalysis()).isFalse();
+        assertThat(snapshot.consistent()).isFalse();
+        assertThat(snapshot.truncated()).isFalse();
+    }
+
+    @Test
+    void readGraphSnapshotDoesNotMutateRepositories() {
+        when(entities.findAll(any(Pageable.class))).thenReturn(entityPage(List.of()));
+        when(relationships.findAll(any(Pageable.class))).thenReturn(relationshipPage(List.of()));
+
+        service.readGraphSnapshot();
+
+        verify(entities, org.mockito.Mockito.never()).save(any());
+        verify(relationships, org.mockito.Mockito.never()).save(any());
+    }
+
 }
