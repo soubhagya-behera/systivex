@@ -1,22 +1,31 @@
 # Systivex Threat Model
 
-Scope: **foundation + persistence + target-runtime + telemetry principles** (2026-09-30). Enforcement
-mechanisms (policy engine, approvals, audit store) are **planned, not implemented** —
-these principles bind all future design so the mechanisms can be built correctly.
+Scope: **foundation + persistence + target-runtime + telemetry principles** (2026-09-30; enforcement
+status reviewed 2026-11-05). Governance mechanisms have advanced since this
+record: advisory policy evaluation (Phase 9), governed proposal
+approval/rejection (Phase 11), and a tamper-evident hash-chained audit store
+(Phase 11 S2) are **implemented**; **controlled execution remains planned and
+gated** (D30/D31). These principles bind all design so the mechanisms can be
+built correctly.
 
 ## 1. System under analysis (today)
 
 A single Spring Boot control plane on `:8080` exposing Actuator `health` plus a
-local twin CRUD API (`/api/v1/twin`), backed by its own PostgreSQL database
-(`systivex`) via Flyway migrations and validated JPA mappings. Alongside it,
+local twin API (`/api/v1/twin`), backed by its own PostgreSQL database
+(`systivex`) via Flyway migrations and validated JPA mappings. The control plane
+also exposes read-only impact/risk analysis, hypothetical simulation, advisory
+policy evaluation, and governed proposal/audit APIs. Alongside it,
 four Phase 2B target services on `:8081–:8084` (gateway → order → inventory/payment)
 with open local HTTP APIs, now backed by three service-owned databases
 (`order_db`, `payment_db`, `inventory_db`, each with its own application user
-that owns nothing else). No user data of value yet, no agents, no execution
-capability, and the control plane does not call the target services. A
-local-development-only React console (`frontend/`, Phase 13 S1) reads the twin
-over the same JWT-guarded `TWIN_READ` GETs; it adds no write, execution, or
-hosting surface.
+that owns nothing else). No user data of value yet, no agents, and no execution
+capability; the control plane's only calls to the target services are the
+read-only Phase 6 telemetry pulls from loopback ports already present in twin
+metadata. A
+local-development-only React console (`frontend/`, Phase 13 S1–S5) reads the
+twin over the same JWT-guarded `TWIN_READ` GETs (S1–S4 views) and calls the two
+advisory S5 POSTs with `TWIN_ANALYZE`; it adds no mutating, approval, execution,
+or hosting surface.
 Credential handling is load-bearing in both halves: every datasource password
 (control-plane `SYSTIVEX_DB_PASSWORD` plus `ORDER/PAYMENT/INVENTORY_DB_PASSWORD`)
 reaches its app only through the environment; all live `application.properties`
@@ -43,7 +52,8 @@ gateway holds no database credentials at all.
 
 ### T3. Backend systems are authoritative
 
-- Ground truth is the System Twin (planned) backed by versioned backend state
+- Ground truth is the System Twin (persistence and read-only analysis exist;
+  the authoritative model remains planned) backed by versioned backend state
   (code, config, runtime signals) — not model output, not client assertions.
 - Reads that inform consequential decisions must come through authenticated,
   integrity-checked connectors; stale or unverifiable state blocks action, not permits it.
@@ -56,8 +66,9 @@ gateway holds no database credentials at all.
 ### T4. The agent cannot authorize itself
 
 - Proposal and authorization are separate roles. The agent (planned) may propose
-  changes and request actions; only the control plane's policy/execution path
-  (planned) may authorize them.
+  changes and request actions; only the control plane's authorization/execution
+  path may authorize them (the Phase 9 policy evaluation is advisory only; the
+  authorization/execution path remains planned).
 - No tool, prompt, credential, or code path may allow an agent to mint, escalate,
   or replay its own authorization.
 
@@ -71,7 +82,8 @@ gateway holds no database credentials at all.
 ### T6. High-risk actions require approval
 
 - Actions classified high-risk (production writes, destructive operations,
-  security-sensitive changes — classification to be defined with the policy engine)
+  security-sensitive changes — classification defined by the `risk-v1`
+  taxonomy, `DECISIONS.md` D25)
   additionally require explicit human or delegated-policy approval before execution.
 - Approval is bound to the exact assessed proposal (parameters, target, twin
   revision); any material change re-enters assessment.
@@ -170,8 +182,9 @@ itself a place data can leak. The following holds for the current pipeline
   repository, never executes scanned files — so secrets cannot enter twin
   metadata through this path. Connector-owned rows are namespaced by
   `managedBy` marker + `target-*` refs; a squatted identity aborts the
-  run (409, rolled back) rather than hijacking the row. Full API
-  authentication remains deferred and still gates any non-local exposure.
+  run (409, rolled back) rather than hijacking the row. Full control-plane
+  API authentication landed in Phase 10 (D28) and still gates any non-local
+  exposure; production identity verification remains open (see §3).
 - **Sampling 1.0 is local-only.** Full trace sampling is proportional to
   development traffic. Any shared or higher-traffic environment needs a
   sampling decision first.
@@ -186,7 +199,8 @@ itself a place data can leak. The following holds for the current pipeline
   existing handler (no secrets, no stack traces — asserted in tests). No
   authentication infrastructure is introduced: like the existing twin GETs,
   this endpoint is local-development-only and must not be exposed beyond
-  the machine without the deferred auth story (see §3: still open).
+  the machine without the production identity and non-local serving review
+  still open in §3 (control-plane JWT auth landed in Phase 10).
   **Binding caveat:** this is a control-plane endpoint. Its protection comes
   from the control plane's loopback listener and `LoopbackGuard`, not from
   the target-service guards, which only bind the four target services. Keep
@@ -204,7 +218,8 @@ itself a place data can leak. The following holds for the current pipeline
   `target-service:*` rows — one transaction, full rollback on any
   validation/identity failure — and refuses non-loopback peers with 403
   like the sync endpoint (no new auth infrastructure; exposure beyond
-  the machine still requires the deferred auth story). Collection pulls
+  the machine still requires the production identity and non-local serving
+  review still open in §3). Collection pulls
   from `127.0.0.1` ports already in twin metadata; the request carries
   no URLs, so there is no caller-controlled fetch target. Ingestion is
   allowlist-only (health status + six tag-free counters); raw bodies,
@@ -214,7 +229,8 @@ itself a place data can leak. The following holds for the current pipeline
   are recorded as limitations with no zero-fill and no
   health-by-absence inference (T3). Runtime facts are advisory
   observations with an advancing `observedAt`, never authorization (T4–
-  T6) and never a substitute for audit records (T7, still planned).
+  T6) and never a substitute for audit records (T7, implemented since Phase 11
+  S2 as a tamper-evident audit chain).
 - **Phase 7 risk assessment (2026-10-14): classification, same trust
   level as the impact GET.** `GET /api/v1/twin/risk` performs no
   mutation, execution, filesystem scanning, or external calls — one
@@ -224,8 +240,8 @@ itself a place data can leak. The following holds for the current pipeline
   misread, and `UNKNOWN`/stale entries force caution instead of
   permitting action (T1/T3). The taxonomy version travels in the
   response so future policy work can pin exactly what it consumed. Like
-  the impact endpoint, local-development-only until the deferred auth
-  story lands (see §3: still open).
+  the impact endpoint, local-development-only until production identity and
+  non-local serving are reviewed (see §3: still open).
 - **Phase 8 change simulation (2026-10-15): hypothetical, same trust
   level as the impact/risk endpoints.** `POST /api/v1/twin/simulations`
   looks like a write but performs none: the proposal is validated and
@@ -243,7 +259,8 @@ itself a place data can leak. The following holds for the current pipeline
   UUID-level comparison closes the alias hole (same endpoint spelled as
   UUID vs external reference). No authentication infrastructure is
   introduced: like the impact/risk endpoints, local-development-only
-  until the deferred auth story lands (see §3: still open). Simulation
+  until production identity and non-local serving are reviewed (see §3:
+  still open; control-plane JWT auth landed in Phase 10). Simulation
   deltas are advisory reachability/risk differences, never authorization
   or fact about the live system (T4/T5); runtime metadata is reused
   unchanged and labelled as such, never simulated.
@@ -257,12 +274,13 @@ itself a place data can leak. The following holds for the current pipeline
   (`policy-v1`, version pinned in-response); HIGH or truncated results
   fail closed to advisory DENY, missing/stale evidence escalates to REVIEW at minimum and never reads as safe (T1/T3). The response states
   unmistakably that nothing was authorized, approved, executed, or
-  persisted (T4/T5); no approval workflow, execution path, or audit
-  record is created, and none of the deferred T6/T7 machinery is
-  introduced. Error bodies reuse the existing handler (no secrets, no
+  persisted (T4/T5); this endpoint creates no approval workflow, execution
+  path, or audit record (the Phase 11 proposal workflow is a separate
+  governance surface), and no T6/T7 machinery is introduced by this endpoint.
+  Error bodies reuse the existing handler (no secrets, no
   stack traces — asserted in tests). Like the other intelligence
-  endpoints, local-development-only until the deferred auth story lands
-  (see §3: still open).
+  endpoints, local-development-only until production identity and non-local
+  serving are reviewed (see §3: still open).
 - **Phase 10 control-plane authentication (2026-10-15): the deferred
   auth story lands for the control plane.** All `/api/v1/twin/*`
   endpoints and `/actuator/prometheus` now require JWT bearer tokens
@@ -304,18 +322,20 @@ itself a place data can leak. The following holds for the current pipeline
   uncertain is never automatically redispatched; partial effects require
   a separately approved recovery/compensation contract; unresolved
   outcomes stay `UNVERIFIED` (T4/T5/T7).
-- **Phase 13 S1 read-only operator console (implemented 2026-10-18,
-  local-development only).** `frontend/` is a React + Vite + JavaScript console
-  (`DECISIONS.md` D33) limited to the System Twin explorer over existing
-  `TWIN_READ` GET endpoints; it adds no backend endpoint, CORS rule, migration,
-  or dependency. Authentication stays mandatory (D28): the manually supplied
+- **Phase 13 S1–S5 read-only/advisory operator console (S1 implemented
+  2026-10-18; S5 local live-verified 2026-11-03; local-development only).**
+  `frontend/` is a React + Vite + JavaScript console
+  (`DECISIONS.md` D33/D36/D37) reading existing endpoints; it adds no backend
+  endpoint, CORS rule, migration, or dependency. Authentication stays mandatory (D28): the manually supplied
   bearer token is a local-development-only bridge held **in memory only** —
   cleared on reload and never logged, rendered, placed in a URL, or persisted in
   `localStorage`, `sessionStorage`, `IndexedDB`, cookies, or any other storage.
   There is no bundled identity provider, fake login, invented issuer, placeholder
-  production credential, or security-off mode; the trusted issuer/client details
-  remain missing, so **live authentication verification is still blocked**
-  (documented, not fabricated) and the UI's automated tests never constitute live
+  production credential, or security-off mode. The local-development D34 Keycloak
+  setup has since been used for live token verification in Phase 13 S2, S4, and
+  S5 (S5 recorded 20/20 backend checks); trusted **production** issuer/client
+  details remain missing, so production identity and live OIDC sign-in remain
+  unimplemented and unclaimed, and the UI's automated tests never constitute live
   identity verification. The API client sends nothing before a token is supplied,
   attaches `Authorization: Bearer …` only to local `/api` paths, and maps
   401/403/5xx/network failures to fixed safe messages — response bodies, headers,
@@ -323,25 +343,31 @@ itself a place data can leak. The following holds for the current pipeline
   decoded or treated as trusted authority by the UI. S1 uses the Vite
   development proxy bound to `127.0.0.1` and adds no backend CORS rule; there is
   no production or shared serving (deferred to a separately reviewed decision).
-  The UI adds no execution or mutating capability; D29–D31 are unchanged and
+  S2–S5 later added the live-only Impact & Risk, Audit Integrity, Proposal
+  Governance, and Simulation & Policy views over existing endpoints (PRs #12,
+  #14, #18, #20); the S5 POSTs are advisory and non-persistent. The UI adds no
+  approval, execution, or mutating capability; D29–D31 are unchanged and
   `APPROVED` stays terminal.
 
 ## 3. Out-of-scope today, in-scope for design
 
-- Control-plane authentication is implemented (Phase 10, D28); still
-  open: live identity-provider verification (no trusted issuer
-  configured here), secret management, key rotation, and any
+- Control-plane authentication is implemented (Phase 10, D28). A
+  local-development D34 Keycloak setup has passed live token verification
+  (Phase 13 S2/S4/S5), but **production** identity-provider verification and
+  a production live OIDC sign-in flow remain open; secret management, key rotation, and any
   authentication on the four target-service APIs (still open local-only
-  endpoints — acceptable on a local machine, not beyond it). Each
-  service's database credential remains a separate local secret;
+  endpoints — acceptable on a local machine, not beyond it) also remain open.
+  Each service's database credential remains a separate local secret;
   compromising one application user yields that service's database only.
 - Twin-connector authentication and data-integrity guarantees.
-- Approval UX and delegation model (governance design agreed in
-  `DECISIONS.md` D29 — distinct `TWIN_APPROVER`, hard separation of
-  duties, DENY-never-approvable; approval/rejection implemented in
-  Phase 11 S5, submit-path expiry in S6; controlled execution
-  constrained by the `DECISIONS.md` D30 design, not implemented);
-  risk-classification taxonomy.
+- Approval UX and delegation model: approval/rejection APIs are implemented
+  (Phase 11 S5) with a distinct `TWIN_APPROVER`, hard separation of duties,
+  submit-path expiry (S6), and DENY-never-approvable (`DECISIONS.md` D29); the
+  Phase 13 S4 console is read-only and exposes no approve/reject action.
+  Approver quorum > 1, delegation, break-glass, and DENY override remain
+  unimplemented. The `risk-v1` risk-classification taxonomy is implemented
+  (D25). Controlled execution is constrained by the D30 design and gated by
+  D31, not implemented.
 - Execution sandboxing, blast-radius limits, rollback/verification loops
   (gate recorded in `DECISIONS.md` D31; execution unimplemented, no
   operation qualifies today).
@@ -352,6 +378,57 @@ itself a place data can leak. The following holds for the current pipeline
 
 Each must reference the principle(s) above when introduced; any exception
 requires a dated entry in `DECISIONS.md`.
+
+## 3b. Agent and evidence boundaries (Phase 14 S0, design-only)
+
+Phase 14 S0 (D38) is design-only: no agent runtime, model provider, prompt,
+orchestration, memory, embeddings, vector database, MCP, or multi-agent
+architecture is implemented. The future agent is treated as untrusted and may
+only explain or synthesize evidence; it cannot establish ground truth,
+authorize changes, approve proposals, or execute operations.
+
+Evidence must be assembled from explicit, allowlisted server-side sources
+existing in the control plane (twin records, allowlisted runtime observations,
+impact/risk/simulation/policy results, proposal revisions/assessments, and audit
+events/verification). The conceptual evidence envelope is transient and
+packet-scoped; it is not a Java record, DTO, database entity, or API contract.
+Evidence categories remain distinct: `OBSERVED_FACT`,
+`DETERMINISTIC_FINDING`, `HYPOTHETICAL_RESULT`, `GOVERNANCE_RECORD`, and
+`AUDIT_EVIDENCE`. They must never be collapsed into one confidence score.
+
+No `TWIN_AGENT` role is introduced in S0. The agent has no direct database
+access, arbitrary network access, filesystem access, shell access, credential
+access, actuator access, or unrestricted tool execution. It cannot create
+authorization, change proposal state, or call target services.
+
+Data protection is allowlist-based. Evidence selection excludes JWTs and
+authorization headers; passwords, client secrets and private keys; database
+credentials and connection secrets; environment secrets; raw HTTP response
+bodies; unnecessary issuer/subject identity details; unfiltered metadata; and
+sensitive business values not required for the specific analysis. Entity
+metadata and user-authored proposal text are treated as untrusted data.
+
+Claim qualification rules require every factual claim to reference one or more
+evidence items supplied by the trusted evidence assembler; preserve the
+original source and scope; distinguish observed facts from deterministic
+conclusions and hypothetical outcomes; preserve uncertainty, staleness, and
+truncation; state when evidence is missing or insufficient; avoid claims of
+causality, confirmed breakage, safety, or completeness beyond the underlying
+contract; avoid numeric confidence scores unless a later decision establishes a
+defensible calibration method; and never invent evidence references or source
+values. If a claim cannot be supported, the future agent must state that the
+available evidence is insufficient.
+
+Source authority is preserved: impact proves structural reachability, not
+confirmed breakage; risk is advisory under `risk-v1`; simulation is
+hypothetical and non-persistent; policy `ALLOW` is not authorization; an
+ordered audit-event list is not proof of chain integrity; hashes retain their
+original scope and purpose. Timestamps retain their distinct semantics and are
+never merged into one generic `lastUpdated`.
+
+Phase 14 S1 is not authorized by D38. A future S1 proposal may evaluate a
+deterministic read-only evidence packet assembler over existing APIs and must
+obtain its own scope and decision first.
 
 ## 4. What must NOT happen next (anti-goals)
 

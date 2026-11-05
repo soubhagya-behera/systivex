@@ -1522,6 +1522,153 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   database, schema, dependency, CORS, authentication, or hosting changes; and
   persistence of proposals, results, or tokens.
 
+## D38 — Phase 14 S0: Evidence Foundation for Agent-Assisted Analysis (design-only, 2026-11-05)
+
+- **Status:** Decided and adopted 2026-11-05. Design-only. No runtime
+  implementation, no source code, no tests, no migrations, no configuration, no
+  dependency, no endpoint, no persistence, no agent runtime, and no model
+  provider are authorized. D1–D37 remain unchanged.
+
+- **Date:** 2026-11-05.
+
+- **Purpose:** Define how future agent-assisted analysis can produce
+  explanations grounded in existing deterministic System Twin evidence. The
+  intended trust flow is:
+
+  System Twin and runtime observations
+  → deterministic impact and risk
+  → hypothetical simulation
+  → advisory policy evaluation
+  → evidence selection and qualification
+  → human-readable analysis
+
+  The future agent may explain and synthesize evidence. It cannot establish
+  ground truth, authorize changes, approve proposals, or execute operations.
+
+- **A. Conceptual evidence categories.** Future evidence must remain
+  categorized distinctly; they must never be collapsed into one undifferentiated
+  confidence score:
+  1. `OBSERVED_FACT` — existing System Twin entity/relationship records and
+     allowlisted runtime observations (health + six allowlisted counters from
+     Phase 6).
+  2. `DETERMINISTIC_FINDING` — impact paths, risk classifications, and
+     policy-evaluation outputs.
+  3. `HYPOTHETICAL_RESULT` — simulation before/after scopes, deltas, and
+     limitations.
+  4. `GOVERNANCE_RECORD` — proposal revisions, stored assessments, operations
+     hashes, assessment hashes, policy/risk versions, and twin fingerprints.
+  5. `AUDIT_EVIDENCE` — audit events and the independent audit-chain
+     verification result.
+
+- **B. Conceptual evidence envelope.** This is documentation only, not a Java
+  record, DTO, database entity, or API contract. It contains:
+  - Evidence item: packet-local reference; evidence category; original
+    source/resource reference; relevant entity or proposal scope;
+    source-provided version where available; source timestamps with their
+    original semantics; structured evidence content from approved DTO fields;
+    source-provided limitations; integrity metadata only when an existing
+    source supplies it.
+  - Claim: human-readable statement; claim category; one or more evidence
+    references; qualification or support status; explicit limitations.
+  References are conceptual and packet-local unless a future decision
+  explicitly introduces persistence. No durable evidence IDs, global snapshot
+  IDs, source hashes, timestamps, confidence scores, or freshness guarantees
+  may be invented where the existing APIs do not provide them.
+
+- **C. Timestamp and freshness semantics.** Differences between these must be
+  preserved and never merged into one generic `lastUpdated` timestamp:
+  - Twin entity `createdAt` / `updatedAt`.
+  - Runtime observation `observedAt`.
+  - Impact `snapshotObservedAt`.
+  - Risk `snapshotObservedAt`.
+  - The four separate simulation impact/risk timestamps (before impact/risk
+    and after impact/risk).
+  - Proposal assessment `snapshotObservedAt`.
+  - Proposal/audit record creation and occurrence timestamps.
+  Runtime observation receipts are returned per request; no observation-run
+  history is persisted. Risk `risk-v1` uses the current runtime freshness rule
+  (30 minutes, `RiskTaxonomy.STALE_AFTER`). Its freshness result applies only
+  where runtime metadata supports it. `RiskResponse` does not expose
+  impact-style truncation/cycle fields, so the future evidence model must not
+  fabricate them. The model must distinguish current, stale, missing, uncertain,
+  truncated/incomplete, hypothetical, and historical governance evidence, and
+  must only classify a state when the source actually supports it.
+
+- **D. Preserve source authority.**
+  - Twin records are source data, but their mutable current state is not a
+    complete historical record.
+  - Impact traversal proves structural reachability, not confirmed breakage.
+  - Risk is a deterministic advisory classification under `risk-v1`.
+  - Simulation is hypothetical and non-persistent.
+  - Policy `ALLOW` is not authorization.
+  - `REVIEW` and `DENY` remain advisory policy outcomes.
+  - A policy response contains only a bounded simulation summary, not full
+    simulation scopes.
+  - Proposal assessment is bound to the stored canonical operations, assessment
+    hash, and captured twin fingerprint.
+  - An ordered proposal audit-event list is not proof of chain integrity. Only
+    the separate audit verification endpoint provides that result.
+  - Existing hashes retain their original scope and purpose. A hash is not proof
+    that the entire current system state is correct.
+
+- **E. Claim qualification rules.** Future agent-generated factual claims must:
+  1. Reference one or more evidence items supplied by the trusted evidence
+     assembler.
+  2. Preserve the original source and scope.
+  3. Distinguish observed facts from deterministic conclusions and hypothetical
+     outcomes.
+  4. Preserve uncertainty, staleness, and truncation.
+  5. State when evidence is missing or insufficient.
+  6. Avoid claiming causality, confirmed breakage, safety, or completeness beyond
+     the underlying contract.
+  7. Avoid numeric confidence scores unless a later decision establishes a
+     defensible calibration method.
+  8. Never invent evidence references or source values.
+  If a claim cannot be supported, the future agent must state that the
+  available evidence is insufficient.
+
+- **F. Security and trust boundaries.** Preserve D28 JWT authentication and
+  current endpoint roles; D29 human governance and separation of duties;
+  D30/D31 controlled-execution gates; D33 frontend token handling; D34 local
+  Keycloak only; D35 impact/risk scope; D36 read-only proposal view; and D37
+  simulation/policy advisory boundary. The future agent must be treated as
+  untrusted. No direct database access, arbitrary network access, filesystem
+  access, shell access, credential access, actuator access, or unrestricted
+  tool execution. Evidence must be assembled from explicit, allowlisted
+  server-side sources. No `TWIN_AGENT` role is introduced in S0. No LLM may
+  create authorization, change proposal state, or call target services.
+
+- **G. Data protection.** Evidence selection must be allowlist-based. Exclude
+  JWTs and authorization headers; passwords, client secrets and private keys;
+  database credentials and connection secrets; environment secrets; raw HTTP
+  response bodies; unnecessary issuer/subject identity details; unfiltered
+  metadata; and sensitive business values not required for the specific
+  analysis. Treat entity metadata and user-authored proposal text as untrusted
+  data.
+
+- **H. Model/provider boundary.** D8 remains deferred. Do not choose or install
+  Spring AI, Ollama, a cloud model provider, or an agent framework in S0. No
+  prompts, LLM orchestration, memory, embeddings, vector database, MCP,
+  multi-agent architecture, or agent runtime. Provider selection requires a
+  later explicit decision.
+
+- **I. Persistence and lifecycle.** The conceptual evidence envelope is
+  transient and packet-scoped. S0 adds no tables, no Flyway migrations, no
+  persistence, no background jobs, no scheduler, no evidence retention policy,
+  and no new REST or SSE endpoints. Any future evidence persistence requires a
+  separate decision addressing versioning, retention, integrity, privacy,
+  freshness, and deletion.
+
+- **J. Future implementation gating.** Phase 14 S1 is NOT authorized by D38. A
+  future S1 proposal may evaluate a deterministic read-only evidence packet
+  assembler over existing APIs and must obtain its own scope and decision first.
+  Agent-generated narratives, model provider integration, and tool mediation
+  remain separately gated.
+
+- **Compatibility:** D38 is compatible with D28–D37 and preserves D29–D31
+  unchanged. It creates no execution, approval, proposal lifecycle, or
+  authentication authority. D33–D37 remain unchanged.
+
 ## Supersession rule
 
 New decisions amend this file with date and rationale; they never silently edit

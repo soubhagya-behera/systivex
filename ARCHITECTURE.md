@@ -336,6 +336,53 @@ agent proposal → risk assessment → policy evaluation → (approval if high-r
 
 See `THREAT_MODEL.md` for the principles these boundaries enforce.
 
+### 6c. Evidence boundary for agent-assisted analysis (Phase 14 S0, design-only)
+
+Future agent-assisted analysis is a read-only explanation layer over existing
+deterministic System Twin evidence. It is not implemented; D38 authorizes
+design only. The future trust flow is:
+
+System Twin and runtime observations
+→ deterministic impact and risk
+→ hypothetical simulation
+→ advisory policy evaluation
+→ evidence selection and qualification
+→ human-readable analysis
+
+Evidence categories remain distinct and are never collapsed into one
+confidence score: `OBSERVED_FACT`, `DETERMINISTIC_FINDING`,
+`HYPOTHETICAL_RESULT`, `GOVERNANCE_RECORD`, `AUDIT_EVIDENCE`.
+
+The conceptual evidence envelope is transient and packet-scoped, not a Java
+record, DTO, database entity, or API contract. It carries packet-local
+references, category, original source/resource reference, entity or proposal
+scope, source-provided version where available, source timestamps with their
+original semantics, structured content from approved DTO fields, source-provided
+limitations, and integrity metadata only when an existing source supplies it.
+Claims reference one or more evidence items and carry qualification/support
+status and explicit limitations. No durable evidence IDs, global snapshot IDs,
+source hashes, timestamps, confidence scores, or freshness guarantees are
+invented where the existing APIs do not provide them.
+
+Timestamps retain their distinct semantics: twin `createdAt`/`updatedAt`,
+runtime `observedAt`, impact/risk `snapshotObservedAt`, the four simulation
+impact/risk timestamps, proposal assessment `snapshotObservedAt`, and
+proposal/audit creation and occurrence timestamps. They are never merged into
+one `lastUpdated`. Runtime observation receipts are per-request with no
+persisted run history. Risk freshness uses the existing 30-minute `risk-v1`
+rule only where runtime metadata supports it; `RiskResponse` has no
+impact-style truncation/cycle fields and the model must not fabricate them.
+
+Source authority is preserved: impact proves structural reachability, not
+confirmed breakage; risk is advisory under `risk-v1`; simulation is
+hypothetical and non-persistent; policy `ALLOW` is not authorization; proposal
+assessment is bound to stored canonical operations, assessment hash, and twin
+fingerprint; an ordered audit-event list is not proof of chain integrity. Hashes
+retain their original scope and purpose.
+
+Phase 14 S1 is not authorized by D38. Agent-generated narratives, model
+provider integration, and tool mediation remain separately gated.
+
 ## 7. API shape (initial REST exists)
 
 - **REST** for twin queries, change proposals, approvals, execution records.
