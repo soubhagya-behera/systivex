@@ -2,8 +2,8 @@
 
 Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B) +
 telemetry pipeline (Phase 3A) + twin observation (Phase 4) + operator console
-(Phase 13 S1–S4 merged; S5 implemented and automated-verified but
-uncommitted/unmerged, with live verification blocked; local development only)**.
+(Phase 13 S1–S5 merged; S5 implemented, automated-verified, merged via PR #20,
+and local live-verified 2026-11-03; local development only)**.
 §§1–7 cover the control plane in `backend/`; §8 covers the target services in
 `backend/target-services/`; §9 covers the local telemetry
 infrastructure in `observability/`; §10 covers twin synchronization; §18 covers
@@ -160,6 +160,12 @@ $env:SYSTIVEX_DB_PASSWORD="<your local systivex_app password>"
 Expected startup (verified): Spring Boot `v4.1.1`, Tomcat `11.0.24` on port `8080`,
 Flyway migrates `V1` on first boot, Hibernate validates, then
 `Started SystivexApplication`.
+
+> On this machine the protected local
+> `backend/src/main/resources/application.properties` sets `server.port=8090`,
+> so the control plane listens on `127.0.0.1:8090`. Run the console with
+> `SYSTIVEX_BACKEND_PORT=8090` (§18) to proxy to it. The protected file itself
+> must not be edited.
 
 Health check:
 
@@ -858,7 +864,7 @@ hard `(issuer, subject)` separation of duties; a hash-chained audit log
 that is tamper-evident, not tamper-proof; every mutation transactional
 with its audit event; no execution endpoints.
 
-## 18. Operator console (Phase 13 S1–S4 merged; S5 implemented and unmerged; local development only)
+## 18. Operator console (Phase 13 S1–S5 merged; S5 local live verification passed 2026-11-03; local development only)
 
 `frontend/` is a React + Vite + **JavaScript** (no TypeScript) operator
 console. Phase 13 S1, authorized by `DECISIONS.md` D33 and merged via PR #8,
@@ -873,19 +879,34 @@ merged via PR #14 on 2026-10-29 (merge commit
 Integrity** view over the existing `GET /api/v1/twin/audit/verify` endpoint.
 Phase 13 S4, merged via PR #18 on 2026-11-02 under `DECISIONS.md` D36, adds the
 live-only, read-only **Proposals** view over five `TWIN_READ` GET endpoints.
-Phase 13 S5, implemented under D37 on `feat/phase-13-s5-simulation-policy`,
-adds the live-only **Simulation & Policy** view over only
-`POST /api/v1/twin/simulations` and
-`POST /api/v1/twin/policy-evaluations` with `TWIN_ANALYZE`. S5 is
-uncommitted/unmerged pending review, and its live verification is **blocked**.
+Phase 13 S5, implemented under D37 and merged via PR #20 on 2026-11-03 (merge
+commit `10472f26a54fa488705fe5fbcdaf10bd18fed3cc`), adds the live-only
+**Simulation & Policy** view over only `POST /api/v1/twin/simulations` and
+`POST /api/v1/twin/policy-evaluations` with `TWIN_ANALYZE`. Its local live
+verification passed on 2026-11-03 using standalone local-development Keycloak
+26.8.1 at `http://127.0.0.1:8180/realms/systivex-dev`, the backend on
+`127.0.0.1:8090` (health `UP`), and the Vite console on
+`http://127.0.0.1:5173`. The **20/20 backend checks** verified no-token
+**401**; `TWIN_READ`-only **403** for both POSTs; a `TWIN_ANALYZE` simulation
+**200** with `simulated: true` and an unchanged baseline (14 impacted
+before/after, 15 entities, 18 relationships, no delta); and an independent
+policy **200** with decision **`REVIEW`**, version **`policy-v1`**, the exact
+advisory, a bounded simulation summary, and one fired rule. Persistence
+remained unchanged at **15 entities, 18 relationships, 1 proposal** after
+simulation, policy evaluation, and UI interaction. A headless browser smoke
+passed the token gate, access confirmation, simulation, and policy workflows
+and found no bearer token in browser storage, the URL, or the DOM. These are
+local live checks, not automated tests or CI. D34 remains the binding
+local-development identity setup; this is not production identity or hosting.
 The console performs no sync, observation, twin write, proposal mutation,
 approval, execution, audit append, or audit repair. The two S5 POSTs are
 advisory and non-persistent. The console adds no backend endpoint, CORS rule,
 or hosting.
 
 Prerequisites: **Node.js 24 LTS** (`frontend/.nvmrc`; `engines` requires
-`>=24`). The backend must be running locally (`§5`, Tomcat on `127.0.0.1:8080`
-by default) for the console to fetch data. Every command runs from `frontend/`:
+`>=24`). The backend must be running locally (`§5`; `127.0.0.1:8080` by default,
+or `8090` with this machine's protected local configuration) for the console to
+fetch data. Every command runs from `frontend/`:
 
 ```powershell
 cd frontend
@@ -896,14 +917,26 @@ npm run dev       # Vite dev server at http://127.0.0.1:5173
 ```
 
 The Vite dev server binds to `127.0.0.1` (`strictPort`) and proxies browser
-calls to `/api` through to `http://127.0.0.1:8080`, so no backend CORS rule is
-needed and the API is same-origin during development. If 8080 is occupied,
-`SYSTIVEX_BACKEND_PORT` may select a numeric loopback port; the host, scheme,
-and `/api` path remain fixed. Open the console, paste a bearer token you already
-hold (the control plane still requires a valid JWT; S1–S4 reads need
+calls to `/api` through to `http://127.0.0.1:8080` by default, so no backend
+CORS rule is needed and the API is same-origin during development.
+`SYSTIVEX_BACKEND_PORT` may select a different numeric loopback port; the
+protected local backend configuration on this machine sets `server.port=8090`,
+so run the console with `SYSTIVEX_BACKEND_PORT=8090` to proxy to it. The host,
+scheme, and `/api` path remain fixed. Open the console, paste a bearer token
+you already hold (the control plane still requires a valid JWT; S1–S4 reads need
 `TWIN_READ`, while S5 needs `TWIN_ANALYZE`, `§16`), and browse entities,
 relationships, the dependency graph, Impact & Risk, Audit Integrity, Proposals,
 and Simulation & Policy.
+
+The verified local live setup used three loopback services:
+
+- Keycloak on `http://127.0.0.1:8180` (realm `systivex-dev`; issuer
+  `http://127.0.0.1:8180/realms/systivex-dev`).
+- Backend on `http://127.0.0.1:8090` (health `UP`).
+- Vite console on `http://127.0.0.1:5173`.
+
+This is a local-development Keycloak setup, not production identity
+configuration or hosting.
 
 Token handling: the token is held in memory for the tab only, cleared on
 reload, and never written to `localStorage`, `sessionStorage`, `IndexedDB`,
@@ -978,6 +1011,18 @@ a fresh valid token. The rejected-token case used an **invalid-signature
 token**, not a naturally expired token. S3 was verified by its automated suite
 and production build (PR #14); no separate S3 browser smoke run was recorded.
 
+Phase 13 S5's local live verification on 2026-11-03 passed **20/20 backend
+checks** and a headless browser smoke against standalone local Keycloak 26.8.1
+on `127.0.0.1:8180`, the backend on `127.0.0.1:8090`, and Vite on
+`127.0.0.1:5173`. The backend checks covered no-token **401**, `TWIN_READ`-only
+**403** on both POSTs, a `TWIN_ANALYZE` baseline simulation **200**
+(`simulated: true`, unchanged baseline: 14 impacted before/after, 15 entities,
+18 relationships, no delta), and an independent policy **200** (`REVIEW`,
+`policy-v1`). Persistence stayed at **15 entities, 18 relationships, 1
+proposal**. The headless smoke passed the token gate, access confirmation,
+simulation, and policy workflows and found no token in browser storage, the
+URL, or the DOM.
+
 To repeat the smoke locally:
 
 1. Start PostgreSQL, the backend (`§5`), and the local Keycloak development
@@ -996,13 +1041,21 @@ To repeat the smoke locally:
    `OK`/`BROKEN` status, event/head counts, nullable `brokenAtSeq` handling, the
    diagnostic detail, and that the token is still absent from storage, the URL,
    the DOM, and logs. Confirm the Audit Integrity item is absent in preview mode.
+6. For S5, use an identity with `TWIN_ANALYZE` and confirm unauthenticated POSTs
+   return 401 while a `TWIN_READ`-only identity returns 403 on both POSTs. Run
+   a baseline simulation and an independent policy evaluation; expect 200,
+   `simulated: true`, policy `REVIEW`/`policy-v1`, and unchanged counts (15
+   entities, 18 relationships, 1 proposal). Repeat in the headless browser and
+   confirm the token remains absent from storage, the URL, and the DOM.
 
 Live OIDC login was not implemented or tested; the local Keycloak development
 setup is a local verification setup, not production identity configuration. The
 optional `observability/` telemetry collector is not required by the console.
 If it is not running, the backend may emit non-fatal OTLP export warnings.
 
-S1 is merged in PR #8, S2 in PR #12, and S3 in PR #14, but the frontend remains
+S1 is merged in PR #8, S2 in PR #12, S3 in PR #14, S4 in PR #18, and S5 in
+PR #20; S5 passed local live verification on 2026-11-03. The frontend remains
 local-development-only and is not production hosted or live-OIDC-integrated.
-Proposal/revision/audit-event browsing and simulation/policy advisory UI remain
-planned and unimplemented.
+Proposal/revision/audit-event browsing remains planned and unimplemented; the
+Simulation & Policy advisory UI is implemented, merged, and local
+live-verified.

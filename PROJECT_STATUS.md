@@ -1,15 +1,16 @@
 # Systivex Project Status
 
-Last verified: **2026-11-03** (Asia/Kolkata); automated verification only for
-Phase 13 S5. This document must be updated whenever the implemented state
-changes. Planned items are not claimed as done; live verification is recorded
-separately and is not inferred from automated tests.
+Last verified: **2026-11-03** (Asia/Kolkata); Phase 13 S5 automated and local
+live verification completed 2026-11-03. This document must be updated whenever
+the implemented state changes. Planned items are not claimed as done; live
+verification is recorded separately and is not inferred from automated tests.
 
 ## Current phase
 
-**Phase 13 S5 — Hypothetical Simulation & Advisory Policy UI (implemented and
-automated-verified 2026-11-03 on `feat/phase-13-s5-simulation-policy`;
-uncommitted and not merged; live verification blocked).**
+**Phase 13 S5 — Hypothetical Simulation & Advisory Policy UI (implemented,
+automated-verified, committed, pushed, and merged via PR #20 on 2026-11-03;
+merge commit `10472f26a54fa488705fe5fbcdaf10bd18fed3cc`; local live verification
+passed 2026-11-03).**
 Phase 13 S5 adds a live-only **Simulation & Policy** view to the existing
 React + Vite + JavaScript console under D37, which was adopted in commit
 `996ca27`. An operator selects one loaded twin root, optionally builds up to 10
@@ -21,21 +22,26 @@ action. The 10-operation cap is a frontend usability limit only, not an API or
 security limit. Simulation and policy retain independent results and errors;
 the policy endpoint independently re-runs simulation server-side. The view is
 advisory and read-only: it neither executes, approves, persists, nor mutates a
-proposal or target system. It is excluded from synthetic preview. S1–S4 remain
+proposal or target system. It is excluded from synthetic preview. S1–S5 are
 merged; the console remains local-development-only, uses the existing manual
 in-memory bearer token, and implements no live OIDC login or production hosting.
+Phase 13 S5 is complete: implementation, automated verification, merge, and
+local live verification all passed.
 No backend, endpoint, schema, dependency, CORS, hosting, authentication, or role
 change was made for S5. D29–D36 are unchanged, D37 is the only new decision, and
 controlled execution stays gated. Phases 0–12 below are kept as history.
 
-## Phase 13 S5 — Hypothetical Simulation & Advisory Policy UI (implemented and automated-verified 2026-11-03; uncommitted, not merged; live verification blocked)
+## Phase 13 S5 — Hypothetical Simulation & Advisory Policy UI (merged via PR #20 on 2026-11-03; merge commit `10472f26a54fa488705fe5fbcdaf10bd18fed3cc`; implemented, automated-verified, and local live-verified 2026-11-03)
 
 - [x] `DECISIONS.md` D37 is **Decided and adopted 2026-11-03**. It authorizes a
   new live-only frontend view over the existing Phase 8/9 POST endpoints plus
   additive frontend `ErrorKind.CONFLICT` handling for HTTP 409.
-- [x] Work is on `feat/phase-13-s5-simulation-policy` from
-  `14bc864ab0f4bb797dee25b9eff0297e693854c2`; D37 was adopted in commit
-  `996ca27`. The implementation remains uncommitted pending review.
+- [x] Work was on `feat/phase-13-s5-simulation-policy` from
+  `14bc864ab0f4bb797dee25b9eff0297e693854c2`. D37 was adopted and committed in
+  `996ca27`; the implementation was committed in `792a6be` and merged via
+  PR #20 on 2026-11-03 (merge commit
+  `10472f26a54fa488705fe5fbcdaf10bd18fed3cc`). Frontend CI and Backend CI both
+  passed before merge.
 - [x] Frontend-only implementation: `api/simulations.js` strictly validates
   both response shapes; `views/SimulationPolicy.jsx` owns separate
   simulation/policy state, explicit actions, stale-response guards, and
@@ -83,21 +89,51 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   pre-existing moderate Vite advisory remains below the gate); `git diff
   --check` was clean. Full backend regression `.\mvnw.cmd test` passed **398
   tests, 0 failures/errors**, including Docker/Testcontainers PostgreSQL
-  integration tests. Existing S1–S4 tests remain green.
-- [x] Protected local files still match: root untracked `application.properties`
-  SHA-256
+  integration tests. Existing S1–S4 tests remain green. GitHub Actions
+  **Frontend CI** and **Backend CI** passed on PR #20 before merge.
+- [x] Protected local files still match before and after the merge: root
+  untracked `application.properties` SHA-256
   `A02E895EE1800A926BCC6112F2ADCB8855B5E86D6C09C02446B0B70772728C2B`
   and backend `application.properties` SHA-256
   `4C14345C364C26DE2E8339FDE0AD6646BA5BEC9A32050411FE00C88AB6BFE810`.
-  Only the root file remains untracked; neither file was modified.
-- [ ] **LIVE VERIFICATION BLOCKED (2026-11-03):** no control-plane listener was
-  available on `127.0.0.1:8080`, and no securely available live `TWIN_ANALYZE`
-  identity was present. The no-credential probe could not connect, so live
-  simulation/policy calls, live 401/403 behavior, and live UI rendering were
-  **not exercised**. No token was fabricated, no credentials were weakened, and
-  no request is claimed to have succeeded. Automated tests are not live
-  verification.
-- [ ] Not committed, pushed, opened as a PR, or merged.
+  Only the root file remains untracked; neither file was modified. The
+  protected local backend configuration sets `server.port=8090`; the frontend
+  reaches it with `SYSTIVEX_BACKEND_PORT=8090`.
+- [x] **LIVE VERIFICATION PASSED (2026-11-03): 20/20 backend checks and a
+  headless browser smoke test passed** against standalone local Keycloak
+  26.8.1 at `http://127.0.0.1:8180/realms/systivex-dev`, the backend on
+  `127.0.0.1:8090` (health `UP`), and the Vite console on
+  `http://127.0.0.1:5173`. These were local live checks, distinct from the
+  automated test suite and GitHub CI.
+  - Authentication/authorization: an unauthenticated simulation POST returned
+    **401**; a `TWIN_READ`-only identity returned **403** for both simulation
+    and policy; and a `TWIN_ANALYZE` identity succeeded.
+  - Simulation: `POST /api/v1/twin/simulations` returned **200** with
+    `simulated: true`, the exact non-execution advisory, and an unchanged
+    baseline (`14` impacted before and after; `15` entities and `18`
+    relationships in both baseline and hypothetical graph; no delta).
+  - Policy: `POST /api/v1/twin/policy-evaluations` returned **200** with
+    decision **`REVIEW`**, policy version **`policy-v1`**, the exact advisory,
+    a bounded independent simulation summary, and one fired rule.
+  - Separation/safety: simulation responses contained no policy fields; policy
+    responses contained no full before/after scopes; no execution endpoint was
+    invoked.
+  - Persistence: entity, relationship, and proposal counts were unchanged
+    before and after simulation, policy evaluation, and UI interaction
+    (**15 entities, 18 relationships, 1 proposal**).
+  - Frontend: a headless Edge (Chromium) smoke test passed the token gate,
+    access confirmation, the Simulation & Policy view, root selection, the
+    simulation workflow, and the policy workflow; no bearer token was found in
+    browser storage, the URL, or the DOM.
+  - Identity setup: the check used the existing local-development D34 Keycloak
+    setup and a securely provisioned `TWIN_ANALYZE` identity; no token was
+    fabricated and no credentials were weakened.
+- [x] Committed, pushed, and merged: PR #20, merge commit
+  `10472f26a54fa488705fe5fbcdaf10bd18fed3cc`. The feature branch was not
+  deleted.
+- [x] **Phase 13 S5 is complete**: implementation, automated verification,
+  merge, and local live verification passed. Execution remains gated; no
+  Phase 13 S6 work was started.
 
 ## P0 local network exposure hardening (implemented + live verified 2026-10-30; merged via PR #16 on 2026-11-01; merge commit ed2d2b7f535657b933aa892da1d75e7c1cfca3d1)
 
