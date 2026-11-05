@@ -189,7 +189,7 @@ public class ProposalService {
 
     @Transactional(readOnly = true)
     public List<AuditEventResponse> auditTrail(UUID proposalKey) {
-        if (revisions.findByProposalKeyOrderByRevisionNumberAsc(proposalKey).isEmpty()) {
+        if (revisions.findFirstByProposalKeyOrderByRevisionNumberDesc(proposalKey).isEmpty()) {
             throw new EntityNotFoundException("Proposal not found: " + proposalKey);
         }
         return events.findByProposalKeyOrderBySeqAsc(proposalKey).stream()
@@ -197,12 +197,60 @@ public class ProposalService {
                 .toList();
     }
 
-    private ProposalRevision latestOrThrow(UUID proposalKey) {
-        List<ProposalRevision> history = revisions.findByProposalKeyOrderByRevisionNumberAsc(proposalKey);
-        if (history.isEmpty()) {
+    /** Bounded read model for per-proposal audit evidence. */
+    public record BoundedAuditTrail(
+            List<AuditEventResponse> events, boolean truncated, int limit) {}
+
+    @Transactional(readOnly = true)
+    public BoundedAuditTrail boundedAuditTrail(UUID proposalKey) {
+        return readBoundedAuditTrail(proposalKey);
+    }
+
+    @Transactional(readOnly = true)
+    public BoundedAuditTrail auditTrailBounded(UUID proposalKey) {
+        return readBoundedAuditTrail(proposalKey);
+    }
+
+    @Transactional(readOnly = true)
+    public BoundedAuditTrail readBoundedAuditTrail(UUID proposalKey) {
+        return readAuditTrailBounded(proposalKey);
+    }
+
+    @Transactional(readOnly = true)
+    public BoundedAuditTrail readAuditTrailBounded(UUID proposalKey) {
+        if (revisions.findFirstByProposalKeyOrderByRevisionNumberDesc(proposalKey).isEmpty()) {
             throw new EntityNotFoundException("Proposal not found: " + proposalKey);
         }
-        return history.get(history.size() - 1);
+        List<com.soubhagya.systivex.proposal.model.AuditEvent> rows =
+                events.findTop101ByProposalKeyOrderBySeqAsc(proposalKey);
+        boolean truncated = rows.size() > 100;
+        List<com.soubhagya.systivex.proposal.model.AuditEvent> accepted =
+                truncated ? rows.subList(0, 100) : rows;
+        return new BoundedAuditTrail(
+                accepted.stream().map(AuditEventResponse::from).toList(),
+                truncated,
+                100);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AuditEventResponse> auditTrail(UUID proposalKey, int limit) {
+        if (revisions.findByProposalKeyOrderByRevisionNumberAsc(proposalKey).isEmpty()) {
+            throw new EntityNotFoundException("Proposal not found: " + proposalKey);
+        }
+        int safeLimit = Math.min(Math.max(limit, 1), 100);
+        List<com.soubhagya.systivex.proposal.model.AuditEvent> rows =
+                events.findTop101ByProposalKeyOrderBySeqAsc(proposalKey);
+        boolean truncated = rows.size() > safeLimit;
+        List<com.soubhagya.systivex.proposal.model.AuditEvent> accepted =
+                truncated ? rows.subList(0, safeLimit) : rows;
+        return accepted.stream().map(AuditEventResponse::from).toList();
+    }
+
+    private ProposalRevision latestOrThrow(UUID proposalKey) {
+        return revisions
+                .findFirstByProposalKeyOrderByRevisionNumberDesc(proposalKey)
+                .orElseThrow(
+                        () -> new EntityNotFoundException("Proposal not found: " + proposalKey));
     }
 
     private static void requireIdentity(String issuer, String subject) {

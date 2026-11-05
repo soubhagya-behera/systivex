@@ -27,4 +27,10 @@ public interface ProposalRevisionRepository extends JpaRepository<ProposalRevisi
             countQuery =
                     "select count(distinct r.proposalKey) from ProposalRevision r")
     Page<ProposalRevision> findLatestRevisions(Pageable pageable);
+
+    /**
+     * Latest revision for one proposal key, newest first, bounded to one row.
+     * Used by evidence assembly and other read-only latest-revision callers.
+     */
+    Optional<ProposalRevision> findFirstByProposalKeyOrderByRevisionNumberDesc(UUID proposalKey);
 }

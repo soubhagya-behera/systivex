@@ -16,10 +16,9 @@ public final class ProposalLookup {
 
     public static ProposalRevision latestOrThrow(
             ProposalRevisionRepository revisions, UUID proposalKey) {
-        List<ProposalRevision> history = revisions.findByProposalKeyOrderByRevisionNumberAsc(proposalKey);
-        if (history.isEmpty()) {
-            throw new EntityNotFoundException("Proposal not found: " + proposalKey);
-        }
-        return history.get(history.size() - 1);
+        return revisions
+                .findFirstByProposalKeyOrderByRevisionNumberDesc(proposalKey)
+                .orElseThrow(
+                        () -> new EntityNotFoundException("Proposal not found: " + proposalKey));
     }
 }

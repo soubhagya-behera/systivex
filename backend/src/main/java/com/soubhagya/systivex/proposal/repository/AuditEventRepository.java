@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AuditEventRepository extends JpaRepository<AuditEvent, UUID> {
 
+    List<AuditEvent> findTop101ByProposalKeyOrderBySeqAsc(UUID proposalKey);
+
     List<AuditEvent> findAllByOrderBySeqAsc();
 
     List<AuditEvent> findByProposalKeyAndRevisionNumberOrderBySeqAsc(UUID proposalKey, int revisionNumber);
