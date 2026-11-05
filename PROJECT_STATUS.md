@@ -246,6 +246,64 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
 - [x] Merged via PR #18 on 2026-11-02 (merge commit
   `b31e9bd8c05b75d20937f48c2b70675133684cb2`); the feature branch was retained.
 
+## Phase 14 S0 — Evidence Foundation for Agent-Assisted Analysis (design-only, 2026-11-05; no implementation)
+
+- [x] `DECISIONS.md` D38 records the Phase 14 S0 design-only decision: a
+  conceptual evidence model and security boundaries for future
+  agent-assisted analysis grounded in the existing System Twin and
+  deterministic analysis services. It authorizes documentation and
+  architecture design only.
+- [x] No runtime implementation was added: no source code, tests,
+  dependencies, migrations, configuration, endpoints, persistence, background
+  jobs, scheduler, agent runtime, LLM provider, prompts, embeddings, vector
+  database, MCP, or multi-agent architecture.
+- [x] Evidence categories defined: `OBSERVED_FACT`, `DETERMINISTIC_FINDING`,
+  `HYPOTHETICAL_RESULT`, `GOVERNANCE_RECORD`, `AUDIT_EVIDENCE`; they are not
+  collapsed into one confidence score.
+- [x] Conceptual, packet-scoped evidence envelope defined in documentation
+  only (not a Java record, DTO, database entity, or API contract). References
+  are conceptual and packet-local; no durable evidence IDs, global snapshot IDs,
+  source hashes, timestamps, confidence scores, or freshness guarantees are
+  invented where the existing APIs do not provide them.
+- [x] Timestamp/freshness semantics preserve twin `createdAt`/`updatedAt`,
+  runtime `observedAt`, impact/risk `snapshotObservedAt`, the four simulation
+  timestamps, proposal assessment `snapshotObservedAt`, and proposal/audit
+  creation/occurrence timestamps. Risk freshness uses the existing 30-minute
+  `risk-v1` rule only where runtime metadata supports it; `RiskResponse` does
+  not expose impact-style truncation/cycle fields and the model does not
+  fabricate them.
+- [x] Source authority preserved: impact is structural reachability, not
+  confirmed breakage; risk is advisory `risk-v1`; simulation is hypothetical
+  and non-persistent; policy `ALLOW` is not authorization; proposal assessment
+  is bound to stored operations, assessment hash, and twin fingerprint; ordered
+  audit events are not proof of chain integrity.
+- [x] Claim qualification rules require evidence references, preserve source
+  and scope, distinguish observed/deterministic/hypothetical evidence, preserve
+  uncertainty/staleness/truncation, state missing or insufficient evidence,
+  avoid causality/completeness over-claims, and prohibit numeric confidence
+  scores without a later calibration decision.
+- [x] Security preserved: D28 JWT and current endpoint roles; D29 governance and
+  separation of duties; D30/D31 execution gates; D33 frontend token handling;
+  D34 local Keycloak only; D35 impact/risk scope; D36 read-only proposal view;
+  D37 simulation/policy advisory boundary. The future agent is treated as
+  untrusted; no `TWIN_AGENT` role, no direct database/network/filesystem/shell/
+  credential/actuator access, and no LLM authorization, proposal mutation, or
+  target-service calls.
+- [x] Data protection: allowlist-based evidence selection; JWTs, credentials,
+  secrets, raw HTTP bodies, unnecessary identity details, unfiltered metadata,
+  and unnecessary sensitive business values excluded. Entity metadata and
+  user-authored proposal text treated as untrusted data.
+- [x] Phase 14 S1 is NOT authorized by D38. A future S1 proposal may evaluate a
+  deterministic read-only evidence packet assembler over existing APIs and must
+  obtain its own scope and decision first. Agent narratives, provider
+  integration, and tool mediation remain separately gated.
+- [x] Protected local files remain unchanged: root untracked
+  `application.properties` SHA-256
+  `A02E895EE1800A926BCC6112F2ADCB8855B5E86D6C09C02446B0B70772728C2B` and
+  backend `application.properties` SHA-256
+  `4C14345C364C26DE2E8339FDE0AD6646BA5BEC9A32050411FE00C88AB6BFE810`.
+  `DECISIONS.md` D1–D37 remain unchanged.
+
 ## Gated, not scheduled — controlled execution
 
 **Execution implementation — gated by the D31 feasibility gate.** No
@@ -292,8 +350,9 @@ merge commit `fef38681992f024ec0ccb2503e4167c9fd5e276c`)
 - [x] S3 is **merged** via PR #14 on 2026-10-29 (merge commit
   `fef38681992f024ec0ccb2503e4167c9fd5e276c`); the console remains
   local-development-only with no live OIDC login or production hosting.
-- [ ] Proposal/revision/per-proposal-audit browsing and simulation/policy
-  advisory UI remain later slices; neither is implemented or approved here.
+- [x] Later slices were subsequently approved and merged: S4 read-only
+  proposal/revision/per-proposal-audit browsing (PR #18, D36) and S5
+  simulation/policy advisory UI (PR #20, D37).
 
 ## Phase 13 S2 — Impact & Risk investigation UI (merged via PR #12 on 2026-10-29;
 merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`)
@@ -388,9 +447,11 @@ merge commit `62656c7a2f7ed547ac1262ae9e8a1d46e20dc7b4`)
   in application code, and no JWT decoding.
 - [x] Phase 13 S2 (Impact & Risk, PR #12) and Phase 13 S3 (Audit Integrity,
   PR #14) followed as separate merged slices with their own verification.
-- [ ] Remaining UI slices — proposal/revision/audit-event browsing and
-  simulation/policy advisory views — each require their own scope and
-  verification checkpoint; none is implemented or approved.
+- [x] The remaining UI slices were later approved, implemented, and merged as
+  separate scoped slices: S4 read-only proposal/revision/audit-event browsing
+  (PR #18, D36; authenticated live smoke was partial because the database held
+  zero proposals) and S5 simulation/policy advisory UI (PR #20, D37; local live
+  verification passed 2026-11-03).
 
 ## Phase 13 S0 — Open-source contributor readiness (recorded 2026-10-17;
 licensing + contributor docs + CI only, no application change)
@@ -1619,26 +1680,30 @@ documentation/design only, no implementation, no live verification)
 
 These are **deferred by decision**, not missing by accident. Do not report them as regressions.
 
-- Richer twin ingestion (code-AST parsing beyond manifests/routes/
-  migrations, runtime/telemetry connectors), Git integration.
-  (The Phase 4 repository connector — configs/routes/migrations — is done.)
+- Richer twin ingestion beyond the Phase 4 repository connector
+  (configs/routes/migrations) and the Phase 6 health/counter annotation:
+  code-AST parsing, trace/log presence ingestion into the twin, other
+  runtime/telemetry connectors, and Git integration.
 - Tempo trace exploration UI, unified trace/log UI, automated anomaly
   detection, any agent use of telemetry, observability-driven decisions.
   (Loki log exploration is Phase 3B-2, above.)
-- Agent orchestration, tool mediation, evidence model. (Hypothetical
+- Agent orchestration, tool mediation, and an evidence model. (Hypothetical
   change simulation is Phase 8, above — still read-only and advisory.)
-- Policy approval workflows, controlled execution, and verification
-  logic. (Advisory policy evaluation is Phase 9, above — still read-only,
-  non-persistent, and never authorization.)
+- Controlled execution, operation-specific actuators, and post-change
+  verification logic. (Advisory policy evaluation is Phase 9, and governed
+  proposal approval/rejection plus the tamper-evident audit are Phase 11,
+  above — both auditable and neither authorizes execution.)
 - Filtering, pagination (beyond impact-query `includeTypes`/caps), bulk import
   on the twin API. (Read-only impact traversal is Phase 5, above.)
 - Authentication/authorization on the Phase 2B target-service APIs. (The
   control-plane API is JWT-protected; Phase 10, D28.)
 - Redis configuration or usage.
 - Spring AI / Ollama integration, model configuration.
-- Frontend work beyond the Phase 13 S1/S2/S3 read-only console (`frontend/`);
-  proposal/revision/audit-event browsing and simulation/policy advisory UI
-  remain unimplemented.
+- Frontend work beyond the Phase 13 S1–S5 read-only/advisory console
+  (`frontend/`). S4 proposal/revision/per-proposal-audit browsing and S5
+  simulation/policy advisory views are implemented and merged; production/
+  static hosting and a live OIDC sign-in flow remain unimplemented (the
+  console is local-development-only and uses a manually supplied token).
 - Docker packaging of the Java services or any container orchestration
   (Compose exists only for the telemetry collector, `observability/`).
 - Cross-service database access, shared schemas, distributed transactions
@@ -1747,9 +1812,11 @@ Phase 0 record (2026-09-28) is retained below for history.
   JDK path would break portability); only `.vscode/settings.json.example` is
   tracked. Root `.gitignore` uses `.vscode/*` + `!.vscode/settings.json.example`.
 
-## Immediate next milestone (proposed, not started)
+## Historical milestone — Milestone 2C remainder + twin telemetry ingestion (superseded)
 
-**Milestone 2C remainder + twin telemetry ingestion:**
+This list was the "immediate next milestone" before Phases 4–7 and Phase 13
+S1–S5 were completed. It is retained as history and is **no longer the
+immediate next milestone**; every item below is done.
 
 1. ~~Repository connector reading the target services into twin rows~~ DONE
    (Phase 4, above).
@@ -1757,9 +1824,11 @@ Phase 0 record (2026-09-28) is retained below for history.
    (Phase 5, above — impact paths only, no simulation/risk/policy).
 3. ~~Authentication on any API before the surface leaves the local machine~~
     DONE for the control plane (Phase 10, D28 — JWT resource server with
-    role policy; live IdP verification still pending a trusted issuer).
-    Target-service APIs remain open local-only endpoints (still gated by
-    the local-machine boundary, not by auth).
+    role policy). Local-development token verification passed against the
+    D34 Keycloak setup (Phase 13 S2/S4/S5); production IdP verification
+    remains pending a trusted production issuer. Target-service APIs remain
+    open local-only endpoints (still gated by the local-machine boundary,
+    not by auth).
 4. ~~Twin telemetry ingestion: consume the observed health/counter
    contract (Phase 3A/3B-1/3B-2) into twin rows~~ DONE (Phase 6, above —
    health + six allowlisted counters only, still without agents or
@@ -1768,7 +1837,13 @@ Phase 0 record (2026-09-28) is retained below for history.
    facts~~ DONE (Phase 7, above — ordinal levels with reasons and
    uncertainty flags, advisory only; no policy/execution).
 
-Out of scope: agents, simulation, approvals UI, brokers, K8s,
-vector search, frontend beyond API consumption readiness. Cross-database
-atomicity for checkout stays out unless a future decision with a concrete
-reconciliation design asks for it.
+Out of scope for that historical milestone: agents, brokers, K8s, vector
+search, and frontend beyond API consumption readiness. Simulation was later
+delivered as Phase 8, and the proposal/approval and simulation/policy UIs as
+Phase 13 S4/S5. Cross-database atomicity for checkout stays out unless a future
+decision with a concrete reconciliation design asks for it.
+
+Remaining unimplemented capabilities (not started, not Phase 14): agent
+orchestration and tool mediation, an evidence model, trace/log presence
+ingestion into the twin, production identity and hosting, and controlled
+execution with operation-specific actuators.

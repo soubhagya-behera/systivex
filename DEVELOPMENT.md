@@ -540,8 +540,9 @@ Notes and limits:
   written (manual rows, other keys, and all relationships untouched).
   Phase 4 re-syncs preserve `runtime`; Phase 5 impact semantics unchanged.
 - Localhost-only like the sync trigger: the endpoint refuses non-loopback
-  peers with 403. Do not expose it beyond the machine without the
-  deferred auth story.
+  peers with 403. Do not expose it beyond the machine without the production
+  identity and non-local serving review (control-plane JWT auth landed in
+  Phase 10).
 
 ## 13. Change-risk assessment (Phase 7)
 
@@ -990,9 +991,10 @@ decision (D33).
   error. The view states that verification never repairs or changes the chain.
 - The response is strictly validated; malformed bodies produce a fixed safe
   error. Retry repeats only the verification GET.
-- There is no audit append, repair, proposal, or execution control. The view
-  shows the chain state, not proposal contents; proposal/revision/audit-event
-  browsing remains planned and is not implemented.
+- There is no audit append, repair, proposal mutation, approval, or execution
+  control. The view shows the chain state, not proposal contents. Phase 13 S4
+  later added read-only proposal/revision/audit-event browsing in the separate
+  **Proposals** view; S3 remains the only chain-verification surface.
 
 ### Local verification and smoke procedure
 
@@ -1010,6 +1012,10 @@ storage/network checks, reload clearing, 401 handling, retry, and recovery with
 a fresh valid token. The rejected-token case used an **invalid-signature
 token**, not a naturally expired token. S3 was verified by its automated suite
 and production build (PR #14); no separate S3 browser smoke run was recorded.
+S4's authenticated live smoke on 2026-11-02 loaded the first proposal page
+successfully, but the database contained zero proposals, so proposal detail,
+revision history, selected historical revision, and per-proposal audit evidence
+were not live-exercised; those workflows are covered by the automated test suite.
 
 Phase 13 S5's local live verification on 2026-11-03 passed **20/20 backend
 checks** and a headless browser smoke against standalone local Keycloak 26.8.1
@@ -1056,6 +1062,6 @@ If it is not running, the backend may emit non-fatal OTLP export warnings.
 S1 is merged in PR #8, S2 in PR #12, S3 in PR #14, S4 in PR #18, and S5 in
 PR #20; S5 passed local live verification on 2026-11-03. The frontend remains
 local-development-only and is not production hosted or live-OIDC-integrated.
-Proposal/revision/audit-event browsing remains planned and unimplemented; the
-Simulation & Policy advisory UI is implemented, merged, and local
-live-verified.
+Proposal/revision/audit-event browsing is implemented read-only in S4
+(PR #18), and the Simulation & Policy advisory UI is implemented, merged, and
+local live-verified in S5 (PR #20).
