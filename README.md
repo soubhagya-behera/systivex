@@ -108,7 +108,7 @@ Full design, trust boundaries, and the deterministic-vs-advisory distinction liv
 | JWT-protected API | ✅ Implemented and tested |
 | Runtime observation and telemetry integration | ✅ Implemented and tested |
 | Controlled execution | 🚧 Design-only — gated by D30/D31 |
-| Frontend / operator console | 🚧 Phase 13 S1–S4 merged (S4 via PR #18); S5 implemented and automated-verified on an unmerged branch, live verification **blocked**; local-development-only |
+| Frontend / operator console | 🚧 Phase 13 S1–S5 merged (S4 via PR #18, S5 via PR #20); S5 passed local live verification 2026-11-03; local-development-only |
 | Agent orchestration, verification, Git integration | 📋 Planned, not implemented |
 
 Impact, risk, and simulation derive deterministically from the twin and never authorize
@@ -148,14 +148,24 @@ configuration, and `./mvnw spring-boot:run` — are in [`DEVELOPMENT.md`](DEVELO
 
 The `frontend/` React + Vite + JavaScript console is **local-development only**.
 Phase 13 S1 is merged via PR #8 (`DECISIONS.md` D33); S2 via PR #12, S3 via
-PR #14, and S4 via PR #18. Phase 13 S5 (Hypothetical Simulation & Advisory
-Policy UI) is implemented under `DECISIONS.md` D37 and automated-verified on
-`feat/phase-13-s5-simulation-policy`, but remains **uncommitted and unmerged**
-pending review. S5 live verification is **blocked**: no local control-plane
-listener or securely available live `TWIN_ANALYZE` identity was present, so no
-live simulation or policy call is claimed. The console binds to `127.0.0.1`
-and proxies `/api` to a control plane running at `http://127.0.0.1:8080`; it
-adds no backend surface and has no production hosting or live OIDC login.
+PR #14, S4 via PR #18, and S5 via PR #20 on 2026-11-03 (merge commit
+`10472f26a54fa488705fe5fbcdaf10bd18fed3cc`). Phase 13 S5 (Hypothetical
+Simulation & Advisory Policy UI) is implemented under `DECISIONS.md` D37,
+automated-verified, and **passed local live verification on 2026-11-03**:
+20/20 backend checks plus a headless browser smoke. The local live check used
+standalone local-development Keycloak 26.8.1 at
+`http://127.0.0.1:8180/realms/systivex-dev`, the backend on
+`127.0.0.1:8090` (health `UP`), and the console on
+`http://127.0.0.1:5173`. It verified 401 without a token, 403 for a
+`TWIN_READ`-only identity on both S5 POSTs, a successful `TWIN_ANALYZE`
+simulation (baseline unchanged), and an independent policy result
+(`REVIEW`, `policy-v1`); persistence stayed at 15 entities, 18 relationships,
+and 1 proposal. The headless smoke found no token in browser storage, the URL,
+or the DOM. This is local development verification, not production identity or
+hosting. The console binds to `127.0.0.1` and proxies `/api` to
+`http://127.0.0.1:8080` by default; set `SYSTIVEX_BACKEND_PORT=8090` to reach
+the protected local backend configuration used on this machine. It adds no
+backend surface and has no production hosting or live OIDC login.
 
 ```bash
 cd frontend
@@ -224,9 +234,8 @@ actuator exists — report issues via [`SECURITY.md`](SECURITY.md).
 ## 🗂️ Project Structure
 
 `backend/` holds the Java 21 control plane (with its sample `target-services/`),
-`frontend/` holds the React + Vite operator console (Phase 13 S1–S4 merged;
-S5 implemented and automated-verified on an unmerged branch with live
-verification blocked; local development only), and
+`frontend/` holds the React + Vite operator console (Phase 13 S1–S5 merged;
+S5 passed local live verification 2026-11-03; local development only), and
 `observability/` holds a local telemetry stack (collector, Prometheus, Loki,
 Grafana).
 

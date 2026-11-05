@@ -2,10 +2,13 @@
 
 Status: **target architecture (planned) + current implementation status**
 (documentation reviewed 2026-11-03; last automated runtime test verification
-2026-11-03, Phase 13 S5 backend regression; last live frontend verification
-2026-10-28, Phase 13 S2 browser smoke). Phase 13 S5 live verification is
-**blocked**; automated tests are not live verification. Nothing below beyond
-"Current implementation" should be read as implemented.
+2026-11-03, Phase 13 S5 backend regression; last live backend/frontend
+verification 2026-11-03, Phase 13 S5). Phase 13 S5 is implemented,
+automated-verified, merged via PR #20 (merge commit
+`10472f26a54fa488705fe5fbcdaf10bd18fed3cc`), and **passed local live
+verification on 2026-11-03**: 20/20 backend checks plus a headless frontend
+smoke. Automated tests and GitHub CI remain distinct from live verification.
+Nothing below beyond "Current implementation" should be read as implemented.
 
 ## 1. High-level target architecture
 
@@ -107,8 +110,8 @@ the policy/execution boundary (see §6).
 The **frontend is a local-development-only read-only/advisory operator console**
 (Phase 13 S1 merged via PR #8, `DECISIONS.md` D33; S2 via PR #12 and S3 via
 PR #14 on 2026-10-29; S4 via PR #18 on 2026-11-02 under D36; S5 implemented
-under D37 on `feat/phase-13-s5-simulation-policy`, uncommitted and unmerged;
-it is not a control-plane module). It lives in `frontend/` as a React + Vite +
+under D37 and merged via PR #20 on 2026-11-03; it is not a control-plane
+module). It lives in `frontend/` as a React + Vite +
 **JavaScript** (no TypeScript) app. The S1 System Twin explorer reads existing
 `TWIN_READ` GET endpoints; S2 adds a live-only Impact & Risk view that reads the
 existing impact and risk GETs for one root UUID; S3 adds a live-only Audit
@@ -120,12 +123,19 @@ over five `TWIN_READ` GETs with no lifecycle mutation. S5 adds a live-only
 `POST /api/v1/twin/policy-evaluations` with `TWIN_ANALYZE`, one loaded root,
 optional operations, separate explicit actions/results, and no automatic or
 combined request. The two S5 POSTs are advisory and non-persistent; the policy
-endpoint independently re-runs simulation server-side. S5 remains unmerged and
-its live verification is blocked (no local control-plane listener or secure
-live `TWIN_ANALYZE` identity). All S2–S5 views are excluded from synthetic
-preview mode. The console adds no backend endpoint or CORS rule: the Vite dev
-server binds to `127.0.0.1` and proxies `/api` to
-`http://127.0.0.1:8080`. It stays local-development-only until the serving and
+endpoint independently re-runs simulation server-side. S5's local live
+verification passed on 2026-11-03 against standalone local Keycloak 26.8.1 on
+`127.0.0.1:8180`, the backend on `127.0.0.1:8090`, and Vite on
+`127.0.0.1:5173`; the checks covered 401 without a token, 403 for a
+`TWIN_READ`-only identity, a successful `TWIN_ANALYZE` baseline simulation,
+an independent policy result (`REVIEW`, `policy-v1`), unchanged persistence,
+and a headless browser smoke. This remains local-development verification, not
+production identity or hosting. All S2–S5 views are excluded from synthetic
+preview mode. The console adds no backend endpoint or
+CORS rule: the Vite dev server binds to `127.0.0.1` and proxies `/api` to
+`http://127.0.0.1:8080` by default, or to the loopback port selected by
+`SYSTIVEX_BACKEND_PORT` (the protected local config here uses `8090`). It
+stays local-development-only until the serving and
 identity requirements for a shared environment are reviewed, and no
 production/static hosting or live OIDC login exists.
 
@@ -362,8 +372,8 @@ See `THREAT_MODEL.md` for the principles these boundaries enforce.
   `TWIN_ADMIN`);
   `GET /actuator/health` anonymous (status only),
   `/actuator/prometheus` requires `TWIN_READ`, all else denied.
-- **Read-only/advisory operator console (S1–S4 merged; S5 implemented,
-  unmerged, live verification blocked; local development only).**
+- **Read-only/advisory operator console (S1–S5 merged; S5 via PR #20; local
+  live verification passed 2026-11-03; local development only).**
   `DECISIONS.md` D33 scoped the `frontend/` React + Vite + JavaScript console to
   existing `TWIN_READ` GET endpoints: S1 (PR #8) reads
   `/api/v1/twin/entities[/{id}]` and
@@ -382,7 +392,7 @@ See `THREAT_MODEL.md` for the principles these boundaries enforce.
 - **SSE** for streaming long-running analysis/simulation progress (planned).
 - No WebSockets at this stage (see `DECISIONS.md`).
 
-## 8. Current implementation status (documentation reviewed 2026-11-03; last automated backend verification 2026-11-03; last live frontend verification 2026-10-28, Phase 13 S2 browser smoke; Phase 13 S1–S4 merged, S5 implemented and unmerged with live verification blocked)
+## 8. Current implementation status (documentation reviewed 2026-11-03; last automated backend verification 2026-11-03; last live backend/frontend verification 2026-11-03, Phase 13 S5; Phase 13 S1–S5 merged, S5 local live verification passed)
 
 Implemented:
 
@@ -490,9 +500,10 @@ Implemented:
   executes nothing. Verified in tests (full `./mvnw clean test` suite: 398
   tests, 0 failures; see `PROJECT_STATUS.md` Phase 11 S1–S6). No new
   dependencies, no target-service change.
-- Read-only/advisory operator console (Phase 13 S1–S4 merged; S5 implemented
-  and automated-verified but uncommitted/unmerged with live verification
-  blocked; see §7 and `DECISIONS.md` D33/D36/D37): `frontend/` is a React +
+- Read-only/advisory operator console (Phase 13 S1–S5 merged; S5 via PR #20,
+  merge commit `10472f26a54fa488705fe5fbcdaf10bd18fed3cc`, with local live
+  verification passed 2026-11-03; see §7 and
+  `DECISIONS.md` D33/D36/D37): `frontend/` is a React +
   Vite + **JavaScript** (no TypeScript) console. S1 provides the System Twin
   explorer over the existing `TWIN_READ` GETs
   (`/api/v1/twin/entities[/{id}]`,
@@ -508,7 +519,8 @@ Implemented:
   PR #18) adds a live-only, read-only proposal governance view over the five
   D36 `TWIN_READ` GETs with no lifecycle mutation; its live smoke was partial
   because the database contained zero proposals.
-  S5 adds a live-only **Simulation & Policy** view that calls only
+  S5 (merged via PR #20 on 2026-11-03 under D37) adds a live-only
+  **Simulation & Policy** view that calls only
   `POST /api/v1/twin/simulations` and
   `POST /api/v1/twin/policy-evaluations` with `TWIN_ANALYZE`, one loaded root,
   up to 10 operations (a frontend usability limit only), and separate explicit
@@ -525,16 +537,27 @@ Implemented:
   the S5 build passed and `npm audit --audit-level=high` reported no
   high/critical findings (one pre-existing moderate Vite advisory). Full backend
   regression passed **398 tests** including Docker/Testcontainers integration
-  tests. A Phase 13 S2 headless-Chrome smoke test passed 41/41 checks against
+  tests; GitHub Frontend CI and Backend CI passed on PR #20 before merge. A
+  Phase 13 S2 headless-Chrome smoke test passed 41/41 checks against
   the local twin (15 entities, 18 relationships, 14 impacted entities, 24
   evidence paths, 14 risk entries); the rejected-token case used an
   invalid-signature token, not a naturally expired token. S3 was verified by
   its automated suite and build; S4's live smoke was partial (zero proposals).
-  **S5 live verification is blocked**: no local control-plane listener or
-  securely available live `TWIN_ANALYZE` identity was present, so its live
-  calls and live 401/403/UI behavior were not exercised. Live OIDC sign-in and
-  production/static hosting are **not** implemented or tested (no trusted
-  production issuer/client is configured).
+  **S5 local live verification passed on 2026-11-03**: 20/20 backend checks
+  ran against standalone local Keycloak 26.8.1
+  (`http://127.0.0.1:8180/realms/systivex-dev`), the backend on
+  `127.0.0.1:8090` (health `UP`), and the Vite console on
+  `http://127.0.0.1:5173`. They verified 401 without a token, 403 for a
+  `TWIN_READ`-only identity on both S5 POSTs, a successful `TWIN_ANALYZE`
+  baseline simulation (`simulated: true`; 14 impacted before/after; 15
+  entities and 18 relationships; no delta), and an independent policy result
+  (decision `REVIEW`, version `policy-v1`, bounded simulation summary). Entity,
+  relationship, and proposal counts stayed unchanged at **15 / 18 / 1**. A
+  headless browser smoke passed the token gate, access confirmation,
+  simulation, and policy workflows and found no token in storage, the URL, or
+  the DOM. These were local live checks, distinct from automated tests and CI.
+  Live OIDC sign-in and production/static hosting are **not** implemented or
+  tested (no trusted production issuer/client is configured).
 
 Phase 12 S0–S1 (2026-10-16/17) is **design and feasibility work only, not
 runtime implementation**: `DECISIONS.md` D30 records the controlled-execution
@@ -562,10 +585,10 @@ Intentionally absent (not bugs — deferred by decision):
   approvals, and the tamper-evident audit are Phase 11, above).
 - Redis, Spring AI / Ollama, and target-service authentication (still
   deferred). The frontend's Node toolchain and CI job exist, but the console is
-  **local-development-only** (Phase 13 S1–S4 merged under D33/D36; S5
-  implemented under D37 but uncommitted/unmerged, with live verification
-  blocked): no production/static hosting, no deployed surface, and no live OIDC
-  sign-in (trusted production issuer/client details are still missing). S5's two
+  **local-development-only** (Phase 13 S1–S5 merged under D33/D36/D37; S5 local
+  live verification passed 2026-11-03): no production/static hosting, no
+  deployed surface, and no live OIDC sign-in (trusted production issuer/client
+  details are still missing). S5's two
   approved POSTs are advisory and non-persistent; no later UI slice is approved.
 - Grafana log dashboards, Tempo trace UI, unified trace/log UI, anomaly
   detection, any agent use of telemetry (later 3B slices and later).
@@ -592,10 +615,12 @@ the Audit Integrity view — is **merged via PR #14 on 2026-10-29** (merge commi
 `fef38681992f024ec0ccb2503e4167c9fd5e276c`). Phase 13 S4 — read-only proposal
 governance (`DECISIONS.md` D36) — is **merged via PR #18 on 2026-11-02** with a
 partial live smoke (zero proposals). Phase 13 S5 — Simulation & Policy
-(`DECISIONS.md` D37) — is **implemented and automated-verified but
-uncommitted/unmerged; live verification is blocked**. It calls only the two
-advisory POSTs and performs no mutation, execution, approval, persistence, or
-audit repair. S1–S4 remain local-development-only; S5 becomes part of that
-console only after review. Execution stays gated and separate, and the console
-is never exposed beyond the local machine before the deferred authentication
-story lands.
+(`DECISIONS.md` D37) — is **implemented, automated-verified, and merged via
+PR #20 on 2026-11-03** (merge commit
+`10472f26a54fa488705fe5fbcdaf10bd18fed3cc`); its **local live verification
+passed on 2026-11-03** (20/20 backend checks and a headless frontend smoke).
+It calls only the two advisory POSTs and
+performs no mutation, execution, approval, persistence, or audit repair.
+S1–S5 remain local-development-only. Execution stays gated and separate, and
+the console is never exposed beyond the local machine before the deferred
+authentication story lands.
