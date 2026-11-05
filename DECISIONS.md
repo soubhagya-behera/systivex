@@ -1669,6 +1669,229 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   unchanged. It creates no execution, approval, proposal lifecycle, or
   authentication authority. D33â€“D37 remain unchanged.
 
+## D39 — Phase 14 S1: Deterministic Evidence Packet Assembler (decided and adopted 2026-11-05)
+
+- **Status:** Decided and adopted 2026-11-05. Authorizes implementation of the Phase 14 S1 deterministic, read-only evidence packet assembler and its tests. S1 supplies evidence only. It does not generate claims, narratives, authorization, approvals, or execution.
+- **Date:** 2026-11-05.
+- **Depends on:** D38, merged via PR #22 at commit `562309195c6acac8156f48506513fd31ccac7947`; D28-D37; and the finalized root-level `PHASE14_S1_PROPOSAL.md`.
+- **Purpose:** Authorize implementation of the Phase 14 S1 deterministic, read-only evidence packet assembler and its tests. S1 supplies evidence only. It does not generate claims, narratives, authorization, approvals, or execution.
+
+- **A. Authorization scope.** This decision authorizes:
+  1. A new backend package `com.soubhagya.systivex.evidence`.
+  2. An internal, deterministic, read-only `EvidencePacketAssembler` (or equivalent service).
+  3. Immutable packet and evidence-item structures, including packet-local references and qualification metadata.
+  4. Explicit source adapters/interfaces within the `evidence` package.
+  5. Existing domain services as the sole source of evidence.
+  6. Additive read-only service or repository methods only in their owning modules where a safe bounded read is required.
+  7. Tests for source provenance, limits, security, determinism, and absence of mutation.
+  No cross-module repository access, self-referential HTTP calls, direct target-service access, or new public endpoint is authorized.
+
+- **B. Evidence categories and allowlists.** The assembler must preserve the five D38 categories:
+  1. `OBSERVED_FACT`
+  2. `DETERMINISTIC_FINDING`
+  3. `HYPOTHETICAL_RESULT`
+  4. `GOVERNANCE_RECORD`
+  5. `AUDIT_EVIDENCE`
+
+  Allowlisted source content:
+  - Twin entities: `id`, `type`, `name`, `externalRef`, `environment`, `createdAt`, `updatedAt`.
+  - Twin relationships: `id`, `sourceId`, `targetId`, `type`, `createdAt`.
+  - Runtime metadata only: `health.available`, `health.status`, `observedAt`, allowlisted counters, and source limitations.
+  - Impact and risk: all fields exposed by `ImpactResponse` and `RiskResponse`.
+  - Simulation: `simulated`, advisory marker, settings, before/after scopes, graph summary, delta, and limitations.
+  - Policy: decision, policy version, advisory marker, settings, fired rules, bounded simulation summary, and note.
+  - Proposal governance: selected or latest revision only, using `proposalKey`, `revisionNumber`, `status`, `operations`, `operationsHash`, `assessment`, `assessmentHash`, `policyDecision`, `policyVersion`, `riskTaxonomy`, `twinFingerprint`, `snapshotObservedAt`, `expiresAt`, `createdAt`, and `updatedAt`.
+  - Audit evidence: per-proposal audit events limited to `id`, `seq`, `occurredAt`, `action`, `outcome`, `proposalKey`, `revisionNumber`, `operationsHash`, `assessmentHash`, `prevHash`, and `eventHash`.
+
+  Excluded by default:
+  - The entire arbitrary metadata map and any non-allowlisted metadata key.
+  - JWTs, authorization headers, passwords, client secrets, private keys, database credentials, connection secrets, environment secrets, raw HTTP response bodies, unnecessary issuer/subject identity details, unfiltered metadata, and sensitive business values not required for the specific analysis.
+  - Free-form proposal `title`, `description`, `reason`, `proposerIssuer`, `proposerSubject`, `approverIssuer`, `approverSubject`, and `correlationId`.
+  - Any field not present in the source DTO.
+  - Impact truncation or cycle fields in risk evidence, because `RiskResponse` does not expose them.
+  - Before/after scopes, server timestamps, `simulated` flag, and risk taxonomy version in policy evidence, because `PolicyEvaluationResponse` does not provide them.
+
+- **C. Packet structure and references.** The packet is transient and packet-scoped. It has no durable ID and no persistence. It contains:
+  1. A packet-local reference, such as `P1`.
+  2. An ordered list of evidence items.
+  3. Limits applied.
+  4. Explicit omissions.
+  Each evidence item contains:
+  1. A packet-local reference, such as `E1`, `E2`.
+  2. One of the five D38 categories.
+  3. The exact original source or resource reference.
+  4. The relevant entity or proposal scope.
+  5. The source-provided version where available.
+  6. Source timestamps with their original semantics.
+  7. Allowlisted structured content only.
+  8. Source-provided limitations.
+  9. Qualification metadata.
+  D38 claim structures remain reserved. S1 must not populate claims or generate natural-language narratives. Packet-local references are deterministic and must not become durable IDs.
+
+- **D. Request and assembly semantics.** The internal request supports mutually exclusive analysis modes:
+  1. `BASELINE` for existing impact and risk analysis.
+  2. `SIMULATION` for explicit hypothetical simulation.
+  3. `POLICY_EVALUATION` for explicit advisory policy evaluation, independently recomputed by the existing policy service.
+  Common inputs reuse existing validation: 1-10 roots, `maxDepth` 1-10 with default 6, and `includeTypes` defaulting to `SERVICE,API,DATABASE,TABLE`. An optional `proposalKey` and optional `revisionNumber` may request proposal evidence. Audit evidence requires an explicit `includeAuditEvidence` flag. Caller-supplied impact, risk, policy decisions, or simulation results are never accepted as authoritative evidence. Simulation and policy evaluation must not be silently executed together; if both are requested, assembly must fail with an explicit conflict or require separate packets. Existing validation semantics must be reused exactly.
+
+- **E. Limits and truncation.** The following limits are authorized for S1:
+  1. Maximum 10 analysis roots.
+  2. `maxDepth` between 1 and 10, default 6.
+  3. Impact traversal limits of 500 nodes and 2,000 paths.
+  4. 100 evidence items per source family.
+  5. 1,000 evidence items total.
+  6. 256 KiB serialized UTF-8 JSON.
+  7. 100 per-proposal audit events.
+
+  Nested source limits:
+  - Twin entity records: maximum 100 per packet.
+  - Twin relationship records: maximum 100 per packet.
+  - Impact evidence: one item; maximum 100 impacted entities and maximum 100 complete impact paths. If a path is included, all of its steps must be included. Preserve the server-reported impacted count, path count, truncation state, cycle state, and limits.
+  - Risk evidence: one item; maximum 100 risk entries. Preserve risk taxonomy version, uncertainty, stale flags, and advisory note.
+  - Policy evidence: one item; maximum 100 fired rules. Preserve decision, policy version, settings, bounded simulation summary, and advisory note.
+  - Proposal governance evidence: one item for the explicitly selected or latest revision only. Do not include revision history.
+  - Audit evidence: maximum 100 per-proposal audit events per packet, in `seq` ascending order.
+
+  Nested collection limits:
+  - Simulation before/after impact results: preserve all impact fields for each included scope. Cap impacted entities at 100 and complete impact paths at 100. Preserve server-reported counts and truncation/cycle state.
+  - Simulation before/after risk results: preserve all risk fields. Cap risk entries at 100. Preserve taxonomy version, uncertainty, stale flags, and advisory note.
+  - `SimulationDelta.impactedAdded`: maximum 100 strings, each maximum 512 characters. Preserve `impactedAddedCount`.
+  - `SimulationDelta.impactedRemoved`: maximum 100 strings, each maximum 512 characters. Preserve `impactedRemovedCount`.
+  - `SimulationDelta.riskLevelChanges`: maximum 100 entries. Each `entityRef` maximum 512 characters. Preserve the full before/after levels for every included entry.
+  - `RiskEntry.reasons`: maximum 20 reasons per entry. Each reason maximum 1,000 characters. If either cap is exceeded, include the first N reasons or characters and mark the entry `TRUNCATED`.
+  - Policy fired-rule details: maximum 100 rules. Each `detail` maximum 1,000 characters. If exceeded, include the first 1,000 characters plus an explicit truncation marker.
+  - Simulation and policy limitations: maximum 100 strings. Each limitation maximum 1,000 characters.
+  - Structured proposal operations: include only for the selected or latest revision. Maximum 100 operations in the packet. If exceeded, include the first 100 operations in canonical order and set `operationsTruncated = true`. This is packet display truncation only and must never be used to execute a partial simulation.
+  - Runtime counters: include only allowlisted counter families. The current allowlist contains six counters, and all allowlisted counters may be included.
+  - Dynamic text fields, including notes, advisory text, truncation reasons, limitation strings, and rule details: maximum 1,000 characters each. If a source provides a longer value, include the first 1,000 characters plus an explicit truncation marker and record the limitation.
+
+  Serialized size limit:
+  - Maximum serialized packet size: 256 KiB (262,144 bytes) of UTF-8 JSON.
+  - The assembler must calculate the serialized size before returning the packet.
+  - If nested caps alone would exceed 256 KiB, apply deterministic source caps and mark affected sources `TRUNCATED`.
+  - Never byte-truncate JSON. If the packet cannot be represented within 256 KiB after applying all caps, fail assembly with an explicit error rather than emitting invalid JSON.
+
+  Simulation operation limit:
+  - S1 defines a maximum of 100 simulation operations for `SimulationRequest`.
+  - Requests exceeding 100 operations must be rejected before invoking `SimulationService`.
+  - Never truncate an operation list and simulate only the first 100 operations.
+  - Never present a partial-operation simulation as representing the complete requested change.
+  - Do not invent a canonical operations hash for ordinary simulation requests.
+  - Include `operationsHash` only when it comes from an existing persisted proposal record.
+  - Proposal-operation display truncation, if any, is separate from simulation execution limits and must not affect simulation execution.
+
+  Truncation reporting:
+  - Every truncation must set the source status to `TRUNCATED` and include an explicit limitation.
+  - Preserve original server-reported counts wherever the source provides them.
+  - If a collection is capped, record both the included count and the omitted count.
+  - Missing or unavailable evidence must be recorded as `UNAVAILABLE` or `OMITTED`, never as an empty successful result.
+
+- **F. Transaction and snapshot behavior.** The assembler must be `@Transactional(readOnly = true)` and invoke existing services within that transaction. Nested read-only service methods may join the active transaction. The default isolation level is `READ_COMMITTED`. The packet must not claim a single global snapshot. Source timestamps remain independently generated and retain their original semantics. `REPEATABLE_READ` is not authorized for S1 unless a later decision explicitly changes this boundary.
+
+  Bounded complete graph snapshot:
+  - D39 authorizes an additive read-only graph-snapshot capability in the owning twin module. S1 must not call `TwinService.listEntities()` or `listRelationships()` as evidence sources, and must not expose repositories across module boundaries.
+  - Recommended implementation: add a read-only twin-module method, for example `TwinService.readGraphSnapshot()`, returning an immutable `TwinGraphSnapshot` containing `entities`, `relationships`, `entityCount`, `relationshipCount`, `entityCountAtLeast`, `relationshipCountAtLeast`, and `truncated`.
+  - The method must use deterministic ordering and fetch at most 501 entities and 2,001 relationships.
+  - If either source returns 501 entities or 2,001 relationships, set `truncated = true`. The graph snapshot status is `TRUNCATED`.
+  - On overflow, do not analyze any partial graph. Report the twin graph source as `UNAVAILABLE` with an explicit limitation stating that complete graph bounds were exceeded.
+  - When within limits, expose the complete accepted entity and relationship counts. When overflow is detected, report a lower-bound count such as `entityCountAtLeast=501` or `relationshipCountAtLeast=2001`. Do not run an exact full-table count merely to populate packet metadata unless its cost and contract are explicitly justified.
+  - Before analysis, validate that every relationship endpoint in `relationships` exists in `entities`. If the accepted snapshot is internally inconsistent under `READ_COMMITTED`, refuse graph analysis and report the source as `UNAVAILABLE` with an explicit limitation.
+  - If both sources are within limits, pass the complete accepted snapshot into `ImpactAnalysisService.analyzeResolved(...)`, `RiskService.assessResolved(...)`, and `SimulationService.simulateResolved(...)`.
+  - The packet must record snapshot counts and truncation state. It must not claim that the packet contains the full twin graph when truncation occurred.
+  - `READ_COMMITTED` remains in effect. The snapshot and analysis may occur in the same read-only assembler transaction, but the packet must not claim a globally synchronized snapshot.
+  - If this bounded snapshot cannot be implemented safely within S1, defer raw twin graph evidence and any derived impact, risk, simulation, or policy evidence that depends on loading the full twin graph. The packet must record the source as `OMITTED` or `UNAVAILABLE` with an explicit limitation.
+
+  Policy-mode bounded execution path:
+  - For `POLICY_EVALUATION` mode, D39 authorizes only this sequence:
+    1. Obtain the accepted complete bounded graph snapshot.
+    2. Validate and resolve roots and operations against that snapshot.
+    3. Call `SimulationService.simulateResolved(...)` using the accepted snapshot.
+    4. Call `PolicyService.evaluateResolved(...)` using that server-computed simulation.
+  - D39 explicitly prohibits calling `PolicyService.evaluate(SimulationRequest)` from the S1 assembler, because that path invokes `SimulationService.simulate(...)`, which performs the unbounded entity and relationship load.
+  - Simulation mode must also use the accepted snapshot and call `SimulationService.simulateResolved(...)`.
+  - Baseline mode must use snapshot-based root resolution and the existing resolved impact and risk service methods.
+  - No caller-supplied impact, risk, simulation, or policy result is trusted.
+
+- **G. Source availability and failure behavior.** The packet uses these proposed packet-level statuses; they are not existing API fields:
+  1. `AVAILABLE`: the source returned complete allowlisted evidence.
+  2. `UNAVAILABLE`: the source could not be read or required evidence was missing.
+  3. `OMITTED`: the source was not requested, is not applicable to the selected mode, or is deliberately excluded by policy.
+  4. `TRUNCATED`: the source returned more data than the configured cap, or the source itself reports truncation.
+  Required analysis source failure must abort packet assembly and propagate the original exception. Optional missing proposal or audit evidence must be recorded as `OMITTED` or `UNAVAILABLE` with a limitation, and assembly must continue. Partial or truncated source evidence must be included with status `TRUNCATED` and an explicit limitation. Missing evidence must never be converted into an empty successful result or an implicit safe conclusion.
+
+- **H. Security and trust requirements.** The assembler must:
+  1. Be read-only.
+  2. Have no credentials or token access.
+  3. Have no arbitrary network, filesystem, shell, or actuator access.
+  4. Never call target services.
+  5. Never mutate proposals or audit records.
+  6. Never create approval or execution authority.
+  7. Treat metadata and proposal text as untrusted data.
+  8. Use explicit allowlists for every serialized field.
+  No `TWIN_AGENT` role and no new role is authorized. No new endpoint or security matcher is authorized in S1. A future public endpoint requires a separate design and authorization decision. The assembler must not receive JWTs, authorization headers, credentials, secrets, or raw tokens. Caller identity is not required for S1. If a future HTTP boundary exposes evidence packets, authorization must occur at that boundary using trusted principal information.
+
+- **I. Audit evidence boundaries.** Per-proposal audit events must remain distinct from global chain verification. Global audit-chain verification remains deferred from S1 because the current `AuditService.verify()` implementation reads the entire audit chain. Per-proposal audit evidence may be included only behind a bounded read path with a maximum of 100 events and explicit truncation reporting. The repository method must use stable `seq` ordering with limit-plus-one. Partial event retrieval never establishes chain integrity. Only the separate audit verification result can establish chain status.
+
+- **J. Proposal and history boundaries.** Proposal history is excluded initially; only the explicitly selected or latest revision may be included. Full history retrieval must not be used for a latest-revision request. D39 authorizes an additive read-only repository method in the owning proposal module:
+  - `Optional<ProposalRevision> findFirstByProposalKeyOrderByRevisionNumberDesc(UUID proposalKey)`
+  `ProposalLookup.latestOrThrow(...)` must use this method instead of `findByProposalKeyOrderByRevisionNumberAsc(...)`. `ProposalService.latest(...)` must use the same bounded lookup. Free-form proposal `title`, `description`, `reason`, `proposerIssuer`, `proposerSubject`, `approverIssuer`, `approverSubject`, and `correlationId` are excluded. Structured operation types, approved identifiers, hashes, versions, fingerprints, statuses, and timestamps may be included where justified. Hashes retain their original scope and purpose and are not proof that the entire current system state is correct.
+
+- **K. Explicit non-goals.** D39 does not authorize:
+  1. LLM, Spring AI, Ollama, or cloud provider integration.
+  2. Agent orchestration or multi-agent architecture.
+  3. Prompts, embeddings, memory, vector databases, or MCP.
+  4. Evidence persistence, migrations, background jobs, or schedulers.
+  5. Target-service calls.
+  6. Proposal mutations, approvals, execution, or actuator integration.
+  7. Production identity or hosting changes.
+  8. Frontend changes.
+  9. New REST or SSE endpoints.
+  10. New roles or authorization changes.
+  11. Claims or natural-language narrative generation.
+
+- **L. Verification expectations.** Implementation is acceptable only if tests cover:
+  1. All five evidence categories.
+  2. Correct source and resource provenance.
+  3. Stable ordering and packet-local references.
+  4. Timestamp preservation.
+  5. Stale and uncertain runtime evidence.
+  6. Impact truncation and cycle limitations.
+  7. Hypothetical versus deterministic distinction.
+  8. Policy `ALLOW` non-authorization.
+  9. Audit list versus chain-verification distinction.
+  10. Proposal data minimization.
+  11. Arbitrary metadata and user-text exclusion.
+  12. Explicit omission of unavailable evidence.
+  13. Bounded output and truncation markers.
+  14. No database mutation or proposal lifecycle mutation.
+  15. No target-service calls.
+  16. No credentials, tokens, or sensitive identity leakage.
+
+- **M. Compatibility.** D39 is compatible with D28-D38 and preserves D29-D31 unchanged. It creates no execution, approval, proposal lifecycle, or authentication authority. D33-D37 remain unchanged. It does not modify D38.
+
+- **N. Implementation checkpoints.** Record this decision before implementation. Implementation is frontend-independent and backend-only. The slice is complete only after tests, build, security review, bounded-read review, and documentation review. No push, PR, or merge occurs without explicit instruction.
+
+- **O. Rejected alternatives.** A public endpoint in S1; direct repository access across module boundaries; self-referential HTTP calls; LLM-generated claims in S1; unbounded audit or proposal history; inclusion of free-form proposal text; inclusion of global audit verification without a bounded contract; a claimed global snapshot; `REPEATABLE_READ` isolation in S1; treating the frontend 10-operation limit as a backend contract; analyzing a partial graph; running an exact full-table count merely to populate packet metadata.
+
+## 4. Scope conflicts with the finalized S1 proposal
+
+No scope conflicts were identified.
+
+D39 formalizes the finalized proposal's recommended limits as authorized implementation boundaries: 10 roots, existing impact limits, 100 items per source family, 1,000 total items, 256 KiB serialized output, and 100 per-proposal audit events with explicit truncation. It also preserves the proposal's boundaries around `READ_COMMITTED`, no global snapshot, mutually exclusive simulation/policy modes, deferred global audit verification, selected/latest proposal revision only, exclusion of free-form proposal text, no caller credentials, no endpoint, no new role, and no frontend changes. The corrected graph snapshot and policy-mode wording resolves the remaining unbounded-read inconsistencies by requiring a bounded snapshot, refusing partial graph analysis, and mandating `simulateResolved()` followed by `evaluateResolved()`.
+
+## 5. Final Git status
+
+- Branch: `main`
+- HEAD: `562309195c6acac8156f48506513fd31ccac7947`
+- Local `main` matches `origin/main`.
+- Working tree: `?? PHASE14_S1_PROPOSAL.md`
+- `PHASE14_S1_PROPOSAL.md` is untracked and was not modified, staged, committed, pushed, or included in PR #22.
+- Root `application.properties` remains missing and was not reconstructed.
+- Backend `application.properties` hash remains unchanged.
+- No tracked files were modified by this step.
+- No D39 text was appended to `DECISIONS.md`.
+
+Stop for review and explicit approval before modifying `DECISIONS.md`.
 ## Supersession rule
 
 New decisions amend this file with date and rationale; they never silently edit
