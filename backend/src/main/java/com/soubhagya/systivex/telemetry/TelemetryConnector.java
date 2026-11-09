@@ -13,8 +13,8 @@ package com.soubhagya.systivex.telemetry;
  */
 public final class TelemetryConnector {
 
-    static final String CONNECTOR_ID = "telemetry-connector";
-    static final String CONNECTOR_VERSION = "phase6-v1";
+    public static final String CONNECTOR_ID = "telemetry-connector";
+    public static final String CONNECTOR_VERSION = "phase6-v1";
 
     /** Namespaced metadata key holding validated runtime evidence. */
     public static final String RUNTIME_KEY = "runtime";

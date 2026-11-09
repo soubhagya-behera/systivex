@@ -86,10 +86,11 @@ public class ImpactAnalysisService {
     /**
      * Runs the deterministic BFS core over caller-supplied entity and edge
      * collections (baseline snapshot or hypothetical simulation working
-     * sets). Package-private so simulation reuses the traversal without
-     * duplicating it; callers must have validated and resolved inputs first.
+     * sets). Public so simulation and the evidence assembler reuse the
+     * traversal without duplicating it; callers must have validated and
+     * resolved inputs first.
      */
-    ImpactResponse analyzeResolved(
+    public ImpactResponse analyzeResolved(
             List<SystemEntity> starts,
             int maxDepth,
             Set<SystemEntityType> includeTypes,

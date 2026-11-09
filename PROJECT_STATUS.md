@@ -304,6 +304,59 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   `4C14345C364C26DE2E8339FDE0AD6646BA5BEC9A32050411FE00C88AB6BFE810`.
   `DECISIONS.md` D1–D37 remain unchanged.
 
+## Phase 14 S1 — Deterministic Evidence Packet Assembler (implemented under D39)
+
+- [x] Slice 1 (bounded-read foundations): `TwinService.readGraphSnapshot()`
+  returns an immutable bounded snapshot (501/2001 limit-plus-one overflow
+  probes, at most 500 entities / 2,000 relationships accepted, deterministic
+  ordering, relationship-endpoint consistency, `availableForAnalysis` false
+  when truncated or inconsistent); `ProposalService` gained the bounded
+  latest-revision lookup and `boundedAuditTrail(...)` (maximum 100 events,
+  exact omitted count via `AuditEventRepository.countByProposalKey`);
+  supporting visibility widenings in owning modules only
+  (`RiskTaxonomy.STALE_AFTER`, telemetry connector ownership, and
+  `ImpactAnalysisService.analyzeResolved(...)` — the existing resolved
+  traversal D39 mandates, widened from package-private to public with no
+  behavior change).
+- [x] Slice 2 (structures and adapters): internal `evidence` package with
+  immutable packet/item/reference/omission/timestamp model, packet limits
+  (100 per source family, 1,000 total, 262,144 serialized bytes), and nine
+  `EvidenceSource` adapters (twin entity/relationship, runtime observation,
+  impact, risk, simulation, policy, proposal revision, audit events) using
+  strict allowlists — proposal free text/identity and audit actor/reason
+  fields excluded; proposal qualification derived from revision status
+  (`SUPERSEDED` → `HISTORICAL`, otherwise `CURRENT`); proposal `expiresAt`
+  preserved in the timestamp mapping.
+- [x] Slice 3 (assembler): `EvidencePacketAssembler` (internal,
+  `@Transactional(readOnly = true, isolation = READ_COMMITTED)`, no
+  endpoint) orchestrates the three mutually exclusive modes (`BASELINE`,
+  `SIMULATION`, `POLICY_EVALUATION`) over the bounded snapshot only —
+  resolved impact/risk, `simulateResolved`, then `evaluateResolved` for
+  policy (never the unbounded `evaluate(SimulationRequest)` path);
+  simulation operations over 100 rejected before `SimulationService`;
+  deterministic `P<n>`/`E<n>` references assigned after sorting/capping;
+  explicit `AVAILABLE`/`UNAVAILABLE`/`OMITTED`/`TRUNCATED` statuses and
+  omissions; truncated/inconsistent graphs refuse analysis; actual UTF-8
+  serialization measured with typed `PACKET_TOO_LARGE` failure (no byte
+  truncation, no silent removal); no global-snapshot claim. A post-audit
+  GAP-1 correction rejects null operation elements with
+  `IllegalArgumentException` (matching `SimulationProposalValidator`
+  semantics) instead of `NullPointerException`.
+- [x] Verification: clean compilation passed; focused evidence suite 95
+  tests passed; full backend suite **505/505 tests passed, 0 failures**
+  (Docker/Testcontainers verification completed). Independent audit found no
+  remaining blocking findings.
+- [x] No LLM, model provider, agent runtime, orchestration, prompts,
+  embeddings, vector database, MCP, claims, or narrative generation was
+  implemented; no endpoint, persistence, migration, role, frontend, or
+  execution authority was added; policy `ALLOW` remains advisory and
+  `APPROVED` remains terminal. D29–D31 unchanged.
+- [ ] Future work (not implemented, not claimed): agent-generated
+  explanations/claims over this evidence (separately gated), any public
+  evidence endpoint (separate design/authorization decision), bounded
+  global audit-chain verification (deferred — current verifier is
+  unbounded), and evidence persistence (separate decision).
+
 ## Gated, not scheduled — controlled execution
 
 **Execution implementation — gated by the D31 feasibility gate.** No

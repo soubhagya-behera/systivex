@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AuditEventRepository extends JpaRepository<AuditEvent, UUID> {
 
+    long countByProposalKey(UUID proposalKey);
+
     List<AuditEvent> findTop101ByProposalKeyOrderBySeqAsc(UUID proposalKey);
 
     List<AuditEvent> findAllByOrderBySeqAsc();

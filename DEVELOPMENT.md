@@ -1065,3 +1065,44 @@ local-development-only and is not production hosted or live-OIDC-integrated.
 Proposal/revision/audit-event browsing is implemented read-only in S4
 (PR #18), and the Simulation & Policy advisory UI is implemented, merged, and
 local live-verified in S5 (PR #20).
+
+## 19. Deterministic evidence packets (Phase 14 S1, D39)
+
+The internal `evidence` package (`backend/src/main/java/com/soubhagya/systivex/evidence/`)
+assembles transient, read-only evidence packets from existing domain services.
+It has no controller, endpoint, persistence, or caller-identity input.
+
+Organization:
+
+- `EvidencePacketAssembler` — the single orchestration service. It reads the
+  bounded graph snapshot (`TwinService.readGraphSnapshot()`), resolves roots
+  against that snapshot only, and dispatches by the single validated
+  `EvidenceMode` in `EvidencePacketRequest`: `BASELINE` (resolved impact +
+  risk), `SIMULATION` (`simulateResolved` only), or `POLICY_EVALUATION`
+  (`simulateResolved`, then `evaluateResolved` — never the unbounded
+  `evaluate(SimulationRequest)` path). It enforces packet-wide limits
+  (100 items per source family, 1,000 total, 262,144 serialized UTF-8 bytes)
+  and fails with typed `EvidenceAssemblyException` (`PACKET_TOO_LARGE`) rather
+  than truncating JSON.
+- Nine source adapters implement `EvidenceSource<T>` (one per family: twin
+  entity, twin relationship, runtime observation, impact, risk, simulation,
+  policy, proposal revision, audit events) and map already-loaded source
+  data into immutable `EvidenceItem` records using strict allowlists.
+- Model records: `EvidencePacket` (packet-local `P<n>` ref, mode, items,
+  limits, omissions), `EvidenceItem` (`E<n>` ref, category, source, scope,
+  version, timestamps, content, limitations, qualification, status, counts),
+  `EvidenceReference`, `EvidenceOmission`, `EvidenceTimestamp`,
+  `EvidenceLimits`, and the per-family payload records.
+
+Verification (from `backend/`, JDK 21):
+
+```powershell
+./mvnw clean compile -DskipTests
+./mvnw test "-Dtest=EvidenceModelTest,EvidencePacketAssemblerTest,EvidenceSourceContractTest,IntelligenceEvidenceAdapterTest,ProposalAuditEvidenceAdapterTest,RuntimeObservationEvidenceAdapterTest,SimulationPolicyEvidenceAdapterTest,TwinEvidenceAdapterTest"
+./mvnw test
+```
+
+Expected: focused evidence suite 95 tests and full suite 505 tests, 0
+failures (Docker required for Testcontainers tests). The assembler performs
+no writes and supplies evidence only — no claims, narratives, approvals, or
+execution.

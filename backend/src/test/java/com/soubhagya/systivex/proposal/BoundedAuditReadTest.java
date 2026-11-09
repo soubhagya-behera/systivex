@@ -35,12 +35,14 @@ class BoundedAuditReadTest {
         when(revisions.findFirstByProposalKeyOrderByRevisionNumberDesc(key))
                 .thenReturn(Optional.of(Mockito.mock(ProposalRevision.class)));
         when(events.findTop101ByProposalKeyOrderBySeqAsc(key)).thenReturn(List.of());
+        when(events.countByProposalKey(key)).thenReturn(0L);
 
         ProposalService.BoundedAuditTrail result = service.boundedAuditTrail(key);
 
         assertThat(result.events()).isEmpty();
         assertThat(result.truncated()).isFalse();
         assertThat(result.limit()).isEqualTo(100);
+        assertThat(result.omittedCount()).isZero();
     }
 
     @Test
@@ -69,11 +71,13 @@ class BoundedAuditReadTest {
             rows.add(event);
         }
         when(events.findTop101ByProposalKeyOrderBySeqAsc(key)).thenReturn(rows);
+        when(events.countByProposalKey(key)).thenReturn(100L);
 
         ProposalService.BoundedAuditTrail result = service.boundedAuditTrail(key);
 
         assertThat(result.events()).hasSize(100);
         assertThat(result.truncated()).isFalse();
+        assertThat(result.omittedCount()).isZero();
     }
 
     @Test
@@ -102,11 +106,13 @@ class BoundedAuditReadTest {
             rows.add(event);
         }
         when(events.findTop101ByProposalKeyOrderBySeqAsc(key)).thenReturn(rows);
+        when(events.countByProposalKey(key)).thenReturn(250L);
 
         ProposalService.BoundedAuditTrail result = service.boundedAuditTrail(key);
 
         assertThat(result.events()).hasSize(100);
         assertThat(result.truncated()).isTrue();
+        assertThat(result.omittedCount()).isEqualTo(150);
         assertThat(result.events().get(0).seq()).isEqualTo(1L);
         assertThat(result.events().get(99).seq()).isEqualTo(100L);
     }

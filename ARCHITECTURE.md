@@ -308,9 +308,9 @@ business counters pulled from the loopback Actuator surface into a
 namespaced `runtime` metadata key (`telemetry` package,
 `POST /api/v1/twin/observations`; trace/log presence deliberately absent).
 Current packages are `twin`, `observation`, `intelligence`, `telemetry`,
-`policy`, `security`, and `proposal`; governed proposals, approvals, and the
-tamper-evident audit exist since Phase 11, but no execution or verification
-module exists.
+`policy`, `security`, `proposal`, and `evidence`; governed proposals,
+approvals, and the tamper-evident audit exist since Phase 11, but no
+execution or verification module exists.
 
 ## 6. Trust boundaries
 
@@ -336,11 +336,13 @@ agent proposal → risk assessment → policy evaluation → (approval if high-r
 
 See `THREAT_MODEL.md` for the principles these boundaries enforce.
 
-### 6c. Evidence boundary for agent-assisted analysis (Phase 14 S0, design-only)
+### 6c. Evidence boundary for agent-assisted analysis (Phase 14 S0 design; Phase 14 S1 implemented under D39)
 
 Future agent-assisted analysis is a read-only explanation layer over existing
-deterministic System Twin evidence. It is not implemented; D38 authorizes
-design only. The future trust flow is:
+deterministic System Twin evidence. D38 authorized design only; D39
+authorized and Phase 14 S1 implemented the deterministic evidence packet
+assembler described below. No agent runtime, model provider, prompt, or
+narrative generation is implemented. The future trust flow is:
 
 System Twin and runtime observations
 → deterministic impact and risk
@@ -382,6 +384,48 @@ retain their original scope and purpose.
 
 Phase 14 S1 is not authorized by D38. Agent-generated narratives, model
 provider integration, and tool mediation remain separately gated.
+
+#### Phase 14 S1 implementation (D39)
+
+The internal `evidence` package implements the assembler boundary. There is
+no REST endpoint, no persistence, no caller-identity input, and no agent
+runtime: `EvidencePacketAssembler` is an internal, deterministic, read-only
+`@Service` that builds transient packets from the existing owning domain
+services only, through one `EvidenceSource` adapter per source family
+(twin entities/relationships, twin runtime observations, impact, risk,
+simulation, policy, proposal revision, per-proposal audit events). Adapters
+map already-loaded source data into immutable evidence items using strict
+allowlists; free-form proposal text, identity details, unallowlisted
+metadata, and credentials never enter a packet.
+
+Assembly is driven by one validated request carrying exactly one mode —
+`BASELINE` (resolved impact + risk), `SIMULATION` (resolved simulation
+only), or `POLICY_EVALUATION` (resolved simulation, then resolved policy
+evaluation; the unbounded `evaluate(SimulationRequest)` path is never used).
+Roots (1–10, `maxDepth` 1–10 default 6, `includeTypes` default
+SERVICE/API/DATABASE/TABLE) and operation lists (maximum 100, rejected
+before `SimulationService`, never truncated) are validated against the
+bounded graph snapshot from `TwinService.readGraphSnapshot()` — never the
+unbounded list methods. A truncated or inconsistent snapshot refuses all
+graph analysis and is recorded as `UNAVAILABLE` with explicit limitations;
+proposal evidence uses only the bounded latest/selected revision lookup and
+audit evidence the bounded 100-event read (exact omitted counts); global
+chain verification is never invoked and a partial audit list never implies
+chain integrity.
+
+Packets carry packet-local `P<n>`/`E<n>` references assigned only after
+deterministic ordering (category, then source), source statuses
+`AVAILABLE`/`UNAVAILABLE`/`OMITTED`/`TRUNCATED`, included/omitted counts,
+and source limitations. Limits are enforced at the boundary: 100 items per
+source family, 1,000 items total, and 256 KiB (262,144 bytes) of serialized
+UTF-8 JSON measured on the final packet — over-size fails with a typed
+`PACKET_TOO_LARGE` error, never with byte-truncated JSON or silently
+dropped evidence. Assembly runs in one read-only `READ_COMMITTED`
+transaction; `READ_COMMITTED` is not a globally consistent snapshot, and
+source timestamps keep their original per-source semantics. The assembler
+supplies evidence only: it generates no claims or narratives, authorizes
+nothing (policy `ALLOW` remains advisory), approves no proposal, and
+executes no change.
 
 ## 7. API shape (initial REST exists)
 
@@ -547,6 +591,15 @@ Implemented:
   executes nothing. Verified in tests (full `./mvnw clean test` suite: 398
   tests, 0 failures; see `PROJECT_STATUS.md` Phase 11 S1–S6). No new
   dependencies, no target-service change.
+- Deterministic evidence packets (Phase 14 S1, see §6c and `DECISIONS.md`
+  D39): an internal `evidence` package with `EvidencePacketAssembler`,
+  nine source adapters, and immutable transient packets across the five
+  evidence categories and three modes (`BASELINE`, `SIMULATION`,
+  `POLICY_EVALUATION`), built only from the bounded graph snapshot and
+  bounded proposal/audit reads. No endpoint, persistence, credentials,
+  claims, agent runtime, or execution; read-only `READ_COMMITTED` with no
+  global-snapshot claim. Verified: full `./mvnw test` suite 505 tests,
+  0 failures (see `PROJECT_STATUS.md` Phase 14 S1).
 - Read-only/advisory operator console (Phase 13 S1–S5 merged; S5 via PR #20,
   merge commit `10472f26a54fa488705fe5fbcdaf10bd18fed3cc`, with local live
   verification passed 2026-11-03; see §7 and

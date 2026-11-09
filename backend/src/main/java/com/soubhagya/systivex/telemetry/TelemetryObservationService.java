@@ -109,7 +109,7 @@ public class TelemetryObservationService {
                 .toList();
     }
 
-    private static boolean isConnectorOwned(SystemEntity entity) {
+    public static boolean isConnectorOwned(SystemEntity entity) {
         return "repository-connector".equals(
                 entity.getMetadata() == null ? null : entity.getMetadata().get("managedBy"));
     }
