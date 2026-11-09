@@ -427,6 +427,23 @@ supplies evidence only: it generates no claims or narratives, authorizes
 nothing (policy `ALLOW` remains advisory), approves no proposal, and
 executes no change.
 
+#### Phase 14 S2 Slice 1 (authorized under D40, not yet implemented)
+
+D40 authorizes S2 Slice 1 only: a provider-independent claim contract and
+deterministic validator over S1 packets. Claims (statement, category,
+`E<n>` references, qualification, limitations, packet reference, mode) are
+accepted only after deterministic validation — schema, packet identity,
+reference existence, category consistency, qualification/status propagation
+(32-pair table, `UNCERTAIN` floor for `UNAVAILABLE`), limitation
+inheritance, mode-aware insufficiency (9-family × 3-mode applicability
+matrix), and wording screen. Provenance validation proves which packet
+items a claim cites; it does **not** prove the cited items support the
+statement — semantic entailment remains for human review, the authority of
+record. Slice 1 adds no provider, model, prompt, endpoint, persistence, or
+generation capability. Slice 2 (Spring AI + local Ollama per D8) and
+Slice 3 (generation + evaluation) remain separately gated; D8's deferred
+status is unchanged. No agent runtime exists.
+
 ## 7. API shape (initial REST exists)
 
 - **REST** for twin queries, change proposals, approvals, execution records.
