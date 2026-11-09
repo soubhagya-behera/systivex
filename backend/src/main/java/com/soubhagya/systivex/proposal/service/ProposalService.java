@@ -199,25 +199,17 @@ public class ProposalService {
 
     /** Bounded read model for per-proposal audit evidence. */
     public record BoundedAuditTrail(
-            List<AuditEventResponse> events, boolean truncated, int limit) {}
+            List<AuditEventResponse> events, boolean truncated, int limit, int omittedCount) {
+        public BoundedAuditTrail {
+            events = List.copyOf(events == null ? List.of() : events);
+            if (limit < 0 || omittedCount < 0) {
+                throw new IllegalArgumentException("Audit counts must not be negative");
+            }
+        }
+    }
 
     @Transactional(readOnly = true)
     public BoundedAuditTrail boundedAuditTrail(UUID proposalKey) {
-        return readBoundedAuditTrail(proposalKey);
-    }
-
-    @Transactional(readOnly = true)
-    public BoundedAuditTrail auditTrailBounded(UUID proposalKey) {
-        return readBoundedAuditTrail(proposalKey);
-    }
-
-    @Transactional(readOnly = true)
-    public BoundedAuditTrail readBoundedAuditTrail(UUID proposalKey) {
-        return readAuditTrailBounded(proposalKey);
-    }
-
-    @Transactional(readOnly = true)
-    public BoundedAuditTrail readAuditTrailBounded(UUID proposalKey) {
         if (revisions.findFirstByProposalKeyOrderByRevisionNumberDesc(proposalKey).isEmpty()) {
             throw new EntityNotFoundException("Proposal not found: " + proposalKey);
         }
@@ -226,10 +218,16 @@ public class ProposalService {
         boolean truncated = rows.size() > 100;
         List<com.soubhagya.systivex.proposal.model.AuditEvent> accepted =
                 truncated ? rows.subList(0, 100) : rows;
+        long total = events.countByProposalKey(proposalKey);
+        int omitted = (int) Math.max(0, total - accepted.size());
+        if (truncated && omitted == 0) {
+            omitted = 1;
+        }
         return new BoundedAuditTrail(
                 accepted.stream().map(AuditEventResponse::from).toList(),
                 truncated,
-                100);
+                100,
+                omitted);
     }
 
     @Transactional(readOnly = true)

@@ -57,7 +57,7 @@ public final class RiskTaxonomy {
      * time is stale. Boundary-tested: exactly this age is still fresh;
      * anything older is stale.
      */
-    static final Duration STALE_AFTER = Duration.ofMinutes(30);
+    public static final Duration STALE_AFTER = Duration.ofMinutes(30);
 
     /** Counter-family suffixes treated as cumulative failure evidence. */
     static final Set<String> FAILURE_FAMILY_SUFFIXES =

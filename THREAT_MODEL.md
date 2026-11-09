@@ -379,20 +379,27 @@ itself a place data can leak. The following holds for the current pipeline
 Each must reference the principle(s) above when introduced; any exception
 requires a dated entry in `DECISIONS.md`.
 
-## 3b. Agent and evidence boundaries (Phase 14 S0, design-only)
+## 3b. Agent and evidence boundaries (Phase 14 S0 design; Phase 14 S1 implemented under D39)
 
-Phase 14 S0 (D38) is design-only: no agent runtime, model provider, prompt,
-orchestration, memory, embeddings, vector database, MCP, or multi-agent
-architecture is implemented. The future agent is treated as untrusted and may
+Phase 14 S0 (D38) was design-only. Phase 14 S1 (D39) implemented only the
+deterministic, read-only evidence packet assembler: no agent runtime, model
+provider, prompt, orchestration, memory, embeddings, vector database, MCP,
+or multi-agent architecture is implemented, and the assembler itself holds
+no credentials, caller identity, network, filesystem, shell, actuator, or
+target-service access. The future agent is treated as untrusted and may
 only explain or synthesize evidence; it cannot establish ground truth,
-authorize changes, approve proposals, or execute operations.
+authorize changes, approve proposals, or execute operations. The assembler
+generates no claims or narratives and creates no approval or execution
+authority; any future consumer remains separately gated.
 
-Evidence must be assembled from explicit, allowlisted server-side sources
+Evidence is assembled from explicit, allowlisted server-side sources
 existing in the control plane (twin records, allowlisted runtime observations,
-impact/risk/simulation/policy results, proposal revisions/assessments, and audit
-events/verification). The conceptual evidence envelope is transient and
-packet-scoped; it is not a Java record, DTO, database entity, or API contract.
-Evidence categories remain distinct: `OBSERVED_FACT`,
+impact/risk/simulation/policy results, proposal revisions/assessments, and
+bounded per-proposal audit events) through the internal `evidence` package
+only — never via unbounded twin list methods, full proposal history, or
+global audit-chain verification. The evidence envelope is transient and
+packet-scoped, with no persistence and no public endpoint. Evidence
+categories remain distinct: `OBSERVED_FACT`,
 `DETERMINISTIC_FINDING`, `HYPOTHETICAL_RESULT`, `GOVERNANCE_RECORD`, and
 `AUDIT_EVIDENCE`. They must never be collapsed into one confidence score.
 
@@ -426,9 +433,9 @@ ordered audit-event list is not proof of chain integrity; hashes retain their
 original scope and purpose. Timestamps retain their distinct semantics and are
 never merged into one generic `lastUpdated`.
 
-Phase 14 S1 is not authorized by D38. A future S1 proposal may evaluate a
-deterministic read-only evidence packet assembler over existing APIs and must
-obtain its own scope and decision first.
+Phase 14 S1 was authorized separately by D39 and preserves every boundary in
+this section: internal read-only assembler, allowlisted assembly, no
+credentials, no direct target access, no execution, and no agent authority.
 
 ## 4. What must NOT happen next (anti-goals)
 
