@@ -357,6 +357,30 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   global audit-chain verification (deferred — current verifier is
   unbounded), and evidence persistence (separate decision).
 
+## Phase 14 S2 — Agent-Assisted Evidence Analysis (D40 adopted 2026-11-09)
+
+- [x] **D40 adopted** (`DECISIONS.md`, 2026-11-09): authorizes S2 Slice 1
+  only — provider-independent claim contract + deterministic validator
+  over S1 packets + tests. Full text adopted from the reviewed S2
+  proposal §16; D8, D38, and D39 unchanged.
+- [x] **S2 Slice 1: COMPLETE.** Provider-independent claim contract +
+  deterministic validator implemented in the `evidence` package
+  (claim records, 32-pair qualification/status table, mode-aware
+  insufficiency, wording screen) with 54 focused tests; full backend
+  suite **559/559 tests passed** (505 S1 baseline + 54 new). No provider,
+  model, prompt, or generation exists.
+- [ ] **S2 Slice 2: GATED.** Spring AI + local Ollama adapter (D8
+  direction, still deferred) requires separate provider/dependency/
+  configuration authorization, including loopback-only endpoint
+  validation and independently verified server bind.
+- [ ] **S2 Slice 3: GATED.** Evidence-grounded generation + evaluation
+  harness requires Slice 2 authorization and review.
+- [x] Phase 14 S1: **COMPLETE** (PR #25; 505/505 tests).
+- [x] No LLM, agent runtime, generated claims, narratives, endpoints,
+  persistence, or execution capability exists; the claim contract and
+  validator produce no claims by themselves. Provenance validation does
+  not prove semantic entailment; human review remains authoritative.
+
 ## Gated, not scheduled — controlled execution
 
 **Execution implementation — gated by the D31 feasibility gate.** No

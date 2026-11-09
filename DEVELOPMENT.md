@@ -1106,3 +1106,37 @@ Expected: focused evidence suite 95 tests and full suite 505 tests, 0
 failures (Docker required for Testcontainers tests). The assembler performs
 no writes and supplies evidence only — no claims, narratives, approvals, or
 execution.
+
+## 20. Claim contract and deterministic validator (Phase 14 S2 Slice 1, D40)
+
+D40 authorizes Slice 1 implementation only: provider-independent immutable
+claim records plus a deterministic validator over in-process S1 packets.
+
+Authorized scope:
+
+- Claim structures: statement, D38 category, packet-local `E<n>` references,
+  qualification, limitations, packet reference, and mode. No confidence
+  scores, recommendations, authorizations, or execution semantics.
+- Validator responsibilities: schema/bounds checks; packet identity;
+  reference existence (unknown/foreign references rejected); category
+  consistency; qualification/status propagation (exhaustive 32-pair table,
+  `UNCERTAIN` floor for `UNAVAILABLE`, explicit precedence — never enum
+  order); limitation inheritance; mode-aware insufficiency (9-family ×
+  3-mode matrix — only applicable-family omissions block a category);
+  deterministic wording screen (causality, breakage, safety, completeness,
+  authorization, execution assertions rejected).
+- Packet provenance: only the in-process `EvidencePacket` produced by
+  `EvidencePacketAssembler` in the same JVM; never caller-deserialized
+  JSON or externally supplied packets.
+- Required tests: full 32-pair propagation table including invalid-pair
+  rejection; mode matrix (27 cells); insufficiency; limitation
+  inheritance; wording screen; adversarial fixtures (fabricated/foreign
+  references, category laundering, policy `ALLOW` misuse, audit→chain
+  verification, hypothetical-as-executed).
+
+Explicit prohibitions: no Spring AI or provider dependency, no Ollama
+integration, no model invocation, no prompt construction, no generated
+claims or narratives, no public endpoints, no persistence, no new roles.
+Slice 2 (Spring AI + local Ollama per D8) and Slice 3 (generation +
+evaluation) require separate authorization. Provenance validation never
+proves semantic entailment; human review remains authoritative.

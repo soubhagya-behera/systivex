@@ -437,6 +437,17 @@ Phase 14 S1 was authorized separately by D39 and preserves every boundary in
 this section: internal read-only assembler, allowlisted assembly, no
 credentials, no direct target access, no execution, and no agent authority.
 
+Phase 14 S2 Slice 1 was authorized by D40 (adopted 2026-11-09) as a
+provider-independent claim contract and deterministic validator only.
+Claim content derived from evidence remains untrusted data: deterministic
+validation proves provenance (which packet items a claim cites), category,
+qualification, and limitation inheritance — never semantic entailment.
+Human review remains the authority for semantic support. No agent
+authority, execution path, provider integration, or model invocation is
+authorized; any future provider integration remains loopback-only and
+separately gated (D8 direction, implementation deferred). All boundaries
+above are unchanged and unweakened.
+
 ## 4. What must NOT happen next (anti-goals)
 
 - Direct agent-to-target execution paths bypassing the control plane.
