@@ -1932,6 +1932,39 @@ Stop for review and explicit approval before modifying `DECISIONS.md`.
 
 - **K. Explicit non-goals.** D40 does not authorize: Spring AI or any provider dependency/configuration; Ollama integration or model invocation; prompts or generated claims; agent orchestration, tools, memory, embeddings, vector databases, or MCP; public endpoints, frontend, persistence, or migrations; new roles; claims or natural-language narrative generation; confidence scoring.
 
+## D41 — Phase 14 S2 Slice 2: Local Model Provider Integration (Spring AI + Local Ollama) (decided and adopted 2026-11-09)
+
+- **Status:** APPROVED / ADOPTED 2026-11-09. Authorizes the Phase 14 S2 Slice 2 **design and boundaries** (local model provider integration with Spring AI 2.0.2 and a loopback-local Ollama instance, bounded synchronous inference, plus unit/adapter/integration tests) as specified in `docs/planning/phase-14/PHASE14_S2_SLICE2_PROPOSAL.md` (859 lines, verified at adoption). Like D38, this adoption alone authorizes **no implementation code, dependency, configuration, endpoint, persistence, or execution capability**; Slice 2 implementation requires a separate explicit authorization, at which point the acceptance criteria in section D become implementation-gating. S2 Slice 1 (D40) remains COMPLETE; Slice 3 remains separately gated.
+- **Date:** 2026-11-09.
+- **Depends on:** D8 (Spring AI + local Ollama direction, deferred until now adopted for Slice 2 design), D38 (S0 design), D39 (S1 assembler), D40 (S2 Slice 1 contract and validator; its section G provider requirements). D41 amends no prior decision.
+- **Purpose:** Adopt the reviewed Slice 2 design, with independently verified evidence (proposal, scratch implementation, resolved 2.0.2 JARs, Maven tree/effective POM, runtime probes), so that a future implementation has a precise, evidence-backed contract and test obligations.
+
+- **A. Authorization scope (Slice 2 only).** This decision adopts the Slice 2 design only:
+  1. Provider-neutral internal inference boundary; Spring AI integration with local Ollama via the direct `org.springframework.ai:spring-ai-ollama:2.0.2` artifact (never the broad starter).
+  2. Minimal Ollama-specific adapter; strict local endpoint configuration and validation (loopback-only, server-bind and cloud-disabled deployment).
+  3. Bounded synchronous inference request/response contract (65,536-byte cap, §D G-1).
+  4. Connection/read/overall timeout enforcement (5s/30s/35s, JDK `HttpClient` semantics).
+  5. No-retry inference (one attempt, §D G-2); direct-only proxy and redirects disabled (§D G-3).
+  6. Model/version verification and local model availability (§D G-4).
+  7. Unit/adapter/integration tests and operational configuration documentation.
+  No prompt templates or EvidencePacket-to-prompt assembly, no generated EvidenceClaim creation, no semantic evaluation, no public endpoint, frontend, persistence, chat memory, RAG, tools/MCP, cloud fallback, streaming inference, agent authority, mutation, approval, authorization, or execution capability is authorized.
+
+- **B. Slice gating.** Slice 2 implementation and Slice 3 (evidence-grounded generation and evaluation harness) each require a separate explicit authorization; Slice 3 additionally requires Slice 2 authorization and review. This decision does not authorize either implementation or Slice 3.
+
+- **C. D8/D40 relationship.** D8's Spring AI + local Ollama direction is adopted for Slice 2 design, remaining a deferred implementation direction until separately authorized; D8 is preserved unchanged in direction. D40 remains unchanged: endpoint and loopback rules are not weakened; the hand-rolled Ollama client prohibition is preserved — Spring AI remains the provider framework and a direct hand-rolled adapter is not authorized.
+
+- **D. Mandatory implementation acceptance criteria.** These are gating for any future Slice 2 implementation:
+  - **G-1 (bounded response):** maximum 65,536 response-body bytes; no byte 65,537 may reach the caller or parser; tests executed for chunked unknown-length responses, missing Content-Length, misleading Content-Length, oversized declared Content-Length, and `transferTo()`, retaining exact-boundary, overflow, single/bulk read, `skip`, `readAllBytes`, close, and I/O failure tests.
+  - **G-2 (no-retry inference):** the Spring AI `retryTemplate` is explicitly wired (`new RetryTemplate(RetryPolicy.builder().maxRetries(0).build())`, i.e. one total attempt — proven at runtime: `maxRetries(0)` → 1 attempt, `maxRetries(1)` → 2 attempts); zero retries, no backoff, no retry queue; the inference `RetryPolicy` is kept distinct from `ModelManagementOptions` pull behavior; the separate Spring Retry dependency (`org.springframework.retry:spring-retry`, `RetryTemplate.builder().maxAttempts(int)`) must not be introduced.
+  - **G-3 (network isolation):** the exact configured direct-only `ProxySelector` instance is supplied through the complete chain (JDK `HttpClient` → `JdkClientHttpRequestFactory` → bounded wrapper → `RestClient.Builder.requestFactory(...)` → `OllamaApi.Builder.restClientBuilder(...)`); `Proxy.NO_PROXY`; `ProxySelector.getDefault()` must never appear; `followRedirects(HttpClient.Redirect.NEVER)` (the JDK method name is `followRedirects(...)`); transport identity verified; proxy-bypass, 302/307 redirect-rejection, and outbound-path tests executed; the shared-loopback/network-namespace deployment requirement (no Docker bridge / `host.docker.internal` as a substitute) is retained.
+  - **G-4 (model identity):** installed/running model verification (`/api/tags`, `/api/show` — Spring AI 2.0.2's `OllamaApi` has no `/api/ps` method) does not establish per-request cryptographic identity; no stronger guarantee may be claimed, and this limitation is preserved as an accepted residual.
+  - **G-5 (dependency scope):** the verified direct `spring-ai-ollama:2.0.2` approach and the verified minimal dependency boundary are preserved (no ChatClient, chat-memory, tool, embedding, RAG, vector, or MCP artifacts; framework resolved at 7.0.9 under the Boot 4.1.1 BOM); no broad starter dependencies without separate justification and approval.
+  - The corrected API details are mandatory: `followRedirects(...)`; the Spring 7 `ClientHttpResponse.getStatusCode(): HttpStatusCode` and `getStatusText()` signatures; `JdkClientHttpRequestFactory.setReadTimeout(...)` for the exchange timeout and `HttpClient.Builder.connectTimeout(...)` for the connect timeout.
+
+- **E. Compatibility.** D41 is compatible with D8 and D28–D40 and preserves them unchanged. It creates no execution, approval, proposal-lifecycle, authentication, or provider authority. It does not modify D8, D38, D39, or D40.
+
+- **F. Explicit non-goals.** D41 does not authorize: Slice 2 implementation code, dependencies, or configuration; Slice 3 forms of generation/evaluation; endpoints, persistence, frontend, or new roles; agent orchestration, tools, memory, embeddings, vector stores, or MCP; cloud fallback; mutation, approval, authorization, or execution capability.
+
 ## Supersession rule
 
 New decisions amend this file with date and rationale; they never silently edit

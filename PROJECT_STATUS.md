@@ -369,10 +369,27 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   insufficiency, wording screen) with 54 focused tests; full backend
   suite **559/559 tests passed** (505 S1 baseline + 54 new). No provider,
   model, prompt, or generation exists.
-- [ ] **S2 Slice 2: GATED.** Spring AI + local Ollama adapter (D8
-  direction, still deferred) requires separate provider/dependency/
-  configuration authorization, including loopback-only endpoint
-  validation and independently verified server bind.
+- [x] **D41 adopted** (`DECISIONS.md`, 2026-11-09): approves the S2 Slice 2
+  design only (bounded synchronous inference, 65,536-byte cap, no-retry,
+  direct-only transport) per `docs/planning/phase-14/PHASE14_S2_SLICE2_PROPOSAL.md`.
+  Independent review: PASS WITH CONDITIONS — ADOPT D41. Design adoption
+  authorizes **no implementation**; implementation requires separate
+  explicit authorization and the D41 mandatory acceptance criteria
+  (G-1…G-5) as gating tests.
+- [x] **S2 Slice 2: COMPLETE.** Bounded synchronous local-model inference
+  implemented under D41 in the `localmodel` package: Spring AI +
+  spring-ai-ollama 2.0.2 (direct dependency), OllamaChatModel with
+  PullModelStrategy.NEVER and maxRetries(0), 5s connect / 30s read /
+  35s absolute monotonic deadline, direct-only ProxySelector, Redirect.NEVER,
+  65,536-byte response cap, mandatory H-1 digest verification before the
+  inference semaphore, no retry/queue/fallback. Independent review:
+  APPROVE WITH CONDITIONS; all conditions satisfied (H-1, M-1, G-1..G-5).
+  Verification: 63/63 focused tests pass; full backend suite 622/622 passed
+  (0 failures, 0 errors, 0 skipped) including Docker/Testcontainers
+  PostgreSQL integration tests. `mvn -o dependency:tree` and
+  `mvn -o help:effective-pom` BUILD SUCCESS; `git diff --check` clean.
+  D41 remains the governing adopted decision; G-4 model-identity
+  limitation preserved.
 - [ ] **S2 Slice 3: GATED.** Evidence-grounded generation + evaluation
   harness requires Slice 2 authorization and review.
 - [x] Phase 14 S1: **COMPLETE** (PR #25; 505/505 tests).

@@ -1140,3 +1140,51 @@ claims or narratives, no public endpoints, no persistence, no new roles.
 Slice 2 (Spring AI + local Ollama per D8) and Slice 3 (generation +
 evaluation) require separate authorization. Provenance validation never
 proves semantic entailment; human review remains authoritative.
+
+## 21. Local model provider integration design (Phase 14 S2 Slice 2, D41)
+
+D41 (adopted 2026-11-09) adopts the Slice 2 **design only** — no
+implementation code, dependency, or configuration is authorized by the
+adoption. Implementation requires a separate explicit authorization, at
+which point these criteria become implementation-gating:
+
+- Provider-neutral internal inference boundary on direct
+  `spring-ai-ollama:2.0.2` (no starter); manual `OllamaApi`/`OllamaChatModel`
+  construction; `@ConditionalOnProperty(name = "ai.local.enabled", ...,
+  matchIfMissing = false)`. Verified minimal boundary: framework 7.0.9
+  (Boot 4.1.1 BOM), jackson 3.1.5; no ChatClient/memory/tool/embedding/
+  RAG/vector/MCP artifacts.
+- Bounded synchronous inference only: 65,536-byte cap enforced during
+  streaming read, no byte 65,537 to caller/parser; single counter share
+  across single-byte/bulk reads; override `skip` (no `FilterInputStream`
+  bypass); `Content-Length` checked pre-stream but never relied on alone;
+  bounded 1-byte lookahead distinguishes exact-limit EOF from oversized
+  chunked bodies. Mandatory tests additionally include chunked-unknown-length,
+  missing/misleading Content-Length, declared-over-limit, `transferTo()`,
+  plus exact/overflow read, `readAllBytes`, close, and I/O failure cases.
+- No-retry inference: wire `OllamaChatModel.Builder.retryTemplate(
+  RetryTemplate)` with `new RetryTemplate(RetryPolicy.builder().
+  maxRetries(0).build())` (runtime-proven: 1 total attempt); keep inference
+  `RetryPolicy` distinct from `ModelManagementOptions` pull behavior; never
+  introduce `org.springframework.retry:spring-retry`
+  (`RetryTemplate.builder().maxAttempts(int)`).
+- Network isolation: exact direct-only `ProxySelector` instance
+  (`Proxy.NO_PROXY`, never `ProxySelector.getDefault()`) through
+  `HttpClient` → `JdkClientHttpRequestFactory` → bounded wrapper →
+  `RestClient.Builder.requestFactory(...)` →
+  `OllamaApi.Builder.restClientBuilder(...)`; `followRedirects(
+  HttpClient.Redirect.NEVER)` (the JDK method name); no fallback HTTP
+  client; `webClientBuilder` explicitly set though never used; connect
+  timeout via `HttpClient.Builder.connectTimeout(...)`, read via
+  `JdkClientHttpRequestFactory.setReadTimeout(...)`. Tests: proxy-bypass,
+  302/307 redirect rejection, transport identity, outbound-path proof.
+  Deployment: Ollama shares the application's loopback/network namespace
+  (no Docker bridge / `host.docker.internal` substitute).
+- Model identity: installed-model digest via `/api/tags` + `/api/show`
+  (2.0.2 `OllamaApi` has no `/api/ps` method); no per-request
+  cryptographic identity proof is claimed. Corrected Spring 7 APIs
+  (`getStatusCode(): HttpStatusCode`, `getStatusText()`) are mandatory.
+- Slice 2 excludes prompts, generated claims, endpoints, persistence,
+  tools/RAG/memory, and cloud fallback. Agent remains untrusted and
+  authority-less; no execution/mutation/authorization capability is
+  introduced by D41.
