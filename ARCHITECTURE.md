@@ -444,6 +444,22 @@ generation capability. Slice 2 (Spring AI + local Ollama per D8) and
 Slice 3 (generation + evaluation) remain separately gated; D8's deferred
 status is unchanged. No agent runtime exists.
 
+#### Phase 14 S2 Slice 2 (design adopted under D41, not yet implemented)
+
+D41 (adopted 2026-11-09) adopts the Slice 2 design only: a local model
+provider integration on Spring AI 2.0.2 with a loopback-local Ollama
+instance — provider-neutral internal inference boundary, bounded
+synchronous inference (65,536-byte response cap, no byte 65,537 to the
+caller), exactly one inference attempt (no retry/backoff/queue), 5s/30s/35s
+timeouts, direct-only proxy with redirects disabled, `/api/tags` +
+`/api/show` installed-model digest checks with no per-request
+cryptographic identity guarantee. Implementation is NOT authorized by D41
+and requires separate explicit authorization; Slice 3 remains separately
+gated. No prompt construction, generated claims, endpoints, persistence,
+tools, RAG, memory, cloud fallback, mutation, approval, or execution
+capability is introduced. D8 adopted for design, unchanged in direction;
+D40 unweakened.
+
 ## 7. API shape (initial REST exists)
 
 - **REST** for twin queries, change proposals, approvals, execution records.
