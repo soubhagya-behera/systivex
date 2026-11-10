@@ -1,4 +1,4 @@
-﻿package com.soubhagya.systivex.localmodel;
+package com.soubhagya.systivex.localmodel;
 
 import java.time.Duration;
 import java.util.Objects;
