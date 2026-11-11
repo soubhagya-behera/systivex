@@ -1965,6 +1965,192 @@ Stop for review and explicit approval before modifying `DECISIONS.md`.
 
 - **F. Explicit non-goals.** D41 does not authorize: Slice 2 implementation code, dependencies, or configuration; Slice 3 forms of generation/evaluation; endpoints, persistence, frontend, or new roles; agent orchestration, tools, memory, embeddings, vector stores, or MCP; cloud fallback; mutation, approval, authorization, or execution capability.
 
+
+## D42 — Phase 14 S2 Slice 3: Evidence-Grounded Generation and Evaluation Harness (design adoption only)
+
+- **Status:** DECIDED AND ADOPTED 2026-11-11. Design adoption only. No implementation authorization.
+- **Date:** 2026-11-11.
+- **Depends on:** D38 (Phase 14 S0 evidence foundation), D39 (Phase 14 S1 deterministic evidence packet assembler), D40 (Phase 14 S2 Slice 1 claim contract and deterministic validator), D41 (Phase 14 S2 Slice 2 local model provider). D42 amends no prior decision.
+- **Purpose:** Adopt the reviewed Phase 14 S2 Slice 3 design as the binding design for a future, separately authorized implementation. Design adoption, implementation authorization, and implementation completion are distinct states. D42 adopts the design only.
+
+- **A. Adopted design.** D42 adopts the reviewed Phase 14 S2 Slice 3 design from `docs/planning/phase-14/PHASE14_S2_SLICE3_PROPOSAL.md` (SHA-256 `DE5189CF7E15D23921B590759B9F26E9E5204BD0197B00CF225A8CBF1A0A6BB3`, 813 lines, verified at adoption). The adopted pipeline is:
+
+  EvidencePacket
+  -> deterministic prompt construction
+  -> existing `LocalModelAdapter`
+  -> strict bounded parsing
+  -> candidate `EvidenceClaim` objects
+  -> existing deterministic `ClaimValidator`
+  -> transient generation result
+
+  The model and generator remain untrusted, authority-less explanation components. Evidence remains untrusted input. Prompt delimiters are not a security boundary. No tools, function calling, RAG, vector database, agent runtime, external provider, cloud fallback, or second-LLM authority is introduced. No semantic-entailment guarantee is claimed. Generated claims are candidates only; no automatic acceptance is permitted; human review remains mandatory.
+
+- **B. Claim limits.** D42 adopts these distinct constraints:
+  1. D40's existing structural parser limit: maximum 100 claim records.
+  2. D42's Slice 3 generation limit: maximum 25 generated candidate claims per response.
+
+  The limits apply at different enforcement boundaries. A response exceeding 25 generated claims must be rejected in full. Silent truncation is prohibited. `ClaimValidator` does not enforce either count limit. Malformed structure, parser-limit violations, and generation-cap violations must remain distinguishable in failure reporting, but all result in no accepted candidate claims. Changing either limit requires a separate explicit decision.
+
+- **C. Prompt limit.** D42 adopts a maximum of 32,768 UTF-8 bytes for the complete deterministic prompt. Measurement is the completed prompt string encoded as UTF-8 immediately before inference. All prompt content is included: fixed instructions, claim schema, evidence references, evidence content, and delimiters. HTTP request serialization overhead is excluded. If the completed prompt exceeds the limit, fail closed with `PROMPT_TOO_LARGE`; do not invoke the model; do not truncate, omit, subset-select, or summarize evidence. This is separate from D39's 262,144-byte Evidence Packet serialization limit and D41's 65,536-byte model response-body cap. Changing the prompt limit requires a separate explicit decision.
+
+- **D. Orchestration deadline.** D42 adopts a maximum 45-second end-to-end orchestration budget:
+  1. 5 seconds for deterministic prompt construction.
+  2. 35 seconds for the existing D41 inference deadline, unchanged.
+  3. 5 seconds for parsing and candidate validation.
+
+  Preserve monotonic deadline measurement; cooperative deadline checks through orchestration entry, prompt construction, inference boundaries, parsing, validation, and result construction; fail-closed deadline handling; and discard of all partial candidate claims and results on deadline expiry. Do not claim arbitrary preemptive cancellation of synchronous parsing. Do not imply that D41's `LocalModelAdapter` deadline remains active after `infer()` returns. This D42 budget does not amend or weaken D41's transport guarantees. Changing the budget requires a separate explicit decision.
+
+- **E. Parser.** D42 adopts the reviewed Jackson 3.1.5 design, including `tools.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION`, `tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES`, bounded structural parsing, and explicit safe failure categories. D40's deferred token-limit policy remains deferred. UTF-8 byte caps are not token limits. No tokenizer, token-count guarantee, or context-window guarantee is invented.
+
+- **F. Evaluation.** D42 adopts the offline evaluation harness design. Preserve human-labelled benchmark fixtures; evidence-category and generation-mode coverage; diagnostic evaluation metrics; offline evaluation separate from the production generation path; and optional model-assisted diagnostics only as a non-authoritative evaluation technique. The offline evaluator may inspect raw model output transiently in memory. It must not persist or log raw prompts or outputs, expose them in ordinary responses, or grant model or evaluator authority. Evaluation cannot accept or approve generated claims.
+
+- **G. Configuration.** D42 records the reviewed recommendation for the initial design: fixed internal constants; no caller-controlled `GenerationOptions` that can weaken adopted ceilings; no runtime configuration that can raise or bypass adopted safety or resource limits. Any future configurability or change to adopted numeric limits requires a separate explicit decision.
+
+- **H. Security and trust boundaries.** D42 preserves D38–D41 unchanged and explicitly retains:
+  1. evidence provenance and packet-local references;
+  2. untrusted evidence and prompt-injection residual risks;
+  3. deterministic `ClaimValidator`;
+  4. no semantic-entailment guarantee;
+  5. no generator or model authority;
+  6. no automatic claim acceptance;
+  7. mandatory human review;
+  8. no tools or function calling;
+  9. no RAG, vector database, MCP, or agent runtime;
+  10. no external provider or cloud fallback;
+  11. no second-LLM authority;
+  12. no endpoint, persistence, frontend, new roles, or execution capability.
+
+  Future endpoint exposure requires a separate future decision.
+
+- **I. Deferred decisions.** D42 explicitly preserves these as deferred:
+  1. package name;
+  2. evaluation sample sizes and strata;
+  3. whether model-assisted diagnostic evaluation will be used;
+  4. future endpoint exposure;
+  5. token-limit policy.
+
+  D42 does not invent values or silently decide these items.
+
+- **J. Acceptance criteria.** D42 carries forward the approved Slice 3 proposal's future implementation acceptance criteria:
+  1. Oversized prompt fails closed before model invocation.
+  2. D40's 100-record structural limit is distinct from D42's 25-claim generation limit.
+  3. More than 25 generated claims rejects the entire response without truncation.
+  4. Deadline expiry during parsing or validation discards all partial claims and results.
+  5. Cooperative deadline checks and honest synchronous cancellation semantics.
+
+  These are future implementation acceptance requirements. They are not claims that implementation or tests already exist.
+
+- **K. Accepted residual risks.** D42 preserves these accepted residual risks:
+  1. prompt injection cannot be fully prevented;
+  2. deterministic validation does not establish semantic entailment;
+  3. model digest does not establish per-request cryptographic identity;
+  4. evaluation thresholds are not adopted;
+  5. human review remains mandatory.
+
+  Accepted residual risks are distinguished from deferred design choices.
+
+- **L. Explicit implementation gate.** D42 adopts the Slice 3 design only. D42 authorizes none of the following: Java implementation; tests or dependencies; configuration changes; endpoints or APIs; persistence or database migrations; frontend or presentation surface; new roles; agent runtime or execution capability. Slice 3 implementation requires a separate subsequent architectural decision and explicit user authorization. D42 does not amend D8 or weaken D38–D41. D42 does not convert D41 into Slice 3 implementation authorization and does not authorize any future endpoint or human-review presentation surface.
+
+- **M. Compatibility.** D42 depends on D38, D39, D40, and D41. It preserves D8 and D28–D31. It does not amend earlier decisions. It creates no execution, approval, proposal-lifecycle, authentication, or provider authority.
+
+
+## D43 — Phase 14 S2 Slice 3: Bounded Implementation Scope and Authorization Gate
+
+- **Status:** DECIDED AND ADOPTED 2026-11-11. Design adoption and implementation scope. No implementation authorization.
+- **Date:** 2026-11-11.
+- **Depends on:** D38 (Phase 14 S0 evidence foundation), D39 (Phase 14 S1 deterministic evidence packet assembler), D40 (Phase 14 S2 Slice 1 claim contract and deterministic validator), D41 (Phase 14 S2 Slice 2 local model provider), D42 (Phase 14 S2 Slice 3 design adoption). D43 amends no prior decision.
+- **Purpose:** Adopt the reviewed D43 implementation-authorization proposal as the binding implementation scope and acceptance requirements for a future Slice 3 implementation. Adoption of D43 does not authorize implementation. Implementation requires a separate explicit user authorization after D43 adoption.
+
+- **A. Adopted implementation scope.** D43 adopts the reviewed Phase 14 S2 Slice 3 design and its bounded implementation scope from `docs/planning/phase-14/PHASE14_D43_IMPLEMENTATION_AUTHORIZATION_PROPOSAL.md`. The adopted pipeline is:
+
+  EvidencePacket
+  -> deterministic prompt construction
+  -> existing `LocalModelAdapter`
+  -> strict bounded parser
+  -> candidate `EvidenceClaim` objects
+  -> existing deterministic `ClaimValidator`
+  -> transient generation result
+
+  The implementation must reuse the existing boundaries rather than create new provider or validation mechanisms. `EvidencePacketAssembler` remains the sole packet producer. `LocalModelAdapter.infer(String)` remains the sole provider inference method. `ClaimValidator.validate(EvidencePacket, EvidenceClaim)` remains the sole deterministic claim validator. `ClaimWordingScreen.isForbidden(String)` remains the deterministic wording screen. Slice 3 adds only internal prompt construction, strict parsing, generation orchestration, a transient result, and an offline evaluation harness.
+
+- **B. Adopted package recommendation.** D43 records `com.soubhagya.systivex.generation` as the recommended implementation package. D42 deliberately deferred the final package name. The recommendation is non-binding until D43 is adopted and implementation is authorized. Even after adoption, the exact package may be confirmed during implementation planning if actual repository conventions justify a narrowly scoped adjustment. No new architectural module or public API is implied. The generation package may depend on `evidence` and `localmodel`; neither may depend on the generation package.
+
+- **C. Adopted components and record shapes.** D43 adopts the following proposed internal components:
+  1. `EvidenceGenerationService` (`public final class`, `@Service`): orchestrate prompt construction, inference, parsing, validation, and transient result creation.
+  2. `GenerationResult` (`public record`): `EvidenceReference packetRef`, `EvidenceMode mode`, `GenerationStatus status`, `List<GeneratedClaimResult> claims`, `int claimsParsed`, `int claimsValid`, `int claimsInvalid`. Invariants: `claims` is immutable; failure results contain no candidates; no partial candidate list can escape; `SUCCEEDED` means deterministic validation completed, not human acceptance; no raw prompt, raw model output, stack trace, credential, or sensitive provider detail.
+  3. `GeneratedClaimResult` (`public record`): `EvidenceClaim claim`, `ClaimValidationResult validationResult`. The claim uses the existing D40 `EvidenceClaim` type exactly; no second or forked claim schema is permitted. Preserve all existing `EvidenceClaim` fields and invariants: statement, category, evidence references, qualification, limitations, packet reference, and mode.
+  4. `GenerationStatus` (`public enum`): `SUCCEEDED`, `NO_OUTPUT`, `PARSE_FAILED`, `PROVIDER_UNAVAILABLE`, `DEADLINE_EXCEEDED`, `RESPONSE_TOO_LARGE`, `BUSY`, `PROMPT_TOO_LARGE`, `INVALID_PACKET`. Success and safe-failure statuses are mutually exclusive; every safe-failure status requires an empty candidate collection; success means deterministic validation completed, not human acceptance.
+  5. `EvidenceGenerationPromptBuilder` (package-private final class): deterministic prompt construction and UTF-8 size calculation.
+  6. `StrictClaimResponseParser` (package-private final class): strict Jackson parsing and structural bound enforcement.
+
+  No new Spring AI starter, provider client, runtime dependency, database dependency, or utility library is authorized.
+
+- **D. Default-off integration.** Generation service availability must be conditional on the actual `LocalModelAdapter` bean, using `@ConditionalOnBean(LocalModelAdapter.class)` or an equivalent explicit availability check. It must not be instantiated with a null provider. A future context test must prove that no `LocalModelAdapter` bean and no `EvidenceGenerationService` bean exist when the provider is disabled, that no generation path can invoke inference when disabled, that enabling a valid provider makes the service available, and that invalid or unavailable provider configuration still fails closed. The provider remains disabled by default (`systivex.local.enabled=false`). Existing D41 fail-closed behavior is unchanged.
+
+- **E. Parser.** D43 adopts the reviewed Jackson 3.1.5 parsing design, including `tools.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION`, `tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES`, bounded structural parsing, and explicit safe failure categories. The implementation must explicitly configure maximum nesting depth of 8, maximum document length of 65,536 bytes, maximum string length of 1,000 characters, and maximum property-name length of 64 characters. Any numeric-length bound is only configured if separately adopted. D40's deferred token-count policy remains deferred. UTF-8 byte caps are not token limits. No tokenizer, token-count guarantee, or context-window guarantee is invented.
+
+- **F. Resource limits.** D43 adopts these constraints:
+  1. Prompt cap: maximum 32,768 UTF-8 bytes for the complete deterministic prompt. Measurement is the completed prompt string encoded as UTF-8 immediately before inference. All prompt content is included: fixed instructions, claim schema, evidence references, evidence content, and delimiters. HTTP request serialization overhead is excluded. If oversized, fail closed with `PROMPT_TOO_LARGE`; do not invoke the model; do not truncate, omit, subset-select, or summarize evidence.
+  2. D40 structural parser limit: maximum 100 claim records, unchanged.
+  3. D42 generation limit: maximum 25 generated candidate claims per response. A response exceeding 25 generated claims must be rejected in full. No silent truncation. `ClaimValidator` does not enforce either count limit. Malformed structure, parser-limit violations, and generation-cap violations must remain distinguishable in failure reporting, but all result in no accepted candidate claims.
+  4. Maximum references per claim: 1-20.
+  5. Maximum limitations per claim: 0-100, each 1-1,000 characters.
+  6. Maximum statement length: 1,000 characters.
+  7. Total orchestration budget: 45 seconds, composed of 5 seconds prompt construction, the existing D41 maximum 35 seconds for local inference unchanged, and 5 seconds parsing and candidate validation.
+  8. Monotonic deadline measurement and cooperative deadline checks through orchestration entry, prompt construction, inference boundaries, parsing, validation, and result construction. On expiry, stop subsequent processing, discard all partial candidate claims and results, and return `DEADLINE_EXCEEDED`. Do not claim arbitrary preemptive cancellation of synchronous parsing. Do not imply that D41's `LocalModelAdapter` deadline remains active after `infer()` returns. This budget does not amend or weaken D41's transport guarantees.
+  9. Raw output retention: none in the runtime path; transient in-memory evaluation only.
+
+  Changing any adopted numeric limit requires a separate explicit decision.
+
+- **G. Deterministic validation and human review.** D43 preserves the existing `ClaimValidator` and `ClaimWordingScreen` contracts. Candidate construction injects `packet.packetRef()` and `packet.mode()` from the packet, never from model output. Passing validation does not mean claim acceptance. All generated claims remain untrusted candidates. Human review remains mandatory. Reference existence establishes provenance only and does not establish semantic entailment.
+
+- **H. Offline evaluation.** D43 adopts the offline evaluation harness scope. Preserve human-labelled benchmark fixtures; evidence-category and generation-mode coverage; deterministic metric calculation; offline evaluation separate from the production generation path; and optional model-assisted diagnostics only as a non-authoritative evaluation technique. The offline evaluator may inspect raw model output transiently in memory. It must not persist or log raw prompts or outputs, expose them in ordinary responses, or grant model or evaluator authority. Evaluation cannot accept or approve generated claims. Do not implement second-LLM evaluation. Keep model-assisted diagnostic evaluation deferred unless a separate decision later authorizes it. Do not invent statistical sample sizes, evaluation thresholds, or quality guarantees.
+
+- **I. Tests and acceptance criteria.** D43 carries forward the approved Slice 3 proposal's future implementation acceptance criteria:
+  1. Deterministic prompt output for identical packets.
+  2. Prompt UTF-8 exact-boundary and over-boundary tests.
+  3. `PROMPT_TOO_LARGE` prevents model invocation.
+  4. No evidence truncation, omission, subset selection, or summarization.
+  5. Parser rejects malformed JSON, duplicate keys, unknown fields, and structural violations.
+  6. D40's 100-record parser cap is independent of the 25-claim generation cap.
+  7. Responses containing 25 or fewer generated claims are eligible for deterministic `ClaimValidator` evaluation. Claims that pass deterministic validation remain untrusted candidates and are never automatically accepted. Human review remains mandatory.
+  8. More than 25 claims rejects the entire response.
+  9. `ClaimValidator` is not incorrectly treated as enforcing either count limit.
+  10. Existing reference, category, qualification, limitation, and wording validation remains unchanged.
+  11. Prompt construction deadline enforcement.
+  12. D41 inference deadline and transport tests remain green.
+  13. Parsing and validation deadline expiry discards every partial claim and result.
+  14. No false preemptive cancellation guarantees.
+  15. Evaluator raw-output access is transient and cannot leak to logs, storage, or ordinary responses.
+  16. No endpoint, persistence, frontend, roles, or execution capability.
+  17. Existing backend tests remain green.
+
+  Tests must be separated into unit tests, parser adversarial tests, orchestration tests, adapter interaction tests, offline evaluation tests, and full regression tests. These are future implementation acceptance requirements. They are not claims that tests or implementation already exist.
+
+- **J. Implementation sequencing.** Recommended sequence:
+  1. Prompt contract and deterministic prompt builder.
+  2. Bounded strict parser.
+  3. Generation orchestration and deadline propagation.
+  4. Existing `ClaimValidator` integration.
+  5. Transient generation result.
+  6. Offline evaluation harness.
+  7. Adversarial and security regression tests.
+  8. Full regression and independent implementation review.
+
+  Prompt construction must be complete and deterministic before parser and orchestration work. Parser must be complete before orchestration can validate candidates. Deadline propagation must be implemented with orchestration, not after it. Evaluation harness depends on the generation result contract. Full regression must include all D39, D40, and D41 tests. No future slice, endpoint, presentation surface, or execution feature may be included.
+
+- **K. Risks and rollback.** Preserved risks: prompt injection cannot be fully prevented by prompt construction; deterministic validation does not establish semantic entailment; model output may be plausible but unsupported; model digest verification is not per-request cryptographic identity (D41 G-4); synchronous parsing has bounded cancellation limitations; evaluation metrics may not predict real-world evidence distributions; implementation may accidentally conflate the 100-record parser limit with the 25-claim generation cap; implementation may accidentally expose raw prompt or model output. Rollback strategy: provider disabled by default (`systivex.local.enabled=false`); generation service conditional on the provider bean or failing with a fixed safe error when absent; implementation isolated in the generation package; rollback removes the generation package and tests without changing S1, S2, endpoints, persistence, or roles; no database migration or schema change is authorized; existing S1 and S2 behavior remains unchanged when generation is absent or disabled.
+
+- **L. Deferred choices.** D43 does not resolve these D42-deferred items: exact package name, although `com.soubhagya.systivex.generation` is recommended; evaluation sample sizes and strata; whether model-assisted diagnostic evaluation will be used; future endpoint exposure; token-limit policy. D43 does not invent thresholds, token counts, or sample sizes.
+
+- **M. Explicit implementation gate.** D43 adopts the bounded Slice 3 implementation scope and acceptance criteria. D43 does not authorize implementation. No source-code, test, dependency, configuration, endpoint, persistence, frontend, role, or execution-capability change may begin until the user separately and explicitly authorizes Slice 3 implementation after D43 adoption. Coding is not in progress or authorized. Design adoption, implementation authorization, and implementation completion remain distinct states.
+
+- **N. Compatibility.** D43 depends on D38, D39, D40, D41, and D42. It preserves D38 evidence provenance; D39 packet assembly; D40 claim and validator contracts; D41 local-model integration and transport guarantees; and D42 adopted design boundaries. It does not amend D8 or weaken D38-D42. It creates no execution, approval, proposal-lifecycle, authentication, or provider authority. It does not convert D41 into Slice 3 implementation authorization and does not authorize any future endpoint or human-review presentation surface.
+
+- **O. Scope restriction.** D43 adopts implementation scope only. It does not authorize public or external endpoints; persistence, schema changes, or migrations; frontend or presentation surface; new roles; agent execution or mutation; external providers or cloud fallback; RAG, vector databases, MCP, or second-LLM authority; new dependencies outside the reviewed proposal; token-limit policy changes; or automatic acceptance of generated claims. Preserve all D38-D42 decisions.
+
+
+
 ## Supersession rule
 
 New decisions amend this file with date and rationale; they never silently edit

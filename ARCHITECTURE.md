@@ -427,9 +427,9 @@ supplies evidence only: it generates no claims or narratives, authorizes
 nothing (policy `ALLOW` remains advisory), approves no proposal, and
 executes no change.
 
-#### Phase 14 S2 Slice 1 (authorized under D40, not yet implemented)
+#### Phase 14 S2 Slice 1 (implemented under D40)
 
-D40 authorizes S2 Slice 1 only: a provider-independent claim contract and
+D40 authorized S2 Slice 1: a provider-independent claim contract and
 deterministic validator over S1 packets. Claims (statement, category,
 `E<n>` references, qualification, limitations, packet reference, mode) are
 accepted only after deterministic validation — schema, packet identity,
@@ -439,26 +439,28 @@ inheritance, mode-aware insufficiency (9-family × 3-mode applicability
 matrix), and wording screen. Provenance validation proves which packet
 items a claim cites; it does **not** prove the cited items support the
 statement — semantic entailment remains for human review, the authority of
-record. Slice 1 adds no provider, model, prompt, endpoint, persistence, or
-generation capability. Slice 2 (Spring AI + local Ollama per D8) and
-Slice 3 (generation + evaluation) remain separately gated; D8's deferred
-status is unchanged. No agent runtime exists.
+record. Slice 1 added no provider, model, prompt, endpoint, persistence, or
+generation capability. Slice 2 (Spring AI + local Ollama per D8) was
+separately authorized and implemented under D41 via PR #27; Slice 3
+(generation + evaluation) remains separately gated. D8's deferred status
+is unchanged. No agent runtime exists.
 
-#### Phase 14 S2 Slice 2 (design adopted under D41, not yet implemented)
+#### Phase 14 S2 Slice 2 (implemented under D41 via PR #27)
 
-D41 (adopted 2026-11-09) adopts the Slice 2 design only: a local model
-provider integration on Spring AI 2.0.2 with a loopback-local Ollama
-instance — provider-neutral internal inference boundary, bounded
-synchronous inference (65,536-byte response cap, no byte 65,537 to the
-caller), exactly one inference attempt (no retry/backoff/queue), 5s/30s/35s
-timeouts, direct-only proxy with redirects disabled, `/api/tags` +
-`/api/show` installed-model digest checks with no per-request
-cryptographic identity guarantee. Implementation is NOT authorized by D41
-and requires separate explicit authorization; Slice 3 remains separately
-gated. No prompt construction, generated claims, endpoints, persistence,
-tools, RAG, memory, cloud fallback, mutation, approval, or execution
-capability is introduced. D8 adopted for design, unchanged in direction;
-D40 unweakened.
+D41 (adopted 2026-11-09) adopted the Slice 2 design; implementation was
+separately authorized and completed under PR #27 (merge commit
+`c6ae7265339c2aeebec58db0f0b22be79dcf2e09`): a local model provider
+integration on Spring AI 2.0.2 with a loopback-local Ollama instance —
+provider-neutral internal inference boundary, bounded synchronous inference
+(65,536-byte response cap, no byte 65,537 to the caller), exactly one
+inference attempt (no retry/backoff/queue), 5s/30s/35s timeouts,
+direct-only proxy with redirects disabled, `/api/tags` + `/api/show`
+installed-model digest checks with no per-request cryptographic identity
+guarantee. Verification: 63/63 focused tests and 622/622 full backend tests
+passed. Slice 3 (generation + evaluation) remains separately gated. No
+prompt construction, generated claims, endpoints, persistence, tools, RAG,
+memory, cloud fallback, mutation, approval, or execution capability is
+introduced. D8 adopted for design, unchanged in direction; D40 unweakened.
 
 ## 7. API shape (initial REST exists)
 

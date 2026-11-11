@@ -1137,16 +1137,19 @@ Authorized scope:
 Explicit prohibitions: no Spring AI or provider dependency, no Ollama
 integration, no model invocation, no prompt construction, no generated
 claims or narratives, no public endpoints, no persistence, no new roles.
-Slice 2 (Spring AI + local Ollama per D8) and Slice 3 (generation +
-evaluation) require separate authorization. Provenance validation never
-proves semantic entailment; human review remains authoritative.
+Slice 2 (Spring AI + local Ollama per D8) was separately authorized and
+implemented under D41 via PR #27; Slice 3 (generation + evaluation)
+remains separately gated. Provenance validation never proves semantic
+entailment; human review remains authoritative.
 
-## 21. Local model provider integration design (Phase 14 S2 Slice 2, D41)
+## 21. Local model provider integration (Phase 14 S2 Slice 2, D41)
 
-D41 (adopted 2026-11-09) adopts the Slice 2 **design only** — no
-implementation code, dependency, or configuration is authorized by the
-adoption. Implementation requires a separate explicit authorization, at
-which point these criteria become implementation-gating:
+D41 (adopted 2026-11-09) adopted the Slice 2 design; implementation was
+separately authorized and completed under PR #27 (merge commit
+`c6ae7265339c2aeebec58db0f0b22be79dcf2e09`). The design and
+implementation criteria below are now satisfied and verified: 63/63 focused
+tests and 622/622 full backend tests passed. Slice 3 remains separately
+gated. D41 remains the governing adopted decision.
 
 - Provider-neutral internal inference boundary on direct
   `spring-ai-ollama:2.0.2` (no starter); manual `OllamaApi`/`OllamaChatModel`
