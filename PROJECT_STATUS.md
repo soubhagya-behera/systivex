@@ -1,16 +1,22 @@
 # Systivex Project Status
 
-Last verified: **2026-11-03** (Asia/Kolkata); Phase 13 S5 automated and local
-live verification completed 2026-11-03. This document must be updated whenever
-the implemented state changes. Planned items are not claimed as done; live
+Last verified: **2026-11-11** (Asia/Kolkata); post-merge synchronization of
+PR #27 completed 2026-11-11. Phase 13 S5 automated and local live
+verification completed 2026-11-03. Phase 14 S2 Slice 2 merged via PR #27 on
+2026-11-09/2026-11-10 (merge commit
+`c6ae7265339c2aeebec58db0f0b22be79dcf2e09`); 63/63 focused and 622/622
+full backend tests passed. This document must be updated whenever the
+implemented state changes. Planned items are not claimed as done; live
 verification is recorded separately and is not inferred from automated tests.
 
 ## Current phase
 
-**Phase 13 S5 — Hypothetical Simulation & Advisory Policy UI (implemented,
-automated-verified, committed, pushed, and merged via PR #20 on 2026-11-03;
-merge commit `10472f26a54fa488705fe5fbcdaf10bd18fed3cc`; local live verification
-passed 2026-11-03).**
+**Phase 14 S2 Slice 3 — Evidence-Grounded Generation and Evaluation Harness
+(implemented under D42/D43; 6 production classes and 6 test classes; 38
+focused and 654 full backend tests passed; independent implementation audit
+PASS).** Phase 14 S2 Slice 2 remains complete and unchanged (PR #27).
+Phase 13 S5 remains complete and unchanged (PR #20).
+
 Phase 13 S5 adds a live-only **Simulation & Policy** view to the existing
 React + Vite + JavaScript console under D37, which was adopted in commit
 `996ca27`. An operator selects one loaded twin root, optionally builds up to 10
@@ -390,14 +396,32 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   `mvn -o help:effective-pom` BUILD SUCCESS; `git diff --check` clean.
   D41 remains the governing adopted decision; G-4 model-identity
   limitation preserved.
-- [ ] **S2 Slice 3: GATED.** Evidence-grounded generation + evaluation
-  harness requires Slice 2 authorization and review.
+- [x] **D42 adopted** (`DECISIONS.md`, 2026-11-11): adopts the S2 Slice 3
+  design only (deterministic prompt construction, strict bounded parsing,
+  candidate claims, existing `ClaimValidator`, transient result, offline
+  evaluation). Design adoption authorizes no implementation.
+- [x] **D43 adopted** (`DECISIONS.md`, 2026-11-11): adopts the bounded
+  Slice 3 implementation scope and acceptance criteria. Implementation
+  authorization remained separate and was explicitly granted before coding.
+- [x] **S2 Slice 3: COMPLETE.** Evidence-grounded generation + evaluation
+  harness implemented in the `generation` package: 6 production classes and
+  6 test classes; 38 focused Slice 3 tests passed; full backend suite
+  **654/654 tests passed** (0 failures, 0 errors, 0 skipped). Boundaries:
+  32,768-byte UTF-8 prompt ceiling; 25-claim generation cap separate from
+  D40's 100-record parser limit; 45-second monotonic orchestration budget;
+  unchanged D41 35-second inference contract; strict Jackson 3.1.5 parsing;
+  existing deterministic `ClaimValidator`; mandatory human review;
+  default-off provider integration; transient offline evaluation.
+  Exclusions preserved: no endpoint, persistence, migration, frontend, new
+  role, execution/mutation, external provider, cloud fallback, model
+  authority, or automatic claim acceptance. D38-D42 boundaries preserved.
 - [x] Phase 14 S1: **COMPLETE** (PR #25; 505/505 tests).
-- [x] No LLM, agent runtime, generated claims, narratives, endpoints,
-  persistence, or execution capability exists; the claim contract and
-  validator produce no claims by themselves. Provenance validation does
-  not prove semantic entailment; human review remains authoritative.
-
+- [x] Candidate `EvidenceClaim` generation and offline evaluation now exist
+  under D42/D43 in the `generation` package. Generated claims are
+  candidates only; no automatic acceptance occurs. No endpoint,
+  persistence, migration, role, frontend, execution or model authority was
+  added. Provenance validation does not prove semantic entailment; human
+  review remains authoritative.
 ## Gated, not scheduled — controlled execution
 
 **Execution implementation — gated by the D31 feasibility gate.** No

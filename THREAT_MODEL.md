@@ -448,15 +448,17 @@ authorized; any future provider integration remains loopback-only and
 separately gated (D8 direction, implementation deferred). All boundaries
 above are unchanged and unweakened.
 
-D41 (adopted 2026-11-09) adopts the S2 Slice 2 design only and authorizes
-no provider dependency, code, configuration, or model invocation. The
-design keeps the agent untrusted and authority-less with no execution,
-mutation, or authorization capability: inference is bounded synchronous
-loopback-only with no retries, direct-only proxy, redirects disabled, and
-no cloud fallback; installed-model digest checks do not establish
-per-request cryptographic identity and no stronger guarantee is claimed.
-Implementation remains separately gated, and Slice 3 remains separately
-gated. All boundaries above are unchanged and unweakened.
+D41 (adopted 2026-11-09) adopted the S2 Slice 2 design; implementation was
+separately authorized and completed under PR #27 (merge commit
+`c6ae7265339c2aeebec58db0f0b22be79dcf2e09`). The implementation keeps
+the agent untrusted and authority-less with no execution, mutation, or
+authorization capability: inference is bounded synchronous loopback-only
+with no retries, direct-only proxy, redirects disabled, and no cloud
+fallback; installed-model digest checks do not establish per-request
+cryptographic identity and no stronger guarantee is claimed. Verification:
+63/63 focused tests and 622/622 full backend tests passed. Slice 3
+remains separately gated. All boundaries above are unchanged and
+unweakened.
 
 ## 4. What must NOT happen next (anti-goals)
 
