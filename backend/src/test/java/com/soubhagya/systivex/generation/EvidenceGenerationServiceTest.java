@@ -310,4 +310,21 @@ class EvidenceGenerationServiceTest {
         assertThat(result.claims()).isEmpty();
         verify(adapter).infer(anyString());
     }
+
+    @Test
+    void generationSucceedsWhenTheMonotonicClockOriginIsNearLongMaxValue() {
+        MonotonicClock clock = () -> Long.MAX_VALUE - 1_000L;
+        LocalModelAdapter adapter = mock(LocalModelAdapter.class);
+        when(adapter.infer(anyString())).thenReturn(validResponse());
+        EvidenceGenerationService service =
+                new EvidenceGenerationService(adapter, new ObjectMapper(), clock);
+
+        GenerationResult result = service.generate(packet("content-1", List.of("limitation-1")));
+
+        assertThat(result.status()).isEqualTo(GenerationStatus.SUCCEEDED);
+        assertThat(result.claims()).hasSize(1);
+        assertThat(result.claimsValid()).isEqualTo(1);
+        assertThat(result.claimsInvalid()).isZero();
+        verify(adapter).infer(anyString());
+    }
 }
