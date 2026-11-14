@@ -78,7 +78,7 @@ public class ProposalAmendmentService {
         ProposalOperations.Prepared prepared =
                 ProposalOperations.prepare(
                         request.operations(),
-                        ProposalOperations.edgeKeys(relationships.findAll()),
+                        ProposalOperations.storedEdgeExistence(relationships),
                         raw -> ProposalOperations.resolve(entities, raw));
         latest.setStatus(ProposalStatus.SUPERSEDED);
         try {

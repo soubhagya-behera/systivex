@@ -76,7 +76,7 @@ public class ProposalService {
         ProposalOperations.Prepared prepared =
                 ProposalOperations.prepare(
                         request.operations(),
-                        ProposalOperations.edgeKeys(relationships.findAll()),
+                        ProposalOperations.storedEdgeExistence(relationships),
                         raw -> ProposalOperations.resolve(entities, raw));
         ProposalRevision revision =
                 new ProposalRevision(

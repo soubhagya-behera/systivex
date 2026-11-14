@@ -14,7 +14,6 @@ import com.soubhagya.systivex.policy.PolicyService;
 import com.soubhagya.systivex.proposal.api.ProposalResponse;
 import com.soubhagya.systivex.proposal.service.ProposalService;
 import com.soubhagya.systivex.twin.model.SystemEntity;
-import com.soubhagya.systivex.twin.model.SystemRelationship;
 import com.soubhagya.systivex.twin.service.EntityNotFoundException;
 import com.soubhagya.systivex.twin.service.TwinGraphSnapshot;
 import com.soubhagya.systivex.twin.service.TwinService;
@@ -222,7 +221,7 @@ public class EvidencePacketAssembler {
                 SimulationProposalValidator.validate(
                         operations,
                         rootIds,
-                        existingEdgeKeys(snapshot.relationships()),
+                        SimulationProposalValidator.edgeExistenceOf(snapshot.relationships()),
                         raw -> resolveSnapshot(entitiesById, raw));
         return simulationService.simulateResolved(
                 inputs, snapshot.entities(), snapshot.relationships(), proposal);
@@ -329,22 +328,6 @@ public class EvidencePacketAssembler {
         }
         return "Bounded graph snapshot is not available for analysis (truncated="
                 + snapshot.truncated() + ", consistent=" + snapshot.consistent() + ").";
-    }
-
-    private static Set<String> existingEdgeKeys(List<SystemRelationship> relationships) {
-        Set<String> keys = new HashSet<>();
-        for (SystemRelationship relationship : relationships) {
-            if (relationship == null
-                    || relationship.getSource() == null
-                    || relationship.getTarget() == null
-                    || relationship.getRelationshipType() == null) {
-                continue;
-            }
-            keys.add(relationship.getSource().getId()
-                    + "|" + relationship.getTarget().getId()
-                    + "|" + relationship.getRelationshipType().name());
-        }
-        return keys;
     }
 
     private static UUID resolveSnapshot(Map<UUID, SystemEntity> entitiesById, String raw) {

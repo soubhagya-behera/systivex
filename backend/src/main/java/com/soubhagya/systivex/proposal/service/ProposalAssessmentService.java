@@ -117,7 +117,7 @@ public class ProposalAssessmentService {
                 SimulationProposalValidator.validate(
                         operations,
                         Set.of(),
-                        ProposalOperations.edgeKeys(snapshotEdges),
+                        SimulationProposalValidator.edgeExistenceOf(snapshotEdges),
                         ProposalOperations.snapshotResolver(entitiesById));
         List<String> rootIds = touchedIds(resolved);
         ImpactQueryValidator.ParsedInputs inputs =

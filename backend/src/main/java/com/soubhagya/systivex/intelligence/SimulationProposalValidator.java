@@ -1,5 +1,6 @@
 package com.soubhagya.systivex.intelligence;
 
+import com.soubhagya.systivex.twin.model.SystemRelationship;
 import com.soubhagya.systivex.twin.model.SystemRelationshipType;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -40,11 +41,52 @@ public final class SimulationProposalValidator {
         UUID resolve(String raw);
     }
 
+    /**
+     * Answers whether a stored relationship edge exists.
+     *
+     * <p>The conflict checks only ever ask about the edges a proposal
+     * proposes, so the caller can answer from an indexed existence lookup
+     * instead of materialising every stored edge. Snapshot-based callers
+     * answer from the edges they already captured.
+     */
+    @FunctionalInterface
+    public interface EdgeExistence {
+        boolean exists(UUID sourceId, UUID targetId, SystemRelationshipType type);
+    }
+
     /** One relationship operation with identifiers resolved to entity UUIDs. */
     public record ResolvedEdge(UUID sourceId, UUID targetId, SystemRelationshipType type) {
-        String key() {
+        /** Canonical {@code source|target|TYPE} key for this edge. */
+        public String key() {
             return sourceId + "|" + targetId + "|" + type.name();
         }
+    }
+
+    /**
+     * Edge existence over an already-loaded collection of stored edges.
+     *
+     * <p>Snapshot-consistent callers (governed assessment, simulation) answer
+     * from the edges they already captured, so they never re-read the twin
+     * while a proposal is being validated.
+     */
+    public static EdgeExistence edgeExistenceOf(List<SystemRelationship> edges) {
+        Set<String> keys = new LinkedHashSet<>();
+        for (SystemRelationship edge : edges) {
+            if (edge == null
+                    || edge.getSource() == null
+                    || edge.getTarget() == null
+                    || edge.getRelationshipType() == null) {
+                continue;
+            }
+            keys.add(
+                    new ResolvedEdge(
+                                    edge.getSource().getId(),
+                                    edge.getTarget().getId(),
+                                    edge.getRelationshipType())
+                            .key());
+        }
+        return (sourceId, targetId, type) ->
+                keys.contains(new ResolvedEdge(sourceId, targetId, type).key());
     }
 
     /** A fully validated proposal: canonical IDs, deterministic order. */
@@ -54,17 +96,18 @@ public final class SimulationProposalValidator {
             List<ResolvedEdge> removedEdges) {}
 
     /**
-     * Validates {@code operations} against the analysis roots and the
-     * baseline edge set. A null list is the null proposal (no changes).
+     * Validates {@code operations} against the analysis roots and the stored
+     * edges. A null list is the null proposal (no changes).
      *
      * @param rootIds analysis-root entity IDs (removing one is a conflict)
-     * @param existingEdgeKeys baseline {@code source|target|TYPE} edge keys
+     * @param existingEdges existence check over the stored edges, consulted
+     *     only for the relationship edges the proposal proposes
      * @param resolver identifier resolution with 404 semantics
      */
     public static ResolvedProposal validate(
             List<SimulationOperation> operations,
             Set<UUID> rootIds,
-            Set<String> existingEdgeKeys,
+            EdgeExistence existingEdges,
             EntityResolver resolver) {
         List<SimulationOperation> ops = operations == null ? List.of() : operations;
         for (SimulationOperation op : ops) {
@@ -128,12 +171,12 @@ public final class SimulationProposalValidator {
         }
 
         for (ResolvedEdge edge : added) {
-            if (existingEdgeKeys.contains(edge.key())) {
+            if (existingEdges.exists(edge.sourceId(), edge.targetId(), edge.type())) {
                 throw new ProposalConflictException("Edge already exists: " + edge.key());
             }
         }
         for (ResolvedEdge edge : removed) {
-            if (!existingEdgeKeys.contains(edge.key())) {
+            if (!existingEdges.exists(edge.sourceId(), edge.targetId(), edge.type())) {
                 throw new ProposalConflictException(
                         "Relationship does not exist: " + edge.key());
             }

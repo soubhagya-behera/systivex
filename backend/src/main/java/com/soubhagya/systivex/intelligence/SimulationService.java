@@ -76,7 +76,7 @@ public class SimulationService {
                 SimulationProposalValidator.validate(
                         request.operations(),
                         rootIds,
-                        existingEdgeKeys(baselineEdges),
+                        SimulationProposalValidator.edgeExistenceOf(baselineEdges),
                         raw -> impactService.resolveEntity(raw.trim()).getId());
 
         return simulateResolved(inputs, baselineEntities, baselineEdges, proposal);
@@ -161,18 +161,5 @@ public class SimulationService {
                 graph,
                 delta,
                 limitations);
-    }
-
-    private static Set<String> existingEdgeKeys(List<SystemRelationship> edges) {
-        Set<String> keys = new HashSet<>();
-        for (SystemRelationship edge : edges) {
-            keys.add(
-                    edge.getSource().getId()
-                            + "|"
-                            + edge.getTarget().getId()
-                            + "|"
-                            + edge.getRelationshipType().name());
-        }
-        return keys;
     }
 }
