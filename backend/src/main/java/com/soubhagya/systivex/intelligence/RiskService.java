@@ -3,7 +3,6 @@ package com.soubhagya.systivex.intelligence;
 import com.soubhagya.systivex.twin.model.SystemEntity;
 import com.soubhagya.systivex.twin.model.SystemEntityType;
 import com.soubhagya.systivex.twin.model.SystemRelationship;
-import com.soubhagya.systivex.twin.repository.SystemEntityRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,23 +42,28 @@ public class RiskService {
                     + " verify against the twin and live backend state before acting on it.";
 
     private final ImpactAnalysisService impactService;
-    private final SystemEntityRepository entities;
 
-    public RiskService(ImpactAnalysisService impactService, SystemEntityRepository entities) {
+    public RiskService(ImpactAnalysisService impactService) {
         this.impactService = impactService;
-        this.entities = entities;
     }
 
     /**
      * Validates raw query input via the impact service (blank/oversized
      * input fails with {@link IllegalArgumentException}, 400; unknown
      * identifiers fail with 404) and classifies the impacted set.
+     *
+     * <p>Classification reuses the entity snapshot the impact traversal
+     * already read. Reading the entity table a second time would materialise
+     * the whole (unbounded) entity table again for every assessment, and
+     * would let the impact result and the risk result describe two different
+     * points in time.
      */
     @Transactional(readOnly = true)
     public RiskResponse assess(
             List<String> rawFrom, Integer rawMaxDepth, List<String> rawIncludeTypes) {
-        ImpactResponse impact = impactService.analyze(rawFrom, rawMaxDepth, rawIncludeTypes);
-        return classify(impact, entities.findAll());
+        ImpactAnalysisService.Analyzed analyzed =
+                impactService.analyzeWithSnapshot(rawFrom, rawMaxDepth, rawIncludeTypes);
+        return classify(analyzed.response(), analyzed.entities());
     }
 
     /**

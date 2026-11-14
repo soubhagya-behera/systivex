@@ -41,6 +41,41 @@ public class ImpactAnalysisService {
     }
 
     /**
+     * The impact analysis result together with the exact entity snapshot the
+     * analysis read.
+     *
+     * <p>Public so a caller that has to classify the same snapshot — risk
+     * assessment — reuses it instead of reading the entity table a second
+     * time. The twin graph is unbounded, so every extra full read is another
+     * full materialisation of the entity table per request.
+     */
+    public record Analyzed(ImpactResponse response, List<SystemEntity> entities) {
+        public Analyzed {
+            entities = List.copyOf(entities);
+        }
+    }
+
+    /**
+     * Validates raw query input, resolves every starting entity, and runs the
+     * analysis in one read-only transaction, returning the result together with
+     * the entity snapshot the analysis read. Blank/oversized input fails with
+     * {@link IllegalArgumentException} (400); unknown identifiers fail with
+     * {@link EntityNotFoundException} (404).
+     */
+    @Transactional(readOnly = true)
+    public Analyzed analyzeWithSnapshot(
+            List<String> rawFrom, Integer rawMaxDepth, List<String> rawIncludeTypes) {
+        ImpactQueryValidator.ParsedInputs inputs = parseInputs(rawFrom, rawMaxDepth, rawIncludeTypes);
+        List<SystemEntity> allEntities = entities.findAll();
+        List<SystemRelationship> allRelationships = relationships.findAll();
+        return new Analyzed(
+                analyzeResolved(
+                        inputs.starts(), inputs.maxDepth(), inputs.includeTypes(),
+                        allEntities, allRelationships),
+                allEntities);
+    }
+
+    /**
      * Validates raw query input, resolves every starting entity, and runs the
      * analysis in one read-only transaction. Blank/oversized input fails with
      * {@link IllegalArgumentException} (400); unknown identifiers fail with
@@ -49,12 +84,7 @@ public class ImpactAnalysisService {
     @Transactional(readOnly = true)
     public ImpactResponse analyze(
             List<String> rawFrom, Integer rawMaxDepth, List<String> rawIncludeTypes) {
-        ImpactQueryValidator.ParsedInputs inputs = parseInputs(rawFrom, rawMaxDepth, rawIncludeTypes);
-        List<SystemEntity> allEntities = entities.findAll();
-        List<SystemRelationship> allRelationships = relationships.findAll();
-        return analyzeResolved(
-                inputs.starts(), inputs.maxDepth(), inputs.includeTypes(),
-                allEntities, allRelationships);
+        return analyzeWithSnapshot(rawFrom, rawMaxDepth, rawIncludeTypes).response();
     }
 
     /**
