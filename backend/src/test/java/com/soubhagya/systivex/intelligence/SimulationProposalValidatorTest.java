@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.soubhagya.systivex.twin.model.SystemRelationshipType;
 import com.soubhagya.systivex.twin.service.EntityNotFoundException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,11 +45,18 @@ class SimulationProposalValidatorTest {
             };
 
     private static String edgeKey(UUID source, UUID target, SystemRelationshipType type) {
-        return source + "|" + target + "|" + type.name();
+        return new SimulationProposalValidator.ResolvedEdge(source, target, type).key();
     }
 
-    private final Set<String> existing =
-            Set.of(edgeKey(SVC_A, SVC_B, SystemRelationshipType.CALLS));
+    /**
+     * The stored-edge oracle the validator consults for conflict checks. It
+     * stands in for the indexed repository lookup the live paths use.
+     */
+    private final SimulationProposalValidator.EdgeExistence existing =
+            (source, target, type) ->
+                    SVC_A.equals(source)
+                            && SVC_B.equals(target)
+                            && type == SystemRelationshipType.CALLS;
 
     private SimulationProposalValidator.ResolvedProposal validate(
             List<SimulationOperation> operations) {
@@ -261,5 +269,98 @@ class SimulationProposalValidatorTest {
                         removeEntity("root"))))
                 .isInstanceOf(ProposalConflictException.class)
                 .hasMessageContaining("analysis root");
+    }
+
+    @Test
+    void canonicalEdgeKeyFormatIsUnchanged() {
+        assertThat(edgeKey(SVC_A, SVC_B, SystemRelationshipType.CALLS))
+                .isEqualTo(SVC_A + "|" + SVC_B + "|" + SystemRelationshipType.CALLS.name());
+    }
+
+    @Test
+    void theStoreIsConsultedOnlyForTheProposedRelationshipEdges() {
+        List<String> asked = new ArrayList<>();
+        SimulationProposalValidator.EdgeExistence recording =
+                (source, target, type) -> {
+                    asked.add(edgeKey(source, target, type));
+                    return SVC_A.equals(source)
+                            && SVC_B.equals(target)
+                            && type == SystemRelationshipType.CALLS;
+                };
+
+        SimulationProposalValidator.validate(
+                List.of(
+                        removeEntity("svc-c"),
+                        addEdge("svc-a", "svc-b", SystemRelationshipType.DEPENDS_ON),
+                        dropEdge("svc-a", "svc-b", SystemRelationshipType.CALLS)),
+                Set.of(ROOT),
+                recording,
+                resolver);
+
+        // One lookup per proposed relationship edge, and none for the entity
+        // removal: the store is never asked about edges the proposal does not
+        // touch.
+        assertThat(asked)
+                .containsExactly(
+                        edgeKey(SVC_A, SVC_B, SystemRelationshipType.DEPENDS_ON),
+                        edgeKey(SVC_A, SVC_B, SystemRelationshipType.CALLS));
+    }
+
+    @Test
+    void duplicateOperationsAreRejectedWithoutConsultingTheStore() {
+        SimulationProposalValidator.EdgeExistence neverConsulted =
+                (source, target, type) -> {
+                    throw new AssertionError("the store must not be consulted");
+                };
+
+        assertThatThrownBy(
+                        () ->
+                                SimulationProposalValidator.validate(
+                                        List.of(
+                                                dropEdge("svc-a", "svc-b",
+                                                        SystemRelationshipType.CALLS),
+                                                dropEdge("svc-a", "svc-b",
+                                                        SystemRelationshipType.CALLS)),
+                                        Set.of(ROOT),
+                                        neverConsulted,
+                                        resolver))
+                .isInstanceOf(ProposalConflictException.class)
+                .hasMessageContaining("Duplicate operation");
+    }
+
+    @Test
+    void emptyAndNullProposalsConsultTheStoreNever() {
+        SimulationProposalValidator.EdgeExistence neverConsulted =
+                (source, target, type) -> {
+                    throw new AssertionError("the store must not be consulted");
+                };
+
+        SimulationProposalValidator.ResolvedProposal nullProposal =
+                SimulationProposalValidator.validate(
+                        null, Set.of(ROOT), neverConsulted, resolver);
+        SimulationProposalValidator.ResolvedProposal emptyProposal =
+                SimulationProposalValidator.validate(
+                        List.of(), Set.of(ROOT), neverConsulted, resolver);
+
+        assertThat(nullProposal.removedEntityIds()).isEmpty();
+        assertThat(nullProposal.addedEdges()).isEmpty();
+        assertThat(nullProposal.removedEdges()).isEmpty();
+        assertThat(emptyProposal.removedEntityIds()).isEmpty();
+        assertThat(emptyProposal.addedEdges()).isEmpty();
+        assertThat(emptyProposal.removedEdges()).isEmpty();
+    }
+
+    @Test
+    void entityOnlyProposalsConsultTheStoreNever() {
+        SimulationProposalValidator.EdgeExistence neverConsulted =
+                (source, target, type) -> {
+                    throw new AssertionError("the store must not be consulted");
+                };
+
+        SimulationProposalValidator.ResolvedProposal proposal =
+                SimulationProposalValidator.validate(
+                        List.of(removeEntity("svc-c")), Set.of(ROOT), neverConsulted, resolver);
+
+        assertThat(proposal.removedEntityIds()).containsExactly(SVC_C);
     }
 }
