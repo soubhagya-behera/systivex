@@ -187,6 +187,20 @@ final class ImpactTraversal {
                     truncationReason = "node-cap";
                     break;
                 }
+                if (recorded.size() >= limits.maxPaths()) {
+                    // The path cap is reached, so this expansion can never be
+                    // recorded. The entity it reaches must therefore not be
+                    // published as impacted: every impacted entity carries at
+                    // least one complete evidence path. Undo the discovery so
+                    // the traversal node count only reflects nodes that own a
+                    // recorded path.
+                    if (isNewNode) {
+                        discovered.remove(neighbour);
+                    }
+                    truncated = true;
+                    truncationReason = "path-cap";
+                    break;
+                }
                 boolean betterDepth =
                         !minDepth.containsKey(neighbour)
                                 || nextDepth < minDepth.get(neighbour);
@@ -199,11 +213,6 @@ final class ImpactTraversal {
                 if (betterDepth || tieBetterStart) {
                     minDepth.put(neighbour, nextDepth);
                     viaStart.put(neighbour, current.startRef());
-                }
-                if (recorded.size() >= limits.maxPaths()) {
-                    truncated = true;
-                    truncationReason = "path-cap";
-                    break;
                 }
                 recorded.add(new RecordedPath(neighbour, nextDepth, current.startRef(), nextSteps));
                 queue.addLast(

@@ -137,6 +137,103 @@ class ImpactTraversalBoundsTest {
     }
 
     @Test
+    void pathCapDoesNotPublishImpactedEntityWithoutEvidencePath() {
+        SystemEntity start = entity("svc:s", SystemEntityType.SERVICE);
+        List<SystemEntity> all = new ArrayList<>();
+        all.add(start);
+        List<SystemRelationship> edges = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            SystemEntity leaf = entity("svc:leaf-" + i, SystemEntityType.SERVICE);
+            all.add(leaf);
+            edges.add(edge(start, leaf, SystemRelationshipType.CALLS));
+        }
+        ImpactResponse response =
+                run(
+                        List.of(start),
+                        all,
+                        edges,
+                        6,
+                        ALL_TYPES,
+                        new ImpactResponse.Limits(10, 10, 500, 3));
+
+        assertThat(response.truncated()).isTrue();
+        assertThat(response.truncationReason()).isEqualTo("path-cap");
+        assertThat(response.paths()).hasSize(3);
+        // The expansion that trips the path cap is never recorded, so the
+        // entity it reaches must not be published as impacted: every impacted
+        // entity owes at least one complete evidence path.
+        assertThat(response.impacted())
+                .as("impacted entities must each be backed by a recorded evidence path")
+                .allSatisfy(
+                        impacted ->
+                                assertThat(pathsTo(response, impacted.externalRef()))
+                                        .as("evidence paths for %s", impacted.externalRef())
+                                        .isNotEmpty());
+        assertThat(response.impacted()).hasSize(response.paths().size());
+        // The node that trips the path cap was never traversed, so it is not a
+        // traversal node either: the count covers the start plus the three
+        // leaves the walk actually reached.
+        assertThat(response.nodeCount()).isEqualTo(4);
+    }
+
+    @Test
+    void nodeCountCoversOnlyNodesTheTraversalActuallyWalked() {
+        SystemEntity start = entity("svc:s", SystemEntityType.SERVICE);
+        List<SystemEntity> all = new ArrayList<>();
+        all.add(start);
+        List<SystemRelationship> edges = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            SystemEntity leaf = entity("svc:leaf-" + i, SystemEntityType.SERVICE);
+            all.add(leaf);
+            edges.add(edge(start, leaf, SystemRelationshipType.CALLS));
+        }
+
+        // Both caps refuse a node at the same point: right after it is
+        // reached and before any path is recorded for it. A refused node was
+        // never traversed, so neither cap counts it.
+        ImpactResponse pathCapped =
+                run(
+                        List.of(start),
+                        all,
+                        edges,
+                        6,
+                        ALL_TYPES,
+                        new ImpactResponse.Limits(10, 10, 500, 3));
+        ImpactResponse nodeCapped =
+                run(
+                        List.of(start),
+                        all,
+                        edges,
+                        6,
+                        ALL_TYPES,
+                        new ImpactResponse.Limits(10, 10, 3, 2000));
+
+        assertThat(pathCapped.truncationReason()).isEqualTo("path-cap");
+        assertThat(nodeCapped.truncationReason()).isEqualTo("node-cap");
+        // Start plus the three leaves that carry a recorded path.
+        assertThat(pathCapped.nodeCount()).isEqualTo(4);
+        // Start plus the two leaves that carry a recorded path.
+        assertThat(nodeCapped.nodeCount()).isEqualTo(3);
+        // The node count never reports a node beyond the configured cap.
+        assertThat(pathCapped.nodeCount()).isLessThanOrEqualTo(pathCapped.limits().maxNodes());
+        assertThat(nodeCapped.nodeCount()).isLessThanOrEqualTo(nodeCapped.limits().maxNodes());
+        // The node count can exceed the reported entities: the traversal walks
+        // through nodes that the type filter keeps out of the report.
+        SystemEntity table = entity("tbl:t", SystemEntityType.TABLE);
+        SystemEntity db = entity("db:d", SystemEntityType.DATABASE);
+        ImpactResponse filtered =
+                run(
+                        List.of(table),
+                        List.of(table, db),
+                        List.of(edge(table, db, SystemRelationshipType.CONTAINS)),
+                        6,
+                        EnumSet.of(SystemEntityType.SERVICE));
+        assertThat(filtered.nodeCount()).isEqualTo(2);
+        assertThat(filtered.startedFrom()).hasSize(1);
+        assertThat(filtered.impacted()).isEmpty();
+    }
+
+    @Test
     void nodeCapTruncatesExplicitly() {
         SystemEntity start = entity("svc:s", SystemEntityType.SERVICE);
         List<SystemEntity> all = new ArrayList<>();
