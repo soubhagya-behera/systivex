@@ -137,6 +137,46 @@ class ImpactTraversalBoundsTest {
     }
 
     @Test
+    void pathCapDoesNotPublishImpactedEntityWithoutEvidencePath() {
+        SystemEntity start = entity("svc:s", SystemEntityType.SERVICE);
+        List<SystemEntity> all = new ArrayList<>();
+        all.add(start);
+        List<SystemRelationship> edges = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            SystemEntity leaf = entity("svc:leaf-" + i, SystemEntityType.SERVICE);
+            all.add(leaf);
+            edges.add(edge(start, leaf, SystemRelationshipType.CALLS));
+        }
+        ImpactResponse response =
+                run(
+                        List.of(start),
+                        all,
+                        edges,
+                        6,
+                        ALL_TYPES,
+                        new ImpactResponse.Limits(10, 10, 500, 3));
+
+        assertThat(response.truncated()).isTrue();
+        assertThat(response.truncationReason()).isEqualTo("path-cap");
+        assertThat(response.paths()).hasSize(3);
+        // The expansion that trips the path cap is never recorded, so the
+        // entity it reaches must not be published as impacted: every impacted
+        // entity owes at least one complete evidence path.
+        assertThat(response.impacted())
+                .as("impacted entities must each be backed by a recorded evidence path")
+                .allSatisfy(
+                        impacted ->
+                                assertThat(pathsTo(response, impacted.externalRef()))
+                                        .as("evidence paths for %s", impacted.externalRef())
+                                        .isNotEmpty());
+        assertThat(response.impacted()).hasSize(response.paths().size());
+        // The refused expansion is not a traversal node either, so the node
+        // count stays consistent with the start plus the published entities.
+        assertThat(response.nodeCount())
+                .isEqualTo(response.startedFrom().size() + response.impacted().size());
+    }
+
+    @Test
     void nodeCapTruncatesExplicitly() {
         SystemEntity start = entity("svc:s", SystemEntityType.SERVICE);
         List<SystemEntity> all = new ArrayList<>();
