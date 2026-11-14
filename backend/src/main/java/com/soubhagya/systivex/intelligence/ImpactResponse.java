@@ -15,6 +15,14 @@ import java.util.UUID;
  * separately in {@code startedFrom} (depth zero) and never counted as
  * impacted. Results are "potentially affected" components, not confirmed
  * breakage — see {@code note}.
+ *
+ * <p>{@code nodeCount} is the number of nodes the traversal actually
+ * covered: the starting entities plus every reached node that owns a
+ * recorded evidence path. A node refused by the node cap or the path cap was
+ * never traversed and is therefore not counted, so {@code nodeCount} never
+ * exceeds {@code limits.maxNodes}. It can exceed
+ * {@code startedFrom().size() + impacted().size()}, because the traversal
+ * passes through nodes that the type filter excludes from the report.
  */
 public record ImpactResponse(
         List<StartEntity> startedFrom,
