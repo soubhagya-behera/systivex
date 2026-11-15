@@ -39,6 +39,13 @@ import tools.jackson.databind.json.JsonMapper;
  * Phase 11 S5: approval freshness, expiry, and concurrency over real
  * HTTP. Structural and runtime staleness are checked separately: a
  * runtime-only change keeps the fingerprint but fails the risk recheck.
+ *
+ * <p>These fixtures remove an isolated leaf entity and add an edge
+ * between two analysis roots, so the baseline risk scope and the
+ * proposal's own hypothetical risk scope coincide. The case where a
+ * change reshapes the impact set — and the scopes must still be
+ * compared like for like — is covered by
+ * {@link ProposalApprovalRiskScopeTest}.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
