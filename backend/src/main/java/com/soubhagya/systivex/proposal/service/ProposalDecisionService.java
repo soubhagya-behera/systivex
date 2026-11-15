@@ -1,10 +1,13 @@
 package com.soubhagya.systivex.proposal.service;
 
+import com.soubhagya.systivex.intelligence.HypotheticalGraph;
 import com.soubhagya.systivex.intelligence.ProposalConflictException;
 import com.soubhagya.systivex.intelligence.ProposalExpiredException;
 import com.soubhagya.systivex.intelligence.RiskLevel;
 import com.soubhagya.systivex.intelligence.RiskResponse;
 import com.soubhagya.systivex.intelligence.RiskService;
+import com.soubhagya.systivex.intelligence.SimulationOperation;
+import com.soubhagya.systivex.intelligence.SimulationProposalValidator;
 import com.soubhagya.systivex.proposal.api.ProposalResponse;
 import com.soubhagya.systivex.proposal.model.AuditAction;
 import com.soubhagya.systivex.proposal.model.AuditOutcome;
@@ -44,12 +47,14 @@ import tools.jackson.databind.json.JsonMapper;
  * fresh, non-{@code DENY} assessment: the stored hashes are re-verified,
  * lazy expiry (7-day default, 30-day hard maximum) is enforced, the
  * structural fingerprint is recomputed over one {@code REPEATABLE_READ}
- * snapshot, and risk is reclassified over current rows for the stored
- * roots/settings — any escalation, new {@code UNKNOWN}, or new staleness
- * rejects the approval (409) instead of silently refreshing it. A stale
- * proposal must be amended, reassessed, and resubmitted. {@code APPROVED}
- * is a terminal record: it authorizes nothing by itself and executes
- * nothing — acting on it stays a human step outside the system.
+ * snapshot, and risk is reclassified for the stored roots/settings over
+ * the proposal's own hypothetical state rebuilt from the stored operations
+ * on that snapshot — any escalation, new {@code UNKNOWN}, or new
+ * staleness rejects the approval (409) instead of silently refreshing it.
+ * A stale proposal must be amended, reassessed, and resubmitted.
+ * {@code APPROVED} is a terminal record: it authorizes nothing by itself
+ * and executes nothing — acting on it stays a human step outside the
+ * system.
  */
 @Service
 public class ProposalDecisionService {
@@ -177,6 +182,21 @@ public class ProposalDecisionService {
         return ProposalResponse.from(latest);
     }
 
+    /**
+     * Rechecks risk freshness over the scope the assessment measured.
+     *
+     * <p>The stored assessment holds the <em>after</em>-simulation risk —
+     * the risk of the proposal's own hypothetical graph, the same scope the
+     * stored policy decision was evaluated over. The recheck therefore
+     * recomputes that scope: the hypothetical graph is rebuilt from the
+     * stored canonical operations on the current, fingerprint-verified
+     * snapshot and classified for the stored roots/settings. Comparing the
+     * stored hypothetical levels against the risk of the untouched twin
+     * would compare two different scopes and reject a valid proposal whose
+     * own change reshapes the impact set (removing an entity drops its
+     * exclusive dependents out of the scope) — a difference the proposal
+     * caused, not evidence that the assessment went stale.
+     */
     private void recheckRisk(
             ProposalRevision latest,
             List<SystemEntity> snapshotEntities,
@@ -211,9 +231,15 @@ public class ProposalDecisionService {
                         "Stored assessment settings are unreadable: assessment is stale");
             }
         }
+        HypotheticalGraph.Built hypothetical =
+                hypothetical(latest, snapshotEntities, snapshotEdges, entitiesById);
         RiskResponse fresh =
                 riskService.assessResolved(
-                        starts, stored.maxDepth, includeTypes, snapshotEntities, snapshotEdges);
+                        starts,
+                        stored.maxDepth,
+                        includeTypes,
+                        hypothetical.entities(),
+                        hypothetical.edges());
         for (RiskResponse.RiskEntry entry : fresh.risks()) {
             String id = entry.id().toString();
             String was = stored.levels.get(id);
@@ -247,6 +273,49 @@ public class ProposalDecisionService {
                         "Risk evidence newly stale since assessment; amend to reassess");
             }
         }
+    }
+
+    /**
+     * Rebuilds the assessed proposal from the stored canonical operations
+     * against the current snapshot and applies it to the snapshot, exactly
+     * as the assessment did.
+     *
+     * <p>The fingerprint already proved that the twin structure is
+     * unchanged, so the stored operations must resolve identically to the
+     * assessment; anything else means the assessment no longer describes
+     * the twin and the approval is refused (409) rather than silently
+     * refreshed.
+     */
+    private HypotheticalGraph.Built hypothetical(
+            ProposalRevision latest,
+            List<SystemEntity> snapshotEntities,
+            List<SystemRelationship> snapshotEdges,
+            Map<UUID, SystemEntity> entitiesById) {
+        List<SimulationOperation> operations;
+        try {
+            operations = ProposalCanonical.parseOperations(latest.getOperations());
+        } catch (RuntimeException e) {
+            throw new ProposalConflictException(
+                    "Stored operations are unreadable: assessment is stale");
+        }
+        SimulationProposalValidator.ResolvedProposal resolved;
+        try {
+            resolved =
+                    SimulationProposalValidator.validate(
+                            operations,
+                            Set.of(),
+                            SimulationProposalValidator.edgeExistenceOf(snapshotEdges),
+                            ProposalOperations.snapshotResolver(entitiesById));
+        } catch (ProposalConflictException e) {
+            throw new ProposalConflictException(
+                    "Stored proposal no longer applies to the current twin;"
+                            + " amend to reassess and resubmit");
+        } catch (RuntimeException e) {
+            throw new ProposalConflictException(
+                    "Stored proposal no longer resolves against the current twin;"
+                            + " amend to reassess and resubmit");
+        }
+        return HypotheticalGraph.build(snapshotEntities, snapshotEdges, resolved, entitiesById);
     }
 
     private static int rank(RiskLevel level) {

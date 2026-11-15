@@ -721,7 +721,14 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   at approval: recompute risk over current rows for the stored
   roots/settings and reject on any level increase, new `UNKNOWN`, new
   staleness, or runtime evidence older than the 30-minute taxonomy
-  threshold. Residual accepted risks: change-then-revert (ABA) content
+  threshold. The recomputation evaluates the scope the assessment
+  measured — the after-simulation risk of the proposal's own hypothetical
+  graph — so the stored operations are re-applied to the current,
+  fingerprint-verified rows before the hypothetical state is
+  reclassified. Comparing the stored hypothetical levels against the
+  untouched twin's risk would compare two different scopes and reject
+  valid proposals whose own change reshapes the impact set.
+  Residual accepted risks: change-then-revert (ABA) content
   equality, and a millisecond check-then-act window inside the approval
   transaction (row-locked, human-scale staleness dominates).
 - **Audit integrity:** `audit_event` rows carry actor, action, outcome,
