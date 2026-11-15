@@ -804,10 +804,15 @@ verification partial — see limits below)
   commit and returns 409 via a non-rolling-back expiry failure);
   structural fingerprint recomputed over one snapshot and
   compared (mismatch → 409, never silent refresh); risk
-  reclassified over current rows for the stored roots/settings
-  (`RiskService.assessResolved`, widened to public, no logic
-  change) — level escalation (incl. arrival at `HIGH`), new
-  `UNKNOWN`, or new staleness each reject with 409. Runtime-only
+  reclassified for the stored roots/settings over the proposal's
+  own hypothetical state, rebuilt from the stored operations on
+  that snapshot (`RiskService.assessResolved` over the rebuilt
+  hypothetical graph) — level escalation (incl. arrival at `HIGH`),
+  new `UNKNOWN`, or new staleness each reject with 409. The
+  recomputation covers the scope the assessment measured (the
+  after-simulation risk), so equivalent scopes are compared and a
+  proposal that reshapes its own impact set is never rejected for
+  that difference. Runtime-only
   changes keep the fingerprint but fail the risk recheck, proving
   the two freshness channels stay separate. Stale proposals must
   be amended, reassessed, and resubmitted.
@@ -827,7 +832,12 @@ verification partial — see limits below)
   (fingerprint mismatch, runtime-only staleness with unchanged
   fingerprint, escalation, TTL expiry with `EXPIRED` marking,
   30-day hard max, concurrent approves → one winner, decided
-  revisions unamendable); `ProposalMutationRollbackTest` +2
+  revisions unamendable); `ProposalApprovalRiskScopeTest` 3
+  (the approval recheck compares the assessed after-simulation
+  scope: a removal that reshapes the impact set is approved, an
+  escalation inside the assessed scope still rejects, runtime
+  evidence outside the assessed scope does not decide the
+  approval); `ProposalMutationRollbackTest` +2
   (approve/reject audit-failure rollback);
   `JwtGrantedAuthoritiesConverterTest` +2 (explicit approver
   grant, no admin inheritance);
