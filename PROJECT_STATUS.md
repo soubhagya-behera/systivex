@@ -711,9 +711,14 @@ verification partial — see limits below)
   entity/edge lists loaded once inside a `REPEATABLE_READ`
   transaction; validation, `simulateResolved`, `evaluateResolved`,
   and `TwinFingerprint` all run over those exact in-memory lists —
-  `ImpactAnalysisService.parseSnapshotInputs` resolves analysis
+  `ImpactAnalysisService.parseSnapshotRoots` resolves analysis
   roots against the snapshot (no repository reload), so simulation,
   impact, risk, policy, and fingerprint describe one captured state.
+  The roots are the entities the stored operations touch — a set the
+  proposal derives itself, so the impact query's caller-facing start
+  cap (10 `from` values, D23) does not bound it; the proposal limit
+  (100 operations) does, and a proposal accepted at creation is
+  therefore always assessable, submittable, and approvable.
   Stores the bounded assessment document (settings, simulation graph
   + delta + limitations, policy decision/version/rules, risk
   taxonomy/snapshot-time/levels/uncertain/stale lists) plus
@@ -754,10 +759,12 @@ verification partial — see limits below)
   409; no duplicate numbers, no double-latest). No approval,
   rejection, execution, scheduler, side effect, or new dependency.
 - [x] Tests written (PostgreSQL/Testcontainers + API, deterministic
-  fixtures): `ProposalAssessApiTest` 8 — server-side evidence,
+  fixtures): `ProposalAssessApiTest` 9 — server-side evidence,
   fingerprint determinism, runtime-only refresh invariance,
   structural-change sensitivity, invalid/conflicting operations
-  leaving `DRAFT`, role matrix + repeat-assess 409;
+  leaving `DRAFT`, a proposal touching more than ten entities
+  completing the whole draft → assess → submit → approve lifecycle,
+  role matrix + repeat-assess 409;
   `ProposalSubmitAmendApiTest` 8 — exact-assessment submit, stale
   revision/hash/status/expiry 409s, amendment forking with history
   preservation, terminal/stranger 403/404/409s, concurrent submits

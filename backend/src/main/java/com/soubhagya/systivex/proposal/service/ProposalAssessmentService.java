@@ -49,7 +49,11 @@ import tools.jackson.databind.json.JsonMapper;
  * policy, risk, and fingerprinting over those exact in-memory lists —
  * fingerprint and assessment are coherent by construction. Only the
  * stored canonical operations feed the computation; the request carries
- * no assessment, risk, policy, or delta fields to trust. Submission is a
+ * no assessment, risk, policy, or delta fields to trust. The impact
+ * roots are the entities the stored operations touch: a set the
+ * proposal derives itself, so the impact query's caller-facing start cap
+ * does not bound it — the proposal limit already does, and a proposal
+ * that was accepted at creation must be assessable. Submission is a
  * guarded transition binding the caller's revision and hashes to the
  * exact stored assessment. Approval and rejection arrive in a later
  * slice (S5); expiry sweeps arrive later still.
@@ -121,7 +125,7 @@ public class ProposalAssessmentService {
                         ProposalOperations.snapshotResolver(entitiesById));
         List<String> rootIds = touchedIds(resolved);
         ImpactQueryValidator.ParsedInputs inputs =
-                impactService.parseSnapshotInputs(entitiesById, rootIds, null, null);
+                impactService.parseSnapshotRoots(entitiesById, rootIds, null, null);
         SimulationResponse simulation =
                 simulationService.simulateResolved(inputs, snapshotEntities, snapshotEdges, resolved);
         PolicyEvaluationResponse policy = policyService.evaluateResolved(simulation);
