@@ -18,7 +18,10 @@ import java.util.UUID;
  *   <li>Operation shape — 400 ({@link IllegalArgumentException}): null
  *       operation or type, blank {@code entity} for {@code REMOVE_ENTITY},
  *       blank {@code source}/{@code target} or null
- *       {@code relationshipType} for relationship operations.</li>
+ *       {@code relationshipType} for relationship operations, and an
+ *       identifier the operation actually uses that is longer than
+ *       {@link ImpactQueryValidator#MAX_IDENTIFIER_CHARS} characters (the
+ *       same bound the impact query applies to its starting entities).</li>
  *   <li>Identifier resolution — 404: every referenced identifier is resolved
  *       through the caller-supplied resolver (impact-query semantics:
  *       UUID first, then external reference, 404 on unknown).</li>
@@ -30,6 +33,12 @@ import java.util.UUID;
  *       or removing a non-existent one; any relationship operation
  *       incident to an entity removed by the same proposal.</li>
  * </ol>
+ *
+ * <p>Identifier length is measured on the raw value before trimming, so
+ * whitespace padding cannot smuggle unbounded text past the check, and it
+ * is enforced for every operation before the first resolver call: an
+ * oversized identifier never reaches the entity store, and the rejection
+ * message carries only the limit, never the rejected identifier.
  */
 public final class SimulationProposalValidator {
 
@@ -205,6 +214,7 @@ public final class SimulationProposalValidator {
                     throw new IllegalArgumentException(
                             "entity is required for REMOVE_ENTITY");
                 }
+                requireIdentifierLength(op.entity(), "entity");
             }
             case ADD_RELATIONSHIP, REMOVE_RELATIONSHIP -> {
                 if (op.source() == null
@@ -218,7 +228,22 @@ public final class SimulationProposalValidator {
                     throw new IllegalArgumentException(
                             "relationshipType is required for " + op.type());
                 }
+                requireIdentifierLength(op.source(), "source");
+                requireIdentifierLength(op.target(), "target");
             }
+        }
+    }
+
+    /**
+     * Rejects an identifier the operation uses that is longer than the
+     * impact-query identifier bound. Measured on the raw value, before
+     * trimming; the message names the field and the limit, never the value.
+     */
+    private static void requireIdentifierLength(String raw, String field) {
+        if (raw != null && raw.length() > ImpactQueryValidator.MAX_IDENTIFIER_CHARS) {
+            throw new IllegalArgumentException(
+                    field + " must not exceed "
+                            + ImpactQueryValidator.MAX_IDENTIFIER_CHARS + " characters");
         }
     }
 
