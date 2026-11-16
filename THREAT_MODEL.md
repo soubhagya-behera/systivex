@@ -49,6 +49,13 @@ gateway holds no database credentials at all.
   UI/API calls) is validated, size-bounded, and encoded on output.
 - Validation (`spring-boot-starter-validation` is present) must be applied at
   every trust boundary; validation failures fail closed with no side effects.
+- The optional `Idempotency-Key` on the target checkout/order APIs (D45) is
+  untrusted client input too: it is bounded to 255 characters, stripped of
+  control characters, never echoed, and reduced to a SHA-256 digest before it
+  reaches storage. The gateway forwards it unchanged but never logs it, and
+  neither the key nor its digest becomes a metric label. Reused keys cannot
+  trigger a second checkout: a unique database index elects one owner, and
+  the loser receives a conflict rather than a repeat business operation.
 
 ### T3. Backend systems are authoritative
 

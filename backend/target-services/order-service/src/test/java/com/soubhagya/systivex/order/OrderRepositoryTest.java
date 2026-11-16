@@ -3,6 +3,7 @@ package com.soubhagya.systivex.order;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.soubhagya.systivex.order.api.OrderRequest;
 import com.soubhagya.systivex.order.model.OrderEntity;
 import com.soubhagya.systivex.order.model.OrderStatus;
 import com.soubhagya.systivex.order.repository.OrderRepository;
@@ -92,5 +93,48 @@ class OrderRepositoryTest extends AbstractPostgresIntegrationTest {
                 new OrderEntity(UUID.randomUUID(), "CUST-1001", "SKU-1001", 0, new BigDecimal("1.00"));
         assertThatThrownBy(() -> orders.saveAndFlush(bad))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void databaseRejectsASecondOrderForTheSameIdempotencyKey() {
+        String keyHash = IdempotencyFingerprint.keyHash("a-key");
+        orders.saveAndFlush(
+                new OrderEntity(
+                        UUID.randomUUID(),
+                        "CUST-1001",
+                        "SKU-1001",
+                        1,
+                        new BigDecimal("1499.00"),
+                        keyHash,
+                        IdempotencyFingerprint.requestHash(
+                                new OrderRequest(
+                                        "SKU-1001", 1, "CUST-1001", new BigDecimal("1499.00")))));
+
+        OrderEntity duplicate =
+                new OrderEntity(
+                        UUID.randomUUID(),
+                        "CUST-1001",
+                        "SKU-1001",
+                        1,
+                        new BigDecimal("1499.00"),
+                        keyHash,
+                        IdempotencyFingerprint.requestHash(
+                                new OrderRequest(
+                                        "SKU-1001", 1, "CUST-1001", new BigDecimal("1499.00"))));
+
+        assertThatThrownBy(() -> orders.saveAndFlush(duplicate))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void databaseAllowsManyOrdersWithoutAnIdempotencyKey() {
+        // A null key digest stays distinct per row, so requests without an
+        // Idempotency-Key keep creating one order each.
+        long before = orders.count();
+
+        orders.saveAndFlush(newOrder());
+        orders.saveAndFlush(newOrder());
+
+        assertThat(orders.count()).isEqualTo(before + 2);
     }
 }
