@@ -943,9 +943,14 @@ Token handling: the token is held in memory for the tab only, cleared on
 reload, and never written to `localStorage`, `sessionStorage`, `IndexedDB`,
 cookies, a URL, or logs. There is **no login flow and no bundled identity
 provider** — the trusted production issuer/client details remain unavailable,
-so live OIDC sign-in is not implemented and is not claimed. CI
-(`.github/workflows/frontend-ci.yml`) installs from the lockfile, audits
-dependencies, runs the test suite, and builds the bundle on Node 24. Do not add
+so live OIDC sign-in is not implemented and is not claimed. Functional CI
+(`.github/workflows/frontend-ci.yml`, D46) installs from the lockfile, runs the
+test suite, and builds the bundle on Node 24 on every PR and every push to
+`main`. Dependency auditing runs as a separate independent job when
+`frontend/package.json` or `frontend/package-lock.json` changes, and on the
+daily schedule or manual dispatch; that job may report "Not applicable —
+frontend dependency manifests unchanged." without claiming a clean audit. The
+high-severity audit threshold and dependency policy are unchanged. Do not add
 production/static hosting or shared serving without a separately reviewed
 decision (D33).
 
