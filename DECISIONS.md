@@ -2158,6 +2158,45 @@ Stop for review and explicit approval before modifying `DECISIONS.md`.
 
 
 
+## D46 — Frontend CI Separation: Functional Checks and Dependency Security Audit
+
+- **Status:** DECIDED AND ADOPTED 2026-11-18. Architecture and decision record only. The implementation has passed independent review and is handled through a separate change process; D46 itself does not authorize a merge.
+- **Date:** 2026-11-18.
+- **Depends on:** D33 (read-only local console; no production/static hosting) and the existing Frontend CI workflow. D46 amends no prior decision. D44 remains reserved for Phase 14 S2 Slice 4. D45 remains the checkout idempotency decision. D35–D37 historical wording is preserved unchanged.
+- **Purpose:** Separate frontend functional verification from dependency security auditing so that tests and builds run on every relevant PR while the high-severity audit check continues to fail when a dependency change has a high-severity finding. The check does not block merges until required-check protection is configured.
+
+- **A. Stable functional job.** The job name `Test and build (Node 24)` is preserved. It runs on every pull request and every push to `main`, and always executes `npm ci`, `npm test`, and `npm run build`. The `npm audit` step is removed from this job. It may be skipped on scheduled-only and manual-dispatch-only runs to avoid unnecessary daily build work.
+
+- **B. Independent audit job.** A new job named `Dependency audit (high)` starts on every workflow event: pull requests, pushes to `main`, the daily schedule, and manual `workflow_dispatch`. It publishes a check result on each event. It has no `needs` dependency on `Test and build (Node 24)`, so a test or build failure cannot suppress the audit result. Both job names are stable and suitable for use as required checks once configured.
+
+- **C. Audit execution cadence.** The audit command runs according to this table:
+
+  | Event | Run `npm audit`? |
+  | --- | --- |
+  | PR changes `frontend/package.json` | Yes |
+  | PR changes `frontend/package-lock.json` | Yes |
+  | PR changes unrelated files | No |
+  | Push to `main` changes dependency files | Yes |
+  | Daily scheduled run | Yes |
+  | Manual `workflow_dispatch` | Yes |
+
+- **D. Reliable change detection.** Pull requests use the complete paginated PR changed-file list with read-only `pull-requests: read` permission and inspect both `filename` and `previous_filename` when present. Main pushes compare the event's before and after SHAs using `git diff --no-renames --name-only` so a rename contributes both its removal and addition paths. Scheduled and manual runs always audit. PR API errors and git comparison errors fail closed by requiring the audit rather than silently skipping it. An initial checkout or fetch failure before detection makes the audit job fail directly; it cannot report a successful "Not applicable" result. Initial pushes and missing SHAs also fail closed by requiring the audit. No workflow-level `paths` or `paths-ignore` filters are used.
+
+- **E. Unchanged security gate.** When the audit executes, the exact command remains `npm audit --audit-level=high`, preceded by `npm ci` using the committed lockfile. The high-severity threshold and all dependency versions are unchanged. D46 does not authorize dependency downgrades, npm overrides, Git SHA or fork overrides, advisory suppressions, audit disabling, or any weakened security check.
+
+- **F. Non-applicable result.** When the audit is not executed, the job emits a GitHub notice annotation with exactly "Not applicable — frontend dependency manifests unchanged." and writes the same message to `$GITHUB_STEP_SUMMARY`. It does not report that dependencies are vulnerability-free, and it does not imply that an audit ran.
+
+- **G. Cancellation safety.** The functional job retains its cancellable concurrency group. The audit job has no concurrency group, so each dependency-audit event executes independently and an audit run cannot be displaced by a later event.
+
+- **H. Accepted detection delay.** D46 accepts a detection delay of one schedule interval for newly published advisories affecting unchanged dependency manifests. The daily scheduled audit bounds this delay; it does not remove or suppress the advisory.
+
+- **I. Required checks and merge behavior.** Branch protection currently does not enforce required checks in this repository: no branch or ruleset protection is configured. GitHub therefore does not block merges on these checks today. D46 does not claim that merges are blocked. If protection is configured later, both stable job names must be added explicitly, and workflow-level path filters must be avoided because a filtered-out workflow leaves a required check pending indefinitely.
+
+- **J. Scope and compatibility.** D46 changes only frontend CI workflow behavior and the corresponding decision/documentation records. It does not modify dependency manifests, production code, the backend workflow, or any third-party action dependency. It preserves D33–D43, including D35–D37 wording, and preserves the D44 and D45 reservations.
+
+- **K. Risks and rollback.** Residual risks are the accepted one-interval advisory detection delay and the need for correct fail-closed detection. Rollback restores the previous single-job workflow without changing dependency versions, security threshold, production code, or backend CI. A known advisory may still make an executed audit fail; D46 does not hide or bypass that failure.
+
+
 ## Supersession rule
 
 New decisions amend this file with date and rationale; they never silently edit
