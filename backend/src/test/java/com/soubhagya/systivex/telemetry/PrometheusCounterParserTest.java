@@ -156,4 +156,178 @@ class PrometheusCounterParserTest {
         assertThat(PrometheusCounterParser.parse(VALID_ORDER))
                 .isEqualTo(PrometheusCounterParser.parse(VALID_ORDER));
     }
+
+    @Test
+    void payloadOfExactlyMaxCharsIsAccepted() {
+        String body = expositionOfSize(PrometheusCounterParser.MAX_CHARS);
+
+        assertThat(body).hasSize(PrometheusCounterParser.MAX_CHARS);
+        assertThat(PrometheusCounterParser.parse(body)).containsEntry("checkout.success", 1L);
+    }
+
+    @Test
+    void payloadOfMaxCharsPlusOneIsRejected() {
+        String body = expositionOfSize(PrometheusCounterParser.MAX_CHARS + 1);
+
+        assertThat(body).hasSize(PrometheusCounterParser.MAX_CHARS + 1);
+        assertThatThrownBy(() -> PrometheusCounterParser.parse(body))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "exceeds " + PrometheusCounterParser.MAX_CHARS + " characters");
+    }
+
+    @Test
+    void sampleCountOfExactlyMaxLinesIsAccepted() {
+        String body = expositionWithSamples(PrometheusCounterParser.MAX_LINES);
+
+        assertThat(body.length()).isLessThan(PrometheusCounterParser.MAX_CHARS);
+        assertThat(PrometheusCounterParser.parse(body)).containsEntry("checkout.success", 1L);
+    }
+
+    @Test
+    void sampleCountOfMaxLinesPlusOneIsRejected() {
+        String body = expositionWithSamples(PrometheusCounterParser.MAX_LINES + 1);
+
+        assertThat(body.length()).isLessThan(PrometheusCounterParser.MAX_CHARS);
+        assertThatThrownBy(() -> PrometheusCounterParser.parse(body))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "exceeds " + PrometheusCounterParser.MAX_LINES + " samples");
+    }
+
+    @Test
+    void blankAndCommentLinesDoNotCountTowardsTheSampleLimit() {
+        StringBuilder body = new StringBuilder();
+        for (int i = 0; i < PrometheusCounterParser.MAX_LINES; i++) {
+            body.append("checkout_success_total 1\n");
+        }
+        body.append("#\n\n");
+
+        assertThat(body.length()).isLessThan(PrometheusCounterParser.MAX_CHARS);
+        assertThat(PrometheusCounterParser.parse(body.toString()))
+                .containsEntry("checkout.success", 1L);
+    }
+
+    @Test
+    void timestampedSampleIsParsed() {
+        Map<String, Long> parsed =
+                PrometheusCounterParser.parse("checkout_success_total 7 1700000000000\n");
+
+        assertThat(parsed).containsEntry("checkout.success", 7L);
+    }
+
+    @Test
+    void timestampedSampleWithEpochZeroIsParsed() {
+        Map<String, Long> parsed = PrometheusCounterParser.parse("checkout_failure_total 2 0\n");
+
+        assertThat(parsed).containsEntry("checkout.failure", 2L);
+    }
+
+    @Test
+    void blankAndCommentLinesAreIgnored() {
+        String body =
+                "# HELP checkout_success_total business counter\n"
+                        + "# TYPE checkout_success_total counter\n"
+                        + "\n"
+                        + "   \n"
+                        + "\t\n"
+                        + "checkout_success_total 3\n"
+                        + "# trailing comment\n";
+
+        Map<String, Long> parsed = PrometheusCounterParser.parse(body);
+
+        assertThat(parsed).containsOnlyKeys("checkout.success");
+        assertThat(parsed.get("checkout.success")).isEqualTo(3L);
+    }
+
+    @Test
+    void unrelatedMetricFamiliesAreIgnored() {
+        String body =
+                """
+                jvm_memory_used_bytes 1.0E9
+                node_cpu_seconds_total 0.5
+                tomcat_sessions_active_current_sessions 4
+                hikaricp_connections_pending 2
+                system_cpu_usage 0.2
+                checkout_success_total 8
+                """;
+
+        Map<String, Long> parsed = PrometheusCounterParser.parse(body);
+
+        assertThat(parsed).containsOnlyKeys("checkout.success");
+        assertThat(parsed.get("checkout.success")).isEqualTo(8L);
+    }
+
+    @Test
+    void infinityValueIsRejected() {
+        String body = "checkout_success_total Infinity\n";
+
+        assertThatThrownBy(() -> PrometheusCounterParser.parse(body))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid counter value");
+    }
+
+    @Test
+    void negativeInfinityValueIsRejected() {
+        String body = "checkout_success_total -Infinity\n";
+
+        assertThatThrownBy(() -> PrometheusCounterParser.parse(body))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid counter value");
+    }
+
+    @Test
+    void malformedNumericValueIsRejected() {
+        assertThatThrownBy(() -> PrometheusCounterParser.parse("checkout_success_total abc\n"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Malformed counter value");
+    }
+
+    @Test
+    void malformedDecimalValueIsRejected() {
+        assertThatThrownBy(() -> PrometheusCounterParser.parse("checkout_success_total 1.2.3\n"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Malformed counter value");
+    }
+
+    @Test
+    void counterValueAboveSupportedRangeIsRejected() {
+        String body = "checkout_success_total 9000000000000001\n";
+        String scientific = "checkout_success_total 1e16\n";
+
+        assertThatThrownBy(() -> PrometheusCounterParser.parse(body))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("checkout_success_total");
+
+        assertThatThrownBy(() -> PrometheusCounterParser.parse(scientific))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("checkout_success_total");
+    }
+
+    @Test
+    void counterValueAtSupportedRangeUpperBoundIsAccepted() {
+        Map<String, Long> parsed =
+                PrometheusCounterParser.parse("checkout_success_total 9000000000000000\n");
+
+        assertThat(parsed).containsEntry("checkout.success", 9000000000000000L);
+    }
+
+    /** Builds an exposition of exactly {@code size} characters ending in a comment. */
+    private static String expositionOfSize(int size) {
+        StringBuilder body = new StringBuilder("checkout_success_total 1\n# ");
+        while (body.length() < size) {
+            body.append('x');
+        }
+        return body.toString();
+    }
+
+    /** Builds an exposition carrying exactly {@code sampleCount} sample lines. */
+    private static String expositionWithSamples(int sampleCount) {
+        StringBuilder body = new StringBuilder("checkout_success_total 1\n");
+        for (int i = 1; i < sampleCount; i++) {
+            body.append("http_requests 1\n");
+        }
+        body.setLength(body.length() - 1);
+        return body.toString();
+    }
 }

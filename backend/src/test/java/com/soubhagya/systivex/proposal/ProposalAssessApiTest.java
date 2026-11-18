@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.soubhagya.systivex.security.TestJwt;
 import com.soubhagya.systivex.twin.AbstractPostgresIntegrationTest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -126,6 +127,50 @@ class ProposalAssessApiTest extends AbstractPostgresIntegrationTest {
 
     private List<Map<String, Object>> removeGamma() {
         return List.of(Map.of("type", "REMOVE_ENTITY", "entity", refC));
+    }
+
+    @Test
+    void proposalTouchingMoreThanTenEntitiesIsAssessable() {
+        String analyst = token("TWIN_ANALYZE");
+        // Twelve distinct touched entities: the proposal limit allows 100
+        // operations, so a proposal this size is accepted at creation and
+        // must be assessable too. The impact query's caller-facing start
+        // cap does not govern a root set the proposal derives itself.
+        List<Map<String, Object>> ops = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            ops.add(Map.of("type", "ADD_RELATIONSHIP",
+                    "source", prefix + ":svc-x" + i,
+                    "target", prefix + ":svc-x" + (i + 6),
+                    "relationshipType", "DEPENDS_ON"));
+        }
+        for (int i = 0; i < 12; i++) {
+            insertEntity("Xi" + i, prefix + ":svc-x" + i);
+        }
+        String key = draft(analyst, ops);
+
+        ResponseEntity<String> assessed =
+                call(HttpMethod.POST, "/api/v1/twin/proposals/" + key + "/assess", analyst, null);
+
+        assertThat(assessed.getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode revision = body(assessed);
+        assertThat(revision.get("status").asText()).isEqualTo("ASSESSED");
+        assertThat(revision.get("assessment").get("settings").get("rootCount").asInt())
+                .isEqualTo(12);
+
+        // The proposal must also be able to leave DRAFT: submit and approve
+        // read the stored roots back, and neither may re-impose the query
+        // start cap.
+        ResponseEntity<String> submitted =
+                call(HttpMethod.POST, "/api/v1/twin/proposals/" + key + "/submit", analyst,
+                        Map.of("revisionNumber", revision.get("revisionNumber").asInt(),
+                                "operationsHash", revision.get("operationsHash").asText(),
+                                "assessmentHash", revision.get("assessmentHash").asText()));
+        assertThat(submitted.getStatusCode()).isEqualTo(HttpStatus.OK);
+        ResponseEntity<String> approved =
+                call(HttpMethod.POST, "/api/v1/twin/proposals/" + key + "/approve",
+                        token("TWIN_APPROVER"), Map.of("reason", "Reviewed against the twin"));
+        assertThat(approved.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(body(approved).get("status").asText()).isEqualTo("APPROVED");
     }
 
     @Test
