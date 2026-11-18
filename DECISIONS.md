@@ -2158,6 +2158,56 @@ Stop for review and explicit approval before modifying `DECISIONS.md`.
 
 
 
+## D45 — Checkout Idempotency Contract: Optional Idempotency-Key on Checkout and Orders
+
+- **Status:** DECIDED AND ADOPTED 2026-11-16. Implemented in the same change. Tracked in PR #36.
+- **Date:** 2026-11-16.
+- **Depends on:** D16 (plain `RestClient` edge, no gateway framework, no retry or circuit-breaker machinery), D17 (service-owned databases, no cross-service data access), and the Phase 2B checkout contract in `ARCHITECTURE.md` §4. D45 amends no prior decision.
+- **Purpose:** Make the checkout flow safe against a client retry. Today every `POST /api/v1/orders` creates a fresh order, a fresh inventory reservation and a fresh payment authorization, so a retry after a timeout or a lost response can duplicate a business operation. D45 adopts an optional, client-supplied idempotency key with an explicit replay, conflict and in-progress contract. D45 does not change the unkeyed contract.
+
+- **A. Scope.** D45 covers exactly two endpoints: `POST /api/v1/checkout` (gateway-service) and `POST /api/v1/orders` (order-service). The gateway accepts the optional `Idempotency-Key` header and forwards it unchanged to order-service; it stays a pure forwarder and owns no idempotency state. Order-service owns the entire contract: validation, fingerprinting, ownership, replay, conflict answers and persistence. D45 authorizes no change to inventory-service or payment-service, no new endpoint, no shared table, no distributed transaction, no cross-service database access, no automatic retry, and no circuit breaker.
+
+- **B. The contract.** For a request that carries a valid `Idempotency-Key`:
+  1. The key identifies exactly one checkout attempt. One attempt is one order row.
+  2. Same key and same request payload: the recorded outcome is replayed. A confirmed checkout replays its original `201` result — same order id, same reservation id, same authorization id. A failed checkout replays its original failure result — same order id, same `reason`, same sanitized message, same status code (`422` for a business rejection, `503` for a downstream outage). That is the order-service boundary; section O gives the gateway mapping.
+  3. Same key and different request payload: `409 Conflict` with `reason: IDEMPOTENCY_KEY_CONFLICT`. No downstream call is made and no order is created.
+  4. Same key while the attempt that owns it is still running: `409 Conflict` with `reason: IDEMPOTENCY_KEY_IN_PROGRESS`. A second checkout is never started.
+  5. An unusable key (blank, longer than 255 characters, or containing control characters) is rejected with `400` and a message that never echoes the value. Rejection is loud on purpose: silently degrading to an unkeyed checkout would recreate the duplicate-operation hazard this decision exists to remove.
+
+  A request without the header is unchanged: one attempt, one order, one reservation, one authorization, the same status codes and the same response bodies as before D45.
+
+- **C. Ownership and concurrency.** Ownership is claimed by inserting the attempt's order row. A unique index on the key digest column is the arbiter, so exactly one concurrent request can own a key: the loser receives a unique violation, observes the winner's row and either replays its outcome or answers `409`. The database, not application timing, decides the owner. The claim happens before any downstream call, so a request that loses the race never reserves stock and never authorizes a payment. No second order row can exist for one key, because the index makes it impossible to insert one.
+
+- **D. Storage and privacy.** The order row carries the SHA-256 hex digest of the key and the SHA-256 hex digest of the canonical request payload. The raw key is never persisted, never logged and never becomes a metric label. The payload digest is canonical: fixed field order, length-prefixed variable fields, and a normalized amount, so `1499` and `1499.00` are the same payload and no value can imitate a field separator. The key digest and the payload digest use separate domains and can never collide with each other.
+
+- **E. Failure and in-progress semantics.** A failed checkout persists its classification (`INVENTORY_REJECTED`, `PAYMENT_DECLINED`, `DOWNSTREAM_UNAVAILABLE`) and its sanitized message on the order row, which is what makes the failure reproducible without repeating the business operation. The existing error classifications and sanitized response contracts are preserved: the replay travels through the same exception handlers and therefore produces the same body and the same status code as the original attempt. A checkout that is still running is reported as `409 IDEMPOTENCY_KEY_IN_PROGRESS`; it is never silently duplicated.
+
+- **F. Data model.** Order-service's Flyway history gains `V2__add_checkout_idempotency.sql`, which adds `idempotency_key_hash`, `idempotency_request_hash`, `failure_reason` and `failure_message` to `orders` and creates the unique index `uq_orders_idempotency_key`. A null key digest stays distinct per row, so unkeyed orders are unaffected and existing rows keep working. Order-service remains the only writer of this schema (D17).
+
+- **G. Observability.** The keyed path keeps the same business span and the same tag-free counters as the unkeyed path, plus two tag-free counters: `checkout.idempotent.replay` and `checkout.idempotent.conflict`. No client-supplied value, and no key digest, is ever a metric label or a log field. The conflict and replay log lines carry the order id only.
+
+- **H. Security and threat considerations.** The key is untrusted input: it is bounded in length, stripped of control characters, and reduced to a digest before it reaches storage. The conflict answers disclose no payload, no customer data and no key. The 409 body follows the service's existing generic error shape plus one machine-readable `reason`. D45 adds no authentication, no authorization, no rate limiting and no new trust boundary; the local-only exposure rule of the target services is unchanged.
+
+- **I. Backward compatibility.** D45 is additive. Without the header, no code path changes, no column is populated with a key digest, no status code changes and no response body changes. With the header, the only new outcomes are the documented `409` answers and the replay of an already recorded outcome.
+
+- **J. Accepted limitations.**
+  1. A checkout attempt that dies between claiming the key and finishing leaves a `PENDING` order row; that row keeps the key busy, and every later attempt with the same key answers `409 IDEMPOTENCY_KEY_IN_PROGRESS`. This is the pre-existing "crash leaves a PENDING row" limitation, now with the key attached: the service cannot distinguish "still running" from "died", and refusing is the only answer that cannot duplicate a payment. Reuse a new key or reconcile the row.
+  2. Keys are scoped globally, not per customer: a key reused by a different customer is a payload mismatch and therefore `409`. Clients must generate unique keys (a UUID is enough).
+  3. A storage failure that prevents the terminal write leaves the attempt `PENDING` and therefore the key busy, for the same reason as J.1.
+  4. Idempotency records live as long as the order row they belong to; there is no separate retention or expiry policy.
+  5. The gateway does not validate the key; order-service does, and the resulting `400` passes through unchanged.
+
+- **K. Tests and acceptance criteria.** The contract is covered by automated tests against real PostgreSQL (Testcontainers) and stubbed downstream services: replay of a confirmed checkout, replay of a failed checkout for each failure classification, key/payload mismatch (payload, amount and customer), a duplicate arriving while the owning attempt is still in flight, six concurrent requests on one key, the unchanged behaviour of an unkeyed request, key hygiene (the key is never persisted in clear text), key rejection, amount-precision rejection at both boundaries, JSON-numeric replay equality, and the migration and unique-index constraints. The gateway suite covers header forwarding, header omission, an empty header and conflict pass-through.
+
+- **L. Deferred.** D45 defers: key expiry and retention as a separate policy, per-customer key scoping, a reconciliation story for abandoned `PENDING` attempts, and any client-side retry convention. D45 does not invent thresholds, retention windows or cleanup jobs.
+
+- **M. Compatibility.** D45 depends on D16 and D17 and preserves them unchanged. It does not weaken D16 (no retry, no circuit breaker, no gateway framework) or D17 (no shared table, no cross-service database access, no distributed transaction). It creates no execution, approval, proposal-lifecycle, authentication or provider authority, and it does not touch the control plane, the frontend contract, or any Phase 14 slice. D44 remains reserved for Phase 14 S2 Slice 4; D45 does not amend, renumber or supersede it.
+
+
+- **N. Replay fidelity and amount precision.** D45 replay guarantees JSON numeric equality, not byte-identical serialization. `amount` is read back from the two-decimal `orders.amount` column, so a value sent as `1499.0` is returned as `1499.00` on replay; business identifiers, statuses, reasons and messages are unchanged. The accepted amount precision is the schema precision NUMERIC(12,2) - 10 integer digits and at most 2 fractional digits, positive - enforced at both the gateway and order-service boundaries with `@Digits(integer = 10, fraction = 2)` and `@DecimalMin("0.01")`. Amounts outside that contract are rejected with 400 before any order, inventory or payment operation. This closes a gap where an unrepresentable amount could be silently rounded by the database, diverge from the value sent to payment, or surface as a misclassified 503 storage error.
+
+- **O. Client-visible failure status at each boundary.** These are pre-existing behaviours, preserved unchanged by D45; they are stated explicitly because the two endpoints expose different codes for the same downstream outage. At `POST /api/v1/orders` (order-service), a downstream outage is `503` with a sanitized FAILED body, a business rejection is `422`, an idempotency conflict is `409`, and malformed input is `400`. At `POST /api/v1/checkout` (gateway), all downstream `4xx` responses - including `400`, `422` and the idempotency `409` - pass through unchanged with their original status and body. Downstream `5xx` responses (including order-service's `503`) and connectivity failures are mapped by the gateway to its existing generic `502` with the sanitized "Checkout failed: order service unavailable" body; no downstream body or URL is exposed. D45 changes none of this: it only adds the key and the `409` answers, which the gateway forwards like any other `4xx`.
+
 ## D46 — Frontend CI Separation: Functional Checks and Dependency Security Audit
 
 - **Status:** DECIDED AND ADOPTED 2026-11-18. Architecture and decision record only. The implementation has passed independent review and is handled through a separate change process; D46 itself does not authorize a merge.
