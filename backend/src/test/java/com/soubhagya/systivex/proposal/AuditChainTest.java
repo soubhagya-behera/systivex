@@ -58,6 +58,8 @@ class AuditChainTest extends AbstractPostgresIntegrationTest {
 
     @Autowired private PlatformTransactionManager transactions;
 
+    @Autowired private jakarta.persistence.EntityManager entityManager;
+
     @BeforeEach
     @AfterEach
     void resetChain() {
@@ -200,7 +202,7 @@ class AuditChainTest extends AbstractPostgresIntegrationTest {
     void failureBetweenInsertAndHeadUpdateRollsBackBoth() {
         UUID key = revisionFixture();
         AuditService failing =
-                new AuditService(events, head, revisions) {
+                new AuditService(events, head, revisions, entityManager) {
                     @Override
                     protected void afterEventStored(AuditEvent stored) {
                         throw new IllegalStateException("injected failure");

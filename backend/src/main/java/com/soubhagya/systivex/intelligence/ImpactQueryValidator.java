@@ -114,11 +114,49 @@ public final class ImpactQueryValidator {
                 raw -> snapshotLookup(entitiesById, raw));
     }
 
+    /**
+     * Snapshot-consistent variant for a root set the caller derived itself,
+     * not one it supplied as query input.
+     *
+     * <p>{@link #MAX_STARTS} is a query-input bound: it caps the
+     * caller-supplied {@code from} list of the impact query (D23). A
+     * governed proposal derives its roots from its own operations — the
+     * entities the change touches — so the same cap must not reject a
+     * proposal that was accepted at creation: the proposal limit allows
+     * 100 operations, which can touch far more than ten entities, and a
+     * proposal that cannot be assessed stays in {@code DRAFT} forever, so
+     * it can never be submitted or approved. The caller-facing aggregate
+     * raw-identifier bound ({@link #MAX_TOTAL_IDENTIFIER_CHARS}) is likewise
+     * query input and does not apply here; the per-identifier safety bound
+     * still does. The derived set is bounded by the proposal's own operation
+     * limit, and the traversal keeps its node and path caps, so the analysis
+     * stays bounded either way.
+     */
+    public static ParsedInputs parseSnapshotRoots(
+            Map<UUID, SystemEntity> entitiesById,
+            List<String> rootIds,
+            Integer rawMaxDepth,
+            List<String> rawIncludeTypes) {
+        return parseCore(rootIds, rawMaxDepth, rawIncludeTypes,
+                raw -> snapshotLookup(entitiesById, raw), Integer.MAX_VALUE, Integer.MAX_VALUE);
+    }
+
     private static ParsedInputs parseCore(
             List<String> rawFrom,
             Integer rawMaxDepth,
             List<String> rawIncludeTypes,
             EntityLookup lookup) {
+        return parseCore(rawFrom, rawMaxDepth, rawIncludeTypes, lookup, MAX_STARTS,
+                MAX_TOTAL_IDENTIFIER_CHARS);
+    }
+
+    private static ParsedInputs parseCore(
+            List<String> rawFrom,
+            Integer rawMaxDepth,
+            List<String> rawIncludeTypes,
+            EntityLookup lookup,
+            int maxStarts,
+            int maxTotalChars) {
         if (rawFrom == null || rawFrom.isEmpty()) {
             throw new IllegalArgumentException(
                     "At least one starting entity is required (query parameter 'from')");
@@ -136,16 +174,16 @@ public final class ImpactQueryValidator {
                                 + MAX_IDENTIFIER_CHARS + " characters");
             }
             totalChars += raw.length();
-            if (totalChars > MAX_TOTAL_IDENTIFIER_CHARS) {
+            if (totalChars > maxTotalChars) {
                 throw new IllegalArgumentException(
                         "Starting entity identifiers must not exceed "
-                                + MAX_TOTAL_IDENTIFIER_CHARS + " characters in total");
+                                + maxTotalChars + " characters in total");
             }
             cleaned.add(raw.trim());
         }
-        if (cleaned.size() > MAX_STARTS) {
+        if (cleaned.size() > maxStarts) {
             throw new IllegalArgumentException(
-                    "At most " + MAX_STARTS + " starting entities are supported");
+                    "At most " + maxStarts + " starting entities are supported");
         }
         int maxDepth = rawMaxDepth == null ? DEFAULT_MAX_DEPTH : rawMaxDepth;
         if (maxDepth < 1 || maxDepth > MAX_DEPTH_ALLOWED) {

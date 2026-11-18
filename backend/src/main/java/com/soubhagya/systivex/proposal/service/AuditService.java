@@ -8,11 +8,14 @@ import com.soubhagya.systivex.proposal.repository.AuditChainHeadRepository;
 import com.soubhagya.systivex.proposal.repository.AuditEventRepository;
 import com.soubhagya.systivex.proposal.repository.ProposalRevisionRepository;
 import com.soubhagya.systivex.twin.service.EntityNotFoundException;
+import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -26,9 +29,16 @@ import org.springframework.transaction.annotation.Transactional;
  * the head hash, insert the event, then advance the head. Any failure
  * rolls back both rows. Verification recomputes every link with the same
  * {@link AuditHash} implementation the appender uses.
+ *
+ * <p>Verification reads the chain in pages under a repeatable-read
+ * snapshot, so the whole history is always checked — never a prefix — while
+ * only one page is held in memory at a time.
  */
 @Service
 public class AuditService {
+
+    /** Audit events read into memory at once while verifying the chain. */
+    public static final int VERIFICATION_PAGE_SIZE = 500;
 
     private final AuditEventRepository events;
 
@@ -36,13 +46,17 @@ public class AuditService {
 
     private final ProposalRevisionRepository revisions;
 
+    private final EntityManager entityManager;
+
     public AuditService(
             AuditEventRepository events,
             AuditChainHeadRepository head,
-            ProposalRevisionRepository revisions) {
+            ProposalRevisionRepository revisions,
+            EntityManager entityManager) {
         this.events = events;
         this.head = head;
         this.revisions = revisions;
+        this.entityManager = entityManager;
     }
 
     /** Input for one chain append; every field lands in the hashed record. */
@@ -144,7 +158,7 @@ public class AuditService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public AuditVerification verify() {
         return head.findById(AuditChainHead.HEAD_ID)
                 .map(this::verifyAgainst)
@@ -152,60 +166,115 @@ public class AuditService {
                         AuditVerification.BROKEN, 0, -1, null, "chain head is missing"));
     }
 
+    /**
+     * Verifies the complete chain in pages, never materialising it.
+     *
+     * <p>The verification is a left fold: each event is checked against its
+     * own stored fields, its sequence number, and the stored hash of the
+     * event before it. Carrying that one hash forward is enough, so the
+     * whole history is checked with bounded memory — the page size is the
+     * only history held at any moment.
+     *
+     * <p>The result reports the total number of stored events, so the
+     * bounded response shape is never confused with the amount of history
+     * that was verified: the whole chain is always checked, and a break is
+     * reported at the first sequence number where it is found.
+     */
     private AuditVerification verifyAgainst(AuditChainHead chainHead) {
-        List<AuditEvent> ordered = events.findAllByOrderBySeqAsc();
-        if (ordered.isEmpty()) {
-            if (chainHead.getLastSeq() == 0
-                    && AuditChainHead.GENESIS_HASH.equals(chainHead.getLastHash())) {
+        long headSeq = chainHead.getLastSeq();
+        String headHash = chainHead.getLastHash();
+
+        long verified = 0;
+        long expectedSeq = 1;
+        String previousHash = AuditChainHead.GENESIS_HASH;
+        String lastHash = null;
+        long lastSeq = 0;
+        Long brokenAt = null;
+        String detail = null;
+
+        long afterSeq = 0;
+        boolean more = true;
+        while (more && brokenAt == null) {
+            List<AuditEvent> page =
+                    events.findBySeqGreaterThanOrderBySeqAsc(
+                            afterSeq, PageRequest.of(0, VERIFICATION_PAGE_SIZE));
+            if (page.isEmpty()) {
+                more = false;
+                break;
+            }
+            for (AuditEvent event : page) {
+                verified++;
+                if (event.getSeq() != expectedSeq) {
+                    brokenAt = event.getSeq();
+                    detail = "sequence gap: expected seq " + expectedSeq;
+                    break;
+                }
+                if (!previousHash.equals(event.getPrevHash())) {
+                    brokenAt = event.getSeq();
+                    detail = "prev_hash does not match preceding event hash";
+                    break;
+                }
+                String recomputed =
+                        AuditHash.hash(
+                                event.getSeq(),
+                                event.getOccurredAt(),
+                                event.getActorIssuer(),
+                                event.getActorSubject(),
+                                event.getAction().name(),
+                                event.getOutcome().name(),
+                                event.getProposalKey(),
+                                event.getRevisionNumber(),
+                                event.getOperationsHash(),
+                                event.getAssessmentHash(),
+                                event.getReason(),
+                                event.getCorrelationId(),
+                                event.getPrevHash());
+                if (!recomputed.equals(event.getEventHash())) {
+                    brokenAt = event.getSeq();
+                    detail = "event_hash does not match stored fields";
+                    break;
+                }
+                previousHash = event.getEventHash();
+                lastHash = event.getEventHash();
+                lastSeq = event.getSeq();
+                expectedSeq++;
+                afterSeq = event.getSeq();
+            }
+            // Release this page's managed entities so the session never holds
+            // the whole chain, however long the history is.
+            entityManager.clear();
+            more = page.size() == VERIFICATION_PAGE_SIZE;
+        }
+
+        if (brokenAt != null) {
+            // The stored event count belongs in the result, so it is read
+            // from the same snapshot instead of from the page that broke.
+            return new AuditVerification(
+                    AuditVerification.BROKEN, events.count(), headSeq, brokenAt, detail);
+        }
+        if (verified == 0) {
+            if (headSeq == 0 && AuditChainHead.GENESIS_HASH.equals(headHash)) {
                 return new AuditVerification(AuditVerification.OK, 0, 0, null, "empty chain at genesis");
             }
             return new AuditVerification(
-                    AuditVerification.BROKEN, 0, chainHead.getLastSeq(), 1L, "no events but head has advanced");
+                    AuditVerification.BROKEN, 0, headSeq, 1L, "no events but head has advanced");
         }
-        for (int i = 0; i < ordered.size(); i++) {
-            AuditEvent event = ordered.get(i);
-            long expectedSeq = i + 1L;
-            if (event.getSeq() != expectedSeq) {
-                return broken(ordered, chainHead, event.getSeq(), "sequence gap: expected seq " + expectedSeq);
-            }
-            String expectedPrev =
-                    i == 0 ? AuditChainHead.GENESIS_HASH : ordered.get(i - 1).getEventHash();
-            if (!expectedPrev.equals(event.getPrevHash())) {
-                return broken(ordered, chainHead, event.getSeq(), "prev_hash does not match preceding event hash");
-            }
-            String recomputed =
-                    AuditHash.hash(
-                            event.getSeq(),
-                            event.getOccurredAt(),
-                            event.getActorIssuer(),
-                            event.getActorSubject(),
-                            event.getAction().name(),
-                            event.getOutcome().name(),
-                            event.getProposalKey(),
-                            event.getRevisionNumber(),
-                            event.getOperationsHash(),
-                            event.getAssessmentHash(),
-                            event.getReason(),
-                            event.getCorrelationId(),
-                            event.getPrevHash());
-            if (!recomputed.equals(event.getEventHash())) {
-                return broken(ordered, chainHead, event.getSeq(), "event_hash does not match stored fields");
-            }
+        if (headSeq != verified) {
+            return new AuditVerification(
+                    AuditVerification.BROKEN,
+                    verified,
+                    headSeq,
+                    verified,
+                    "head last_seq does not match stored event count");
         }
-        AuditEvent last = ordered.get(ordered.size() - 1);
-        if (chainHead.getLastSeq() != ordered.size()) {
-            return broken(ordered, chainHead, (long) ordered.size(), "head last_seq does not match stored event count");
+        if (!lastHash.equals(headHash)) {
+            return new AuditVerification(
+                    AuditVerification.BROKEN,
+                    verified,
+                    headSeq,
+                    lastSeq,
+                    "head last_hash does not match final event hash");
         }
-        if (!last.getEventHash().equals(chainHead.getLastHash())) {
-            return broken(ordered, chainHead, last.getSeq(), "head last_hash does not match final event hash");
-        }
-        return new AuditVerification(
-                AuditVerification.OK, ordered.size(), chainHead.getLastSeq(), null, "chain valid");
-    }
-
-    private static AuditVerification broken(
-            List<AuditEvent> ordered, AuditChainHead chainHead, long atSeq, String detail) {
-        return new AuditVerification(
-                AuditVerification.BROKEN, ordered.size(), chainHead.getLastSeq(), atSeq, detail);
+        return new AuditVerification(AuditVerification.OK, verified, headSeq, null, "chain valid");
     }
 }

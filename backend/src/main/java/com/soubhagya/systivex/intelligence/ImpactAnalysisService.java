@@ -114,6 +114,21 @@ public class ImpactAnalysisService {
     }
 
     /**
+     * Snapshot-consistent variant for a root set the caller derived itself
+     * (a governed proposal's touched entities). The caller-facing start cap
+     * does not apply to a derived root set; everything else — resolution,
+     * defaults, and deterministic ordering — is identical.
+     */
+    public ImpactQueryValidator.ParsedInputs parseSnapshotRoots(
+            Map<UUID, SystemEntity> entitiesById,
+            List<String> rootIds,
+            Integer rawMaxDepth,
+            List<String> rawIncludeTypes) {
+        return ImpactQueryValidator.parseSnapshotRoots(
+                entitiesById, rootIds, rawMaxDepth, rawIncludeTypes);
+    }
+
+    /**
      * Runs the deterministic BFS core over caller-supplied entity and edge
      * collections (baseline snapshot or hypothetical simulation working
      * sets). Public so simulation and the evidence assembler reuse the
