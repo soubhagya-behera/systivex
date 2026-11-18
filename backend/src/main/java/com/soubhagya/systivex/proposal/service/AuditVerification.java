@@ -9,6 +9,10 @@ package com.soubhagya.systivex.proposal.service;
  * {@code detail} carries one short machine-stable reason for triage — seqs
  * and hashes only, never secrets or unrelated proposal data. Verification
  * never repairs anything.
+ *
+ * <p>The result shape is bounded; the verification is not. {@code eventCount}
+ * is the total number of stored events, and {@code OK} means the complete
+ * chain was checked — a bounded response never means a bounded check.
  */
 public record AuditVerification(
         String status, long eventCount, long headSeq, Long brokenAtSeq, String detail) {

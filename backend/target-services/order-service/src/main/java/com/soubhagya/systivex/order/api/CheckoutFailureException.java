@@ -21,4 +21,12 @@ public abstract class CheckoutFailureException extends RuntimeException {
     public OrderRequest getRequest() {
         return request;
     }
+
+    /**
+     * Stable machine readable classification of the failure. It is the value
+     * the client sees as {@code reason} and the value persisted with the order
+     * so a repeated request can reproduce the original outcome instead of
+     * repeating the business operation.
+     */
+    public abstract String reason();
 }

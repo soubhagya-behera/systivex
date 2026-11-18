@@ -161,16 +161,17 @@ Database ownership (binding, see `DECISIONS.md` D17):
 
 | Service | Database / user | Tables | Reads/writes other DBs? |
 |---|---|---|---|
-| order-service | `order_db` / `order_app` | `orders` (PENDING → CONFIRMED/FAILED) | Never |
+| order-service | `order_db` / `order_app` | `orders` (PENDING → CONFIRMED/FAILED, optional idempotency-key digest + unique index) | Never |
 | payment-service | `payment_db` / `payment_app` | `payments` (AUTHORIZED/DECLINED, both recorded) | Never |
 | inventory-service | `inventory_db` / `inventory_app` | `inventory_items`, `inventory_reservations` | Never |
 | gateway-service | None (stateless edge) | — | N/A |
 
 The control-plane database (`systivex` / `systivex_app`) is separate and
 shares nothing with these three. Each service migrates its own schema with its
-own Flyway history (`V1` schema everywhere, plus a `V2` dev seed of
-`SKU-1001 × 10` in inventory only); Hibernate validates (`ddl-auto=validate`)
-and never migrates.
+own Flyway history (`V1` schema everywhere; a `V2` dev seed of `SKU-1001 × 10`
+in inventory only, and a `V2` that adds the checkout idempotency columns to
+the order schema); Hibernate validates (`ddl-auto=validate`) and never
+migrates.
 
 - Each has its own pom, Maven wrapper, application class, and Actuator health.
 - Downstream URLs and datasource credentials come from configuration (env vars
@@ -197,9 +198,42 @@ and never migrates.
   the same product serialize instead of overselling. No Redis, no broker.
 - Payment still declines amounts above 5000.00 by deterministic rule (no
   provider integration); declines are now persisted as DECLINED rows.
-- Failures stay controlled: 400 validation, 422 business rejection, 503 order
-  level (including order-storage outage), 502 gateway level, sanitized bodies
-  throughout — no SQL text or stack traces on the wire.
+- Failures stay controlled: 400 validation, 422 business rejection, 409
+  idempotency conflict, 503 order level (including order-storage outage), 502
+  gateway level, sanitized bodies throughout — no SQL text or stack traces on
+  the wire.
+- Checkout is idempotent under an **optional** `Idempotency-Key` header on
+  `POST /api/v1/checkout` (gateway) and `POST /api/v1/orders` (order-service).
+  The gateway forwards the key unchanged and stays a pure forwarder;
+  order-service owns the whole contract, including the conflict answers,
+  which reach the client unchanged like any other 4xx.
+  - A key identifies exactly one checkout attempt, and one attempt is one
+    order row: the order row stores only the SHA-256 digest of the key (the
+    key itself is never stored, never logged, and never a metric label) plus a
+    digest of the accepted payload. A unique index on that digest column is
+    the concurrency arbiter — two concurrent attempts carrying the same key
+    can never both create an order, and the loser never reaches inventory or
+    payment.
+  - Same key, same payload: the recorded outcome is replayed. A confirmed
+    checkout replays its 201 result (same order id, reservation id and
+    authorization id); a failed checkout replays its original 422/503
+    classification, reason, order id and sanitized message. The JSON numeric
+    VALUE of `amount` is preserved, but its textual scale may normalize to the
+    two decimals of NUMERIC(12,2) (e.g. `1499.0` → `1499.00`): replay promises
+    JSON numeric equality, not byte-identical serialization. No second order,
+    no repeated reserve or authorize call.
+  - `amount` is validated at both the gateway and order-service boundaries
+    against the order schema's NUMERIC(12,2): 10 integer digits, at most 2
+    fractional digits, and positive (`@Digits(integer = 10, fraction = 2)`
+    plus `@DecimalMin("0.01")`). Out-of-precision amounts are rejected with
+    400 before any order, inventory or payment operation.
+  - Same key, different payload: **409** with
+    `reason: IDEMPOTENCY_KEY_CONFLICT`, before any downstream call.
+  - Same key while the first attempt is still running: **409** with
+    `reason: IDEMPOTENCY_KEY_IN_PROGRESS`. No second checkout is started.
+  - No key: unchanged behaviour — one attempt and one order per request, the
+    same status codes and the same response bodies as before this header
+    existed.
 - No Kubernetes, no message broker, no service mesh at this stage.
 - The control plane does not call, scrape, or model these services yet. They
   remain strictly outside the control-plane trust boundary: untrusted until
