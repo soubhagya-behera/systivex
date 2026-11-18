@@ -11,10 +11,12 @@ verification is recorded separately and is not inferred from automated tests.
 
 ## Current phase
 
-**Phase 14 S2 Slice 3 — Evidence-Grounded Generation and Evaluation Harness
-(implemented under D42/D43; 6 production classes and 6 test classes; 38
-focused and 654 full backend tests passed; independent implementation audit
-PASS).** Phase 14 S2 Slice 2 remains complete and unchanged (PR #27).
+**Phase 14 S2 Slice 3 — Evidence-Grounded Generation
+(implementation present in the repository; not authorized by D42 or D43;
+authorization traceability unresolved because no subsequent implementation-
+authorization decision has been identified; 6 tracked production classes and
+6 tracked test classes; 39 focused tests in tracked sources).** Phase 14 S2
+Slice 2 remains complete and unchanged (PR #27).
 Phase 13 S5 remains complete and unchanged (PR #20).
 
 Phase 13 S5 adds a live-only **Simulation & Policy** view to the existing
@@ -401,23 +403,40 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   candidate claims, existing `ClaimValidator`, transient result, offline
   evaluation). Design adoption authorizes no implementation.
 - [x] **D43 adopted** (`DECISIONS.md`, 2026-11-11): adopts the bounded
-  Slice 3 implementation scope and acceptance criteria. Implementation
-  authorization remained separate and was explicitly granted before coding.
-- [x] **S2 Slice 3: COMPLETE.** Evidence-grounded generation + evaluation
-  harness implemented in the `generation` package: 6 production classes and
-  6 test classes; 38 focused Slice 3 tests passed; full backend suite
-  **654/654 tests passed** (0 failures, 0 errors, 0 skipped). Boundaries:
+  Slice 3 implementation scope and acceptance criteria. D43 authorizes no
+  implementation. No subsequent implementation-authorization decision has
+  been identified, so authorization traceability for the implementation below
+  remains unresolved; this status line neither grants nor implies it.
+- [x] **S2 Slice 3: implementation present; authorization unresolved.**
+  The evidence-grounded generation implementation exists in the
+  `generation` package: 6 tracked production classes and 6 tracked test
+  classes, with 39 `@Test` methods in those tracked sources (the untracked
+  `DeadlinePhaseProbeTest.java` is excluded from this count). Offline
+  evaluation is **test-only diagnostic evaluation**:
+  `EvidenceGenerationEvaluationTest.java` computes diagnostic metrics inline
+  with a mocked `LocalModelAdapter` and establishes no model-quality ground
+  truth. There is **no standalone production evaluator or evaluation-harness
+  class** in `src/main`. A historical
+  full backend result of 654/654 was recorded here on 2026-11-11; no retained
+  run artifact or independent implementation-audit artifact was identified
+  during the 2026-11-16 audit, so the former "audit PASS" claim is withdrawn
+  rather than asserted. This records implementation only and does not
+  authorize it. Boundaries:
   32,768-byte UTF-8 prompt ceiling; 25-claim generation cap separate from
   D40's 100-record parser limit; 45-second monotonic orchestration budget;
   unchanged D41 35-second inference contract; strict Jackson 3.1.5 parsing;
   existing deterministic `ClaimValidator`; mandatory human review;
-  default-off provider integration; transient offline evaluation.
+  default-off provider integration; transient, test-only diagnostic evaluation.
   Exclusions preserved: no endpoint, persistence, migration, frontend, new
   role, execution/mutation, external provider, cloud fallback, model
   authority, or automatic claim acceptance. D38-D42 boundaries preserved.
 - [x] Phase 14 S1: **COMPLETE** (PR #25; 505/505 tests).
-- [x] Candidate `EvidenceClaim` generation and offline evaluation now exist
-  under D42/D43 in the `generation` package. Generated claims are
+- [x] Candidate `EvidenceClaim` generation now exists in the `generation`
+  package (D42 adopted the design and D43 adopted the scope; neither
+  authorized the implementation — see the note above). Offline evaluation is
+  test-only diagnostics in `EvidenceGenerationEvaluationTest.java`; there is
+  no standalone production evaluator or evaluation-harness class.
+  Generated claims are
   candidates only; no automatic acceptance occurs. No endpoint,
   persistence, migration, role, frontend, execution or model authority was
   added. Provenance validation does not prove semantic entailment; human

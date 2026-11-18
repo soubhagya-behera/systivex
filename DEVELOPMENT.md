@@ -315,6 +315,20 @@ Invoke-RestMethod -Uri "http://localhost:8081/api/v1/checkout" -Method Post `
 # -> {"orderId":"...","status":"CONFIRMED",...} with reservationId + authorizationId
 ```
 
+Optional idempotency (the header is accepted on `POST /api/v1/checkout` and on
+order-service's `POST /api/v1/orders`, and is forwarded unchanged):
+
+```powershell
+$headers = @{ "Idempotency-Key" = [guid]::NewGuid().ToString() }
+Invoke-RestMethod -Uri "http://localhost:8081/api/v1/checkout" -Method Post -Headers $headers `
+  -Body (@{productId="SKU-1001"; quantity=1; customerId="CUST-1001"; amount=1499.00} | ConvertTo-Json) `
+  -ContentType "application/json" | ConvertTo-Json
+# repeat the same call with the same header -> the same orderId, no second
+# reservation and no second authorization. The same header with a different
+# body -> 409 IDEMPOTENCY_KEY_CONFLICT. Without the header -> the old
+# behaviour, one attempt per request.
+```
+
 Behavior notes (persistent, Phase 2B): inventory rejects quantities above
 stored stock (422, seeded `SKU-1001` holds 10 — so quantity 99 fails while 1
 succeeds), payment declines amounts above 5000.00 (422), dead downstream
@@ -323,7 +337,16 @@ recorded in their service's database. Checkout is not atomic across the three
 databases (see `ARCHITECTURE.md` §4): a FAILED order can coexist with a
 standing reservation.
 
-Tests (136 total across the four services, Testcontainers PostgreSQL, no local databases touched): gateway 27, order 43, payment 31, and inventory 35.
+Amount precision is part of the API contract: both the gateway and
+order-service validate `amount` against the order schema's NUMERIC(12,2) with
+`@Digits(integer = 10, fraction = 2)` plus `@DecimalMin("0.01")` — 10 integer
+digits, at most 2 fractional digits, positive. More precision is rejected with
+400 before any order, inventory or payment operation. Replay guarantees JSON
+numeric equality, not byte-identical response bytes: an amount sent as
+`1499.0` comes back as `1499.00` on replay because it is read from the
+two-decimal column.
+
+Tests (191 total across the four services, Testcontainers PostgreSQL, no local databases touched): gateway 34, order 91, payment 31, and inventory 35.
 Each service has real-HTTP boundary tests — inventory/payment/order boot against
 throwaway containers (Flyway-migrated, so migration startup is covered),
 order/gateway tests stub only the downstream side with loopback stub servers.
@@ -334,7 +357,12 @@ counters, and (gateway/order) W3C traceparent propagation to stubbed
 downstream hops — no collector needed for tests. Order-service additionally
 has two telemetry privacy tests proving downstream 4xx bodies never reach
 recorded span data (positive span-event assertions plus a negative-direction
-test that fails with the sanitizer unregistered). Guard tests cover unset
+test that fails with the sanitizer unregistered) and an idempotency suite
+(replay of a confirmed and of a failed checkout, key/payload mismatch, a
+duplicate while the owning attempt is still in flight, six concurrent
+requests on one key, the unchanged behaviour of an unkeyed request, amount
+precision at both boundaries, and JSON-numeric replay equality).
+Guard tests cover unset
 defaults, loopback ranges, IPv4-mapped IPv6, wildcard rejection, and the
 management-child import/address behavior.
 
@@ -943,9 +971,14 @@ Token handling: the token is held in memory for the tab only, cleared on
 reload, and never written to `localStorage`, `sessionStorage`, `IndexedDB`,
 cookies, a URL, or logs. There is **no login flow and no bundled identity
 provider** — the trusted production issuer/client details remain unavailable,
-so live OIDC sign-in is not implemented and is not claimed. CI
-(`.github/workflows/frontend-ci.yml`) installs from the lockfile, audits
-dependencies, runs the test suite, and builds the bundle on Node 24. Do not add
+so live OIDC sign-in is not implemented and is not claimed. Functional CI
+(`.github/workflows/frontend-ci.yml`, D46) installs from the lockfile, runs the
+test suite, and builds the bundle on Node 24 on every PR and every push to
+`main`. Dependency auditing runs as a separate independent job when
+`frontend/package.json` or `frontend/package-lock.json` changes, and on the
+daily schedule or manual dispatch; that job may report "Not applicable —
+frontend dependency manifests unchanged." without claiming a clean audit. The
+high-severity audit threshold and dependency policy are unchanged. Do not add
 production/static hosting or shared serving without a separately reviewed
 decision (D33).
 

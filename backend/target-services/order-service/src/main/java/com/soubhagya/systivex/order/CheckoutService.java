@@ -38,6 +38,13 @@ import org.springframework.web.client.RestClient;
  * A crash between the PENDING insert and the final update likewise leaves a
  * PENDING row behind. Both limitations are accepted for this phase and will
  * matter to a future reconciliation/simulation story.
+ *
+ * <p>The flow is split in two on purpose. {@link #createPendingOrder} only
+ * inserts the PENDING row — for a keyed request that insert is also the
+ * ownership claim, arbitrated by the unique index on the key digest — while
+ * {@link #performCheckout} performs the downstream calls and writes the
+ * terminal state. A keyed caller therefore learns that it lost the race
+ * before a single downstream call is made.
  */
 @Service
 public class CheckoutService {
@@ -76,20 +83,45 @@ public class CheckoutService {
     }
 
     private OrderResponse doCheckout(UUID orderId, OrderRequest request) {
-        OrderEntity order =
-                orders.save(
-                        new OrderEntity(
-                                orderId,
-                                request.customerId(),
-                                request.productId(),
-                                request.quantity(),
-                                request.amount()));
+        return performCheckout(createPendingOrder(orderId, request, null, null), request);
+    }
+
+    /**
+     * Inserts the PENDING row for one attempt and returns it.
+     *
+     * <p>When {@code idempotencyKeyHash} is present this insert doubles as
+     * the ownership claim for the key: the unique index on that column makes
+     * it impossible for two concurrent attempts to own the same key. The
+     * digests are never the clear-text key or payload.
+     */
+    public OrderEntity createPendingOrder(
+            UUID orderId,
+            OrderRequest request,
+            String idempotencyKeyHash,
+            String idempotencyRequestHash) {
+        return orders.save(
+                new OrderEntity(
+                        orderId,
+                        request.customerId(),
+                        request.productId(),
+                        request.quantity(),
+                        request.amount(),
+                        idempotencyKeyHash,
+                        idempotencyRequestHash));
+    }
+
+    /**
+     * Runs the business part of an attempt against an already persisted
+     * PENDING row: reserve, authorize, then write the terminal state.
+     */
+    public OrderResponse performCheckout(OrderEntity order, OrderRequest request) {
+        UUID orderId = order.getId();
 
         ReserveResponse reservation;
         try {
             reservation = reserve(orderId, request);
         } catch (InventoryRejectedException | DownstreamUnavailableException e) {
-            order.fail();
+            order.fail(e.reason(), e.getMessage());
             orders.save(order);
             failed.increment();
             // Outcome only: order id + status. No customer, product, amount,
@@ -103,7 +135,7 @@ public class CheckoutService {
         try {
             authorization = authorize(orderId, request);
         } catch (PaymentDeclinedException | DownstreamUnavailableException e) {
-            order.fail();
+            order.fail(e.reason(), e.getMessage());
             orders.save(order);
             failed.increment();
             log.info("Checkout {} FAILED payment", orderId);
