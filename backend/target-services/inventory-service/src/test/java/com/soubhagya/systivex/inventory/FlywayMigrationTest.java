@@ -8,6 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Proves the inventory migration story end to end: the app boots against an
@@ -16,7 +19,21 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * this context would not start.
  */
 @SpringBootTest
-class FlywayMigrationTest extends AbstractPostgresIntegrationTest {
+class FlywayMigrationTest {
+
+    private static final PostgreSQLContainer POSTGRES =
+            new PostgreSQLContainer("postgres:18-alpine");
+
+    static {
+        POSTGRES.start();
+    }
+
+    @DynamicPropertySource
+    static void postgresProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
 
     @Autowired private Flyway flyway;
 
