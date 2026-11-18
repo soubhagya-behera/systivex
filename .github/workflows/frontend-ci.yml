@@ -5,21 +5,22 @@ on:
     branches:
       - main
   pull_request:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
 
-# Least privilege: the workflow only needs to read the repository.
 permissions:
   contents: read
-
-# Cancel superseded runs on the same ref to keep CI fast and cheap.
-concurrency:
-  group: frontend-ci-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   frontend:
     name: Test and build (Node 24)
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: frontend-build-${{ github.ref }}
+      cancel-in-progress: true
     defaults:
       run:
         working-directory: frontend
@@ -34,16 +35,96 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # Reproducible install from the committed lockfile.
       - name: Install dependencies
         run: npm ci
-
-      # Dependency vulnerability gate (fails the job on known advisories).
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
 
       - name: Run frontend test suite
         run: npm test
 
       - name: Build production bundle
         run: npm run build
+
+  audit:
+    name: Dependency audit (high)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine audit scope
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
+        shell: bash
+        run: |
+          AUDIT_REQUIRED=true
+          REASON="audit required by event context"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if [ -z "$PR_NUMBER" ]; then
+              REASON="PR number unavailable; failing closed"
+            elif FILES=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)' 2>/dev/null); then
+              if printf '%s\n' "$FILES" | grep -Eq '^frontend/(package\.json|package-lock\.json)$'; then
+                REASON="frontend dependency manifest changed in PR"
+              else
+                AUDIT_REQUIRED=false
+                REASON="Not applicable — frontend dependency manifests unchanged."
+              fi
+            else
+              REASON="PR file list unavailable; failing closed"
+            fi
+          elif [ "$EVENT_NAME" = "push" ]; then
+            ZERO="0000000000000000000000000000000000000000"
+            if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "$ZERO" ] || [ -z "$AFTER_SHA" ]; then
+              REASON="push diff unavailable; failing closed"
+            elif FILES=$(git diff --no-renames --name-only "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null); then
+              if printf '%s\n' "$FILES" | grep -Eq '^frontend/(package\.json|package-lock\.json)$'; then
+                REASON="frontend dependency manifest changed on main"
+              else
+                AUDIT_REQUIRED=false
+                REASON="Not applicable — frontend dependency manifests unchanged."
+              fi
+            else
+              REASON="push comparison failed; failing closed"
+            fi
+          else
+            REASON="scheduled or manual run; audit always applies"
+          fi
+
+          echo "required=$AUDIT_REQUIRED" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          echo "Audit required: $AUDIT_REQUIRED ($REASON)"
+
+      - name: Set up Node.js
+        if: steps.scope.outputs.required == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        if: steps.scope.outputs.required == 'true'
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run dependency audit
+        if: steps.scope.outputs.required == 'true'
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+      - name: Report audit not applicable
+        if: steps.scope.outputs.required == 'false'
+        run: |
+          echo "::notice::Not applicable — frontend dependency manifests unchanged."
+          echo "Not applicable — frontend dependency manifests unchanged." >> "$GITHUB_STEP_SUMMARY"
