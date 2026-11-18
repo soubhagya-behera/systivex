@@ -105,8 +105,9 @@ class IdempotencyFingerprintTest {
     }
 
     @Test
-    void validKeyIsAcceptedAndTrimmed() {
+    void ordinarySurroundingSpacesAreAcceptedAndNormalized() {
         assertThat(IdempotencyKeyPolicy.requireValid("  abc  ")).isEqualTo("abc");
+        assertThat(IdempotencyKeyPolicy.requireValid("   abc   ")).isEqualTo("abc");
     }
 
     @Test
@@ -120,14 +121,84 @@ class IdempotencyFingerprintTest {
     }
 
     @Test
-    void oversizedKeyIsRejected() {
+    void oversizedKeyIsRejectedAfterTrimming() {
         assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("k".repeat(256)))
                 .isInstanceOf(InvalidIdempotencyKeyException.class);
         assertThat(IdempotencyKeyPolicy.requireValid("k".repeat(255))).hasSize(255);
+        assertThat(IdempotencyKeyPolicy.requireValid(" " + "k".repeat(255) + " ")).hasSize(255);
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid(" " + "k".repeat(256) + " "))
+                .isInstanceOf(InvalidIdempotencyKeyException.class);
     }
 
     @Test
-    void controlCharactersAreRejected() {
+    void leadingAndTrailingTabsAreRejected() {
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("\tabc"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("abc\t"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+    }
+
+    @Test
+    void leadingAndTrailingCrLfAreRejected() {
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("\r\nabc"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("abc\r\n"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+    }
+
+    @Test
+    void nulAndDelAreRejected() {
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("abc" + (char) 0))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid((char) 0 + "abc"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("abc" + (char) 0x7F))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid((char) 0x7F + "abc"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+    }
+
+    @Test
+    void c1ControlsAreRejectedAtBeginningMiddleAndEnd() {
+        char nextLine = (char) 0x85;
+        char applicationProgramCommand = (char) 0x9F;
+
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid(nextLine + "abc"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("ab" + nextLine + "c"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("abc" + nextLine))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid(applicationProgramCommand + "abc"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+        assertThatThrownBy(
+                        () ->
+                                IdempotencyKeyPolicy.requireValid(
+                                        "ab" + applicationProgramCommand + "c"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+        assertThatThrownBy(
+                        () ->
+                                IdempotencyKeyPolicy.requireValid(
+                                        "abc" + applicationProgramCommand))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessage("Idempotency-Key header must not contain control characters");
+    }
+
+    @Test
+    void controlCharactersInTheMiddleAreRejected() {
         assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("abc\r\nX-Injected: 1"))
                 .isInstanceOf(InvalidIdempotencyKeyException.class);
     }
@@ -136,6 +207,15 @@ class IdempotencyFingerprintTest {
     void rejectionMessagesNeverEchoTheKey() {
         String secret = "super-secret-key-value";
         assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid(secret + "\r\nX-Injected: 1"))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessageNotContaining(secret);
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid("\t" + secret))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessageNotContaining(secret);
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid(secret + (char) 0))
+                .isInstanceOf(InvalidIdempotencyKeyException.class)
+                .hasMessageNotContaining(secret);
+        assertThatThrownBy(() -> IdempotencyKeyPolicy.requireValid(secret + (char) 0x7F))
                 .isInstanceOf(InvalidIdempotencyKeyException.class)
                 .hasMessageNotContaining(secret);
     }

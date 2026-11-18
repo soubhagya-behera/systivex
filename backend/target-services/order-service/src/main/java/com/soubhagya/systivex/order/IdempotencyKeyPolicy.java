@@ -30,20 +30,23 @@ public final class IdempotencyKeyPolicy {
      *     checkout attempt
      */
     public static String requireValid(String rawKey) {
-        String key = rawKey == null ? "" : rawKey.trim();
+        if (rawKey == null) {
+            throw new InvalidIdempotencyKeyException("Idempotency-Key header must not be blank");
+        }
+        for (int index = 0; index < rawKey.length(); index++) {
+            char character = rawKey.charAt(index);
+            if (Character.isISOControl(character)) {
+                throw new InvalidIdempotencyKeyException(
+                        "Idempotency-Key header must not contain control characters");
+            }
+        }
+        String key = rawKey.trim();
         if (key.isEmpty()) {
             throw new InvalidIdempotencyKeyException("Idempotency-Key header must not be blank");
         }
         if (key.length() > MAX_LENGTH) {
             throw new InvalidIdempotencyKeyException(
                     "Idempotency-Key header must not exceed " + MAX_LENGTH + " characters");
-        }
-        for (int index = 0; index < key.length(); index++) {
-            char character = key.charAt(index);
-            if (character < 0x20 || character == 0x7F) {
-                throw new InvalidIdempotencyKeyException(
-                        "Idempotency-Key header must not contain control characters");
-            }
         }
         return key;
     }
