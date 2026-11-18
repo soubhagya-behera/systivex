@@ -74,6 +74,8 @@ class ProposalMutationRollbackTest extends AbstractPostgresIntegrationTest {
 
     @Autowired private JdbcTemplate jdbc;
 
+    @Autowired private jakarta.persistence.EntityManager entityManager;
+
     private String prefix;
     private String refC;
 
@@ -102,7 +104,7 @@ class ProposalMutationRollbackTest extends AbstractPostgresIntegrationTest {
 
     private ProposalAssessmentService failingAssessments() {
         AuditService failing =
-                new AuditService(events, head, revisions) {
+                new AuditService(events, head, revisions, entityManager) {
                     @Override
                     protected void afterEventStored(AuditEvent stored) {
                         throw new IllegalStateException("injected audit failure");
@@ -115,7 +117,7 @@ class ProposalMutationRollbackTest extends AbstractPostgresIntegrationTest {
 
     private ProposalAmendmentService failingAmendments() {
         AuditService failing =
-                new AuditService(events, head, revisions) {
+                new AuditService(events, head, revisions, entityManager) {
                     @Override
                     protected void afterEventStored(AuditEvent stored) {
                         throw new IllegalStateException("injected audit failure");
@@ -126,7 +128,7 @@ class ProposalMutationRollbackTest extends AbstractPostgresIntegrationTest {
 
     private ProposalDecisionService failingDecisions() {
         AuditService failing =
-                new AuditService(events, head, revisions) {
+                new AuditService(events, head, revisions, entityManager) {
                     @Override
                     protected void afterEventStored(AuditEvent stored) {
                         throw new IllegalStateException("injected audit failure");

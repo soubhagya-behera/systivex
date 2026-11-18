@@ -289,6 +289,87 @@ class ImpactQueryValidatorTest {
                 .hasMessageNotContaining(ref);
     }
 
+    @Test
+    void derivedRootsAreNotCappedByTheQueryStartLimit() {
+        Map<UUID, SystemEntity> entities = new LinkedHashMap<>();
+        List<String> refs = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            UUID id = UUID.randomUUID();
+            String ref = "svc:" + i;
+            entities.put(id, entity(id, ref));
+            refs.add(ref);
+        }
+        // The query-input cap still bounds a caller-supplied start list.
+        assertThatThrownBy(
+                        () -> ImpactQueryValidator.parseSnapshotInputs(
+                                entities, refs, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        // A root set the caller derived itself is not query input.
+        ImpactQueryValidator.ParsedInputs derived =
+                ImpactQueryValidator.parseSnapshotRoots(entities, refs, null, null);
+        assertThat(derived.starts()).hasSize(12);
+        assertThat(derived.maxDepth()).isEqualTo(6);
+        assertThat(derived.includeTypes())
+                .containsExactlyInAnyOrder(
+                        SystemEntityType.SERVICE,
+                        SystemEntityType.API,
+                        SystemEntityType.DATABASE,
+                        SystemEntityType.TABLE);
+    }
+
+    @Test
+    void derivedRootsKeepTheSameValidationAsQueryInput() {
+        Map<UUID, SystemEntity> entities = snapshot();
+        assertThatThrownBy(
+                        () -> ImpactQueryValidator.parseSnapshotRoots(
+                                entities, List.of(), null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () -> ImpactQueryValidator.parseSnapshotRoots(
+                                entities, List.of("  "), null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () -> ImpactQueryValidator.parseSnapshotRoots(
+                                entities, List.of("svc:ghost"), null, null))
+                .isInstanceOf(EntityNotFoundException.class);
+        assertThatThrownBy(
+                        () -> ImpactQueryValidator.parseSnapshotRoots(
+                                entities, List.of("svc:a"), 0, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () -> ImpactQueryValidator.parseSnapshotRoots(
+                                entities, List.of("svc:a"), null, List.of("NOPE")))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void derivedRootsExceedCallerAggregateBoundWhileCallerRequestsStayRejected() {
+        Map<UUID, SystemEntity> entities = new LinkedHashMap<>();
+        List<String> refs = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            UUID id = UUID.randomUUID();
+            String ref = "svc:" + "r".repeat(100) + i;
+            entities.put(id, entity(id, ref));
+            refs.add(ref);
+        }
+        int totalChars = refs.stream().mapToInt(String::length).sum();
+        assertThat(refs).hasSizeGreaterThan(ImpactQueryValidator.MAX_STARTS);
+        assertThat(totalChars).isGreaterThan(ImpactQueryValidator.MAX_TOTAL_IDENTIFIER_CHARS);
+
+        assertThatThrownBy(
+                        () -> ImpactQueryValidator.parseSnapshotInputs(entities, refs, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(ImpactQueryValidator.parseSnapshotRoots(entities, refs, null, null).starts())
+                .hasSize(12);
+
+        String oversized = "r".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS + 1);
+        assertThatThrownBy(
+                        () -> ImpactQueryValidator.parseSnapshotRoots(
+                                entities, List.of(oversized), null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageNotContaining(oversized);
+    }
+
     /** Records every identifier handed to the resolver and resolves it. */
     private static ImpactQueryValidator.EntityLookup recordingLookup(List<String> seen) {
         return raw -> {

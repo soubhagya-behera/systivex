@@ -46,4 +46,53 @@ class HealthParserTest {
         assertThatThrownBy(() -> HealthParser.parse(""))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void nullBodyFails() {
+        assertThatThrownBy(() -> HealthParser.parse(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("empty");
+    }
+
+    @Test
+    void whitespaceOnlyBodyFails() {
+        assertThatThrownBy(() -> HealthParser.parse("   \n\t  \r\n "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("empty");
+    }
+
+    @Test
+    void maximumSupportedBodySizeIsAccepted() {
+        String body = bodyOfSize(HealthParser.MAX_CHARS);
+
+        assertThat(body).hasSize(HealthParser.MAX_CHARS);
+        assertThat(HealthParser.parse(body)).isEqualTo("UP");
+    }
+
+    @Test
+    void bodyExceedingMaxCharsIsRejected() {
+        String body = bodyOfSize(HealthParser.MAX_CHARS + 1);
+
+        assertThat(body).hasSize(HealthParser.MAX_CHARS + 1);
+        assertThatThrownBy(() -> HealthParser.parse(body))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exceeds size bound");
+    }
+
+    @Test
+    void whitespaceAroundHealthStatusIsAccepted() {
+        assertThat(HealthParser.parse("  \n {\"status\" : \"UP\"}  \t ")).isEqualTo("UP");
+    }
+
+    @Test
+    void whitespaceInsideStatusValueIsAccepted() {
+        assertThat(HealthParser.parse("{\"status\":\"  UP  \"}")).isEqualTo("UP");
+    }
+
+    /** Builds a syntactically valid body of exactly {@code size} characters. */
+    private static String bodyOfSize(int size) {
+        String prefix = "{\"status\":\"UP\",\"padding\":\"";
+        String suffix = "\"}";
+        return prefix + "a".repeat(size - prefix.length() - suffix.length()) + suffix;
+    }
 }
