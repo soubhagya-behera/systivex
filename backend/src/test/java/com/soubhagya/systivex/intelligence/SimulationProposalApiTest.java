@@ -13,6 +13,7 @@ import com.soubhagya.systivex.observation.TwinSyncService;
 import com.soubhagya.systivex.twin.AbstractPostgresIntegrationTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -164,6 +165,20 @@ class SimulationProposalApiTest extends AbstractPostgresIntegrationTest {
                         body(
                                 List.of(GATEWAY), null, null,
                                 List.of(dropEdge(GATEWAY, target, "CALLS"))));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).doesNotContain("secret-marker");
+    }
+
+    @Test
+    void moreThan100OperationsReturns400BeforeResolution() {
+        List<Map<String, Object>> operations = new ArrayList<>();
+        for (int i = 0; i < 101; i++) {
+            operations.add(removeEntity("secret-marker-" + i));
+        }
+
+        ResponseEntity<String> response =
+                postRaw(body(List.of(GATEWAY), null, null, operations));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).doesNotContain("secret-marker");

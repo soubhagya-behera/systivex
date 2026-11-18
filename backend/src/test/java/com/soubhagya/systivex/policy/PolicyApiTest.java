@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -250,6 +251,26 @@ class PolicyApiTest extends AbstractPostgresIntegrationTest {
                                         String.class)
                                 .getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void moreThan100OperationsReturns400BeforeResolution() {
+        List<Map<String, Object>> operations = new ArrayList<>();
+        for (int i = 0; i < 101; i++) {
+            operations.add(
+                    Map.of(
+                            "type", "REMOVE_ENTITY",
+                            "entity", "secret-marker-" + i));
+        }
+
+        ResponseEntity<String> response =
+                rest.postForEntity(
+                        "/api/v1/twin/policy-evaluations",
+                        Map.of("from", List.of(GATEWAY), "operations", operations),
+                        String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).doesNotContain("secret-marker");
     }
 
     @Test
