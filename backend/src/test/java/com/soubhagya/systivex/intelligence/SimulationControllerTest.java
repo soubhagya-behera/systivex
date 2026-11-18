@@ -7,6 +7,7 @@ import com.soubhagya.systivex.twin.service.EntityNotFoundException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
@@ -126,6 +127,29 @@ class SimulationControllerTest {
     }
 
     @Test
+    void moreThan100OperationsReturns400BeforeServiceIsCalled() throws Exception {
+        AtomicBoolean serviceCalled = new AtomicBoolean();
+        behavior.set(
+                request -> {
+                    serviceCalled.set(true);
+                    return ok();
+                });
+
+        String body =
+                mvc.perform(
+                                MockMvcRequestBuilders.post("/api/v1/twin/simulations")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(bodyWithOperations(101, "secret-marker")))
+                        .andExpect(MockMvcResultMatchers.status().isBadRequest())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        assertThat(serviceCalled.get()).isFalse();
+        assertThat(body).doesNotContain("secret-marker");
+    }
+
+    @Test
     void proposalConflictMapsTo409WithoutInternals() throws Exception {
         behavior.set(
                 request -> {
@@ -146,5 +170,21 @@ class SimulationControllerTest {
                         .getContentAsString();
         assertThat(body).contains("Edge already exists");
         assertThat(body).doesNotContain("stackTrace", "at com.soubhagya");
+    }
+
+    private static String bodyWithOperations(int count, String prefix) {
+        StringBuilder json =
+                new StringBuilder("{\"from\":[\"svc:a\"],\"operations\":[");
+        for (int i = 0; i < count; i++) {
+            if (i > 0) {
+                json.append(',');
+            }
+            json.append("{\"type\":\"REMOVE_ENTITY\",\"entity\":\"")
+                    .append(prefix)
+                    .append('-')
+                    .append(i)
+                    .append("\"}");
+        }
+        return json.append("]}").toString();
     }
 }

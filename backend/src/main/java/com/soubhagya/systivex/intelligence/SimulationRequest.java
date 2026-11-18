@@ -13,10 +13,25 @@ import java.util.List;
  * validation exactly. {@code operations} is the unexecuted proposal: only
  * {@code REMOVE_ENTITY}, {@code ADD_RELATIONSHIP}, and
  * {@code REMOVE_RELATIONSHIP} are accepted. A missing {@code operations}
- * list simulates the null proposal (before equals after).
+ * list simulates the null proposal (before equals after), and an empty list
+ * simulates the same null proposal.
+ *
+ * <p>The operation list is bounded at construction/deserialization time by
+ * {@link SimulationLimits#MAX_OPERATIONS}. An oversized request is rejected
+ * before the controller or service is entered, so it is never truncated and
+ * never simulated as a partial change.
  */
 public record SimulationRequest(
         @JsonProperty("from") List<String> from,
         @JsonProperty("maxDepth") @JsonAlias("max_depth") Integer maxDepth,
         @JsonProperty("includeTypes") @JsonAlias("include_types") List<String> includeTypes,
-        @JsonProperty("operations") List<SimulationOperation> operations) {}
+        @JsonProperty("operations") List<SimulationOperation> operations) {
+
+    public SimulationRequest {
+        if (operations != null && operations.size() > SimulationLimits.MAX_OPERATIONS) {
+            throw new IllegalArgumentException(
+                    "At most " + SimulationLimits.MAX_OPERATIONS
+                            + " simulation operations are supported");
+        }
+    }
+}
