@@ -2,6 +2,7 @@ package com.soubhagya.systivex.intelligence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.soubhagya.systivex.twin.model.SystemEntity;
 import com.soubhagya.systivex.twin.model.SystemEntityType;
@@ -143,6 +144,152 @@ class ImpactQueryValidatorTest {
     }
 
     @Test
+    void identifierAtMaximumLengthIsAccepted() {
+        String ref = "r".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS);
+        Map<UUID, SystemEntity> entities = new LinkedHashMap<>();
+        entities.put(ID_A, entity(ID_A, ref));
+
+        ImpactQueryValidator.ParsedInputs parsed =
+                ImpactQueryValidator.parseSnapshotInputs(entities, List.of(ref), null, null);
+
+        assertThat(parsed.starts()).hasSize(1);
+        assertThat(parsed.starts().get(0).getExternalRef()).isEqualTo(ref);
+    }
+
+    @Test
+    void identifierExceedingMaximumLengthIsRejectedWithoutResolution() {
+        String ref = "r".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS + 1);
+        List<String> seen = new ArrayList<>();
+
+        assertThatThrownBy(
+                        () ->
+                                ImpactQueryValidator.parseInputs(
+                                        List.of(ref), null, null, recordingLookup(seen)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "must not exceed " + ImpactQueryValidator.MAX_IDENTIFIER_CHARS + " characters");
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void paddedIdentifierOverRawLimitIsRejectedWithoutResolution() {
+        String ref = "r".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS);
+        List<String> seen = new ArrayList<>();
+
+        assertThatThrownBy(
+                        () ->
+                                ImpactQueryValidator.parseInputs(
+                                        List.of("   " + ref), null, null, recordingLookup(seen)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "must not exceed " + ImpactQueryValidator.MAX_IDENTIFIER_CHARS + " characters");
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void aggregateIdentifierLengthAtLimitIsAccepted() {
+        String ref = "r".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS);
+        Map<UUID, SystemEntity> entities = new LinkedHashMap<>();
+        entities.put(ID_A, entity(ID_A, ref));
+
+        ImpactQueryValidator.ParsedInputs parsed =
+                ImpactQueryValidator.parseSnapshotInputs(
+                        entities, List.of(ref, ref), null, null);
+
+        assertThat(parsed.starts()).hasSize(2);
+    }
+
+    @Test
+    void aggregateIdentifierLengthExceedingLimitIsRejectedWithoutResolution() {
+        String ref = "r".repeat(400);
+        List<String> seen = new ArrayList<>();
+
+        assertThatThrownBy(
+                        () ->
+                                ImpactQueryValidator.parseInputs(
+                                        List.of(ref, ref, ref), null, null, recordingLookup(seen)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "must not exceed "
+                                + ImpactQueryValidator.MAX_TOTAL_IDENTIFIER_CHARS
+                                + " characters in total");
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void multipleStartsResolveInDeterministicOrder() {
+        Map<UUID, SystemEntity> entities = snapshot();
+        List<String> seen = new ArrayList<>();
+
+        ImpactQueryValidator.ParsedInputs parsed =
+                ImpactQueryValidator.parseInputs(
+                        List.of("  svc:b ", "svc:a"),
+                        null,
+                        null,
+                        raw -> {
+                            seen.add(raw);
+                            return entities.get(
+                                    raw.equals("svc:a") ? ID_A : ID_B);
+                        });
+
+        assertThat(seen).containsExactly("svc:b", "svc:a");
+        assertThat(parsed.starts().stream().map(SystemEntity::getExternalRef).toList())
+                .containsExactly("svc:a", "svc:b");
+    }
+
+    @Test
+    void uuidAndExternalReferenceStayAccepted() {
+        Map<UUID, SystemEntity> entities = snapshot();
+        UUID scannedId = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        String scanned = "target-table:inventory_db.inventory_items";
+        entities.put(scannedId, entity(scannedId, scanned));
+
+        assertThat(ImpactQueryValidator.parseSnapshotInputs(
+                                entities, List.of(ID_A.toString()), null, null)
+                        .starts())
+                .hasSize(1);
+        assertThat(ImpactQueryValidator.parseSnapshotInputs(
+                                entities, List.of(scanned), null, null)
+                        .starts())
+                .hasSize(1);
+    }
+
+    @Test
+    void liveAndSnapshotPathsRejectOversizedInputIdentically() {
+        String ref = "r".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS + 1);
+        List<String> seen = new ArrayList<>();
+
+        IllegalArgumentException live =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                ImpactQueryValidator.parseInputs(
+                                        List.of(ref), null, null, recordingLookup(seen)));
+        IllegalArgumentException snapshot =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                ImpactQueryValidator.parseSnapshotInputs(
+                                        snapshot(), List.of(ref), null, null));
+
+        assertThat(live.getMessage()).isEqualTo(snapshot.getMessage());
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void rejectionMessageDoesNotEchoTheIdentifier() {
+        String ref = "secret-marker-" + "r".repeat(600);
+
+        assertThatThrownBy(
+                        () ->
+                                ImpactQueryValidator.parseInputs(
+                                        List.of(ref), null, null, recordingLookup(new ArrayList<>())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageNotContaining("secret-marker")
+                .hasMessageNotContaining(ref);
+    }
+
+    @Test
     void derivedRootsAreNotCappedByTheQueryStartLimit() {
         Map<UUID, SystemEntity> entities = new LinkedHashMap<>();
         List<String> refs = new ArrayList<>();
@@ -193,5 +340,41 @@ class ImpactQueryValidatorTest {
                         () -> ImpactQueryValidator.parseSnapshotRoots(
                                 entities, List.of("svc:a"), null, List.of("NOPE")))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void derivedRootsExceedCallerAggregateBoundWhileCallerRequestsStayRejected() {
+        Map<UUID, SystemEntity> entities = new LinkedHashMap<>();
+        List<String> refs = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            UUID id = UUID.randomUUID();
+            String ref = "svc:" + "r".repeat(100) + i;
+            entities.put(id, entity(id, ref));
+            refs.add(ref);
+        }
+        int totalChars = refs.stream().mapToInt(String::length).sum();
+        assertThat(refs).hasSizeGreaterThan(ImpactQueryValidator.MAX_STARTS);
+        assertThat(totalChars).isGreaterThan(ImpactQueryValidator.MAX_TOTAL_IDENTIFIER_CHARS);
+
+        assertThatThrownBy(
+                        () -> ImpactQueryValidator.parseSnapshotInputs(entities, refs, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(ImpactQueryValidator.parseSnapshotRoots(entities, refs, null, null).starts())
+                .hasSize(12);
+
+        String oversized = "r".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS + 1);
+        assertThatThrownBy(
+                        () -> ImpactQueryValidator.parseSnapshotRoots(
+                                entities, List.of(oversized), null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageNotContaining(oversized);
+    }
+
+    /** Records every identifier handed to the resolver and resolves it. */
+    private static ImpactQueryValidator.EntityLookup recordingLookup(List<String> seen) {
+        return raw -> {
+            seen.add(raw);
+            return entity(ID_A, raw);
+        };
     }
 }

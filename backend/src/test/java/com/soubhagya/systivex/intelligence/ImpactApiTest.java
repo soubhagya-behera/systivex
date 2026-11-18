@@ -261,6 +261,31 @@ class ImpactApiTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    void overlongIdentifierReturns400WithoutEchoingTheIdentifier() {
+        String identifier = "secret-marker-" + "a".repeat(600);
+        ResponseEntity<String> response = impactRaw(List.of(identifier), null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).doesNotContain("secret-marker");
+    }
+
+    @Test
+    void overlongIdentifierListReturns400() {
+        String chunk = "a".repeat(400);
+        ResponseEntity<String> response = impactRaw(List.of(chunk, chunk, chunk), null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void identifierAtMaximumLengthPassesValidationAndUnknownStillReturns404() {
+        String identifier = "a".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS);
+        ResponseEntity<String> response = impactRaw(List.of(identifier), null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
     void maxDepthOutOfRangeReturns400() {
         ResponseEntity<String> zero = impactRaw(List.of(INVENTORY_ITEMS), "maxDepth=0");
         assertThat(zero.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
