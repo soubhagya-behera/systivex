@@ -3,6 +3,9 @@ package com.soubhagya.systivex.evidence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.soubhagya.systivex.intelligence.SimulationLimits;
+import com.soubhagya.systivex.intelligence.SimulationOperation;
+import com.soubhagya.systivex.intelligence.SimulationOperationType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -163,6 +166,43 @@ class EvidenceModelTest {
         assertThat(defaults.maxTextLength()).isEqualTo(EvidenceLimits.MAX_TEXT_LENGTH);
         assertThat(defaults.maxLimitations()).isEqualTo(EvidenceLimits.MAX_LIMITATIONS);
         assertThat(defaults.maxProposalOperations()).isEqualTo(EvidenceLimits.MAX_PROPOSAL_OPERATIONS);
+    }
+
+    @Test
+    void evidenceSimulationOperationLimitMatchesTheSharedLimit() {
+        assertThat(SimulationLimits.MAX_OPERATIONS).isEqualTo(100);
+        assertThat(EvidenceLimits.MAX_SIMULATION_OPERATIONS)
+                .isEqualTo(SimulationLimits.MAX_OPERATIONS)
+                .isEqualTo(100);
+    }
+
+    @Test
+    void evidencePacketAcceptsExactlyHundredOperationsAndRejectsMore() {
+        List<SimulationOperation> operations = new ArrayList<>();
+        for (int i = 0; i < SimulationLimits.MAX_OPERATIONS; i++) {
+            operations.add(
+                    new SimulationOperation(
+                            SimulationOperationType.REMOVE_ENTITY, "svc-" + i,
+                            null, null, null));
+        }
+
+        EvidencePacketRequest accepted =
+                new EvidencePacketRequest(
+                        EvidenceMode.SIMULATION, List.of("svc-a"), null, List.of(),
+                        operations, null, null, false);
+        assertThat(accepted.operations()).hasSize(100).containsExactlyElementsOf(operations);
+
+        operations.add(
+                new SimulationOperation(
+                        SimulationOperationType.REMOVE_ENTITY, "svc-overflow",
+                        null, null, null));
+        assertThatThrownBy(
+                        () ->
+                                new EvidencePacketRequest(
+                                        EvidenceMode.SIMULATION, List.of("svc-a"), null,
+                                        List.of(), operations, null, null, false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("At most 100");
     }
 
     @Test

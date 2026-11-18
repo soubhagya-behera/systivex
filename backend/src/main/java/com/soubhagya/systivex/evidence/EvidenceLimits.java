@@ -1,5 +1,6 @@
 package com.soubhagya.systivex.evidence;
 
+import com.soubhagya.systivex.intelligence.SimulationLimits;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,7 +31,7 @@ public final class EvidenceLimits {
     public static final int MAX_RISK_REASONS = 20;
     public static final int MAX_TEXT_LENGTH = 1000;
     public static final int MAX_LIMITATIONS = 100;
-    public static final int MAX_SIMULATION_OPERATIONS = 100;
+    public static final int MAX_SIMULATION_OPERATIONS = SimulationLimits.MAX_OPERATIONS;
     public static final int MAX_PROPOSAL_OPERATIONS = 100;
 
     private static final String TRUNCATION_MARKER = "... [truncated]";
