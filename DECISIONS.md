@@ -696,7 +696,13 @@ Status labels: **decided** (binding now) / **planned** (intent, not yet implemen
   Materially stale assessments are rejected before approval (409):
   structural fingerprint mismatch, risk-level escalation or new
   staleness on recompute, or lapsed TTL (7-day default, 30-day hard
-  maximum, lazy expiration only — no scheduler).
+  maximum, lazy expiration only — no scheduler). The assessment's
+  impact roots are the entities the stored operations touch — a set the
+  proposal derives itself, not query input. The impact query's
+  caller-facing start cap (10 `from` values, D23) therefore does not
+  bound it; the proposal's own operation limit does, so a proposal
+  accepted at creation is always assessable, submittable, and
+  approvable.
 - **Revision model (issue A, resolved):** business revisions and JPA
   concurrency are separate fields. Each amendment inserts a new immutable
   `proposal_revision` row (`proposal_key` + 1-based `revision_number`,
