@@ -13,6 +13,7 @@ import com.soubhagya.systivex.observation.TwinSyncService;
 import com.soubhagya.systivex.twin.AbstractPostgresIntegrationTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,7 @@ import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRe
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
 
 /**
  * HTTP validation matrix for change simulation over the real Phase 4
@@ -46,8 +48,11 @@ class SimulationProposalApiTest extends AbstractPostgresIntegrationTest {
     }
 
     private HttpStatusCode post(Map<String, Object> body) {
-        return rest.postForEntity("/api/v1/twin/simulations", body, String.class)
-                .getStatusCode();
+        return postRaw(body).getStatusCode();
+    }
+
+    private ResponseEntity<String> postRaw(Map<String, Object> body) {
+        return rest.postForEntity("/api/v1/twin/simulations", body, String.class);
     }
 
     @Test
@@ -127,6 +132,56 @@ class SimulationProposalApiTest extends AbstractPostgresIntegrationTest {
                                         List.of(GATEWAY), null, null,
                                         List.of(removeEntity("target-service:nope")))))
                 .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void oversizedEntityIdentifierReturns400WithoutEchoingIt() {
+        String entity = "secret-marker-" + "e".repeat(600);
+        ResponseEntity<String> response =
+                postRaw(body(List.of(GATEWAY), null, null, List.of(removeEntity(entity))));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).doesNotContain("secret-marker");
+    }
+
+    @Test
+    void oversizedRelationshipSourceReturns400WithoutEchoingIt() {
+        String source = "secret-marker-" + "s".repeat(600);
+        ResponseEntity<String> response =
+                postRaw(
+                        body(
+                                List.of(GATEWAY), null, null,
+                                List.of(addEdge(source, GATEWAY, "CALLS"))));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).doesNotContain("secret-marker");
+    }
+
+    @Test
+    void oversizedRelationshipTargetReturns400WithoutEchoingIt() {
+        String target = "secret-marker-" + "t".repeat(600);
+        ResponseEntity<String> response =
+                postRaw(
+                        body(
+                                List.of(GATEWAY), null, null,
+                                List.of(dropEdge(GATEWAY, target, "CALLS"))));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).doesNotContain("secret-marker");
+    }
+
+    @Test
+    void moreThan100OperationsReturns400BeforeResolution() {
+        List<Map<String, Object>> operations = new ArrayList<>();
+        for (int i = 0; i < 101; i++) {
+            operations.add(removeEntity("secret-marker-" + i));
+        }
+
+        ResponseEntity<String> response =
+                postRaw(body(List.of(GATEWAY), null, null, operations));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).doesNotContain("secret-marker");
     }
 
     @Test

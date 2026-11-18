@@ -363,4 +363,176 @@ class SimulationProposalValidatorTest {
 
         assertThat(proposal.removedEntityIds()).containsExactly(SVC_C);
     }
+
+    @Test
+    void identifierAtMaximumLengthIsAccepted() {
+        String entity = "e".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS);
+        List<String> seen = new ArrayList<>();
+
+        SimulationProposalValidator.ResolvedProposal proposal =
+                SimulationProposalValidator.validate(
+                        List.of(removeEntity(entity)),
+                        Set.of(ROOT),
+                        existing,
+                        recordingResolver(seen));
+
+        assertThat(seen).containsExactly(entity);
+        assertThat(proposal.removedEntityIds()).containsExactly(SVC_C);
+    }
+
+    @Test
+    void identifierExceedingMaximumLengthFails400() {
+        String entity = "e".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS + 1);
+        List<String> seen = new ArrayList<>();
+
+        assertThatThrownBy(
+                        () ->
+                                SimulationProposalValidator.validate(
+                                        List.of(removeEntity(entity)),
+                                        Set.of(ROOT),
+                                        existing,
+                                        recordingResolver(seen)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "must not exceed "
+                                + ImpactQueryValidator.MAX_IDENTIFIER_CHARS
+                                + " characters");
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void oversizedRemoveEntityIdentifierFails400() {
+        String entity = "e".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS + 1);
+        List<String> seen = new ArrayList<>();
+
+        assertThatThrownBy(
+                        () ->
+                                SimulationProposalValidator.validate(
+                                        List.of(removeEntity(entity)),
+                                        Set.of(ROOT),
+                                        existing,
+                                        recordingResolver(seen)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("entity must not exceed");
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void oversizedRelationshipSourceFails400() {
+        String source = "s".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS + 1);
+        List<String> seen = new ArrayList<>();
+
+        assertThatThrownBy(
+                        () ->
+                                SimulationProposalValidator.validate(
+                                        List.of(
+                                                addEdge(
+                                                        source, "svc-b",
+                                                        SystemRelationshipType.CALLS)),
+                                        Set.of(ROOT),
+                                        existing,
+                                        recordingResolver(seen)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("source must not exceed");
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void oversizedRelationshipTargetFails400() {
+        String target = "t".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS + 1);
+        List<String> seen = new ArrayList<>();
+
+        assertThatThrownBy(
+                        () ->
+                                SimulationProposalValidator.validate(
+                                        List.of(
+                                                dropEdge(
+                                                        "svc-a", target,
+                                                        SystemRelationshipType.CALLS)),
+                                        Set.of(ROOT),
+                                        existing,
+                                        recordingResolver(seen)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("target must not exceed");
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void whitespacePaddedIdentifierOverRawLimitFails400() {
+        String entity = "   " + "e".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS);
+        List<String> seen = new ArrayList<>();
+
+        assertThatThrownBy(
+                        () ->
+                                SimulationProposalValidator.validate(
+                                        List.of(removeEntity(entity)),
+                                        Set.of(ROOT),
+                                        existing,
+                                        recordingResolver(seen)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must not exceed");
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void everyOperationIsLengthCheckedBeforeAnyResolverCall() {
+        String oversized = "e".repeat(ImpactQueryValidator.MAX_IDENTIFIER_CHARS + 1);
+        List<String> seen = new ArrayList<>();
+
+        assertThatThrownBy(
+                        () ->
+                                SimulationProposalValidator.validate(
+                                        List.of(
+                                                removeEntity("svc-c"),
+                                                addEdge(
+                                                        "svc-a", "svc-b",
+                                                        SystemRelationshipType.DEPENDS_ON),
+                                                removeEntity(oversized)),
+                                        Set.of(ROOT),
+                                        existing,
+                                        recordingResolver(seen)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void rejectionMessageDoesNotEchoTheRejectedIdentifier() {
+        String entity = "secret-marker-" + "e".repeat(600);
+
+        assertThatThrownBy(
+                        () ->
+                                SimulationProposalValidator.validate(
+                                        List.of(removeEntity(entity)),
+                                        Set.of(ROOT),
+                                        existing,
+                                        recordingResolver(new ArrayList<>())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageNotContaining("secret-marker")
+                .hasMessageNotContaining(entity);
+    }
+
+    @Test
+    void uuidAndExternalReferenceResolutionAreUnchanged() {
+        SimulationProposalValidator.ResolvedProposal byRef =
+                SimulationProposalValidator.validate(
+                        List.of(removeEntity("svc-a")), Set.of(ROOT), existing, resolver);
+        SimulationProposalValidator.ResolvedProposal byUuid =
+                SimulationProposalValidator.validate(
+                        List.of(removeEntity(SVC_A.toString())),
+                        Set.of(ROOT),
+                        existing,
+                        resolver);
+
+        assertThat(byRef.removedEntityIds()).containsExactly(SVC_A);
+        assertThat(byUuid.removedEntityIds()).containsExactly(SVC_A);
+    }
+
+    /** Records every identifier handed to the resolver and resolves it. */
+    private static SimulationProposalValidator.EntityResolver recordingResolver(
+            List<String> seen) {
+        return raw -> {
+            seen.add(raw);
+            return SVC_C;
+        };
+    }
 }
