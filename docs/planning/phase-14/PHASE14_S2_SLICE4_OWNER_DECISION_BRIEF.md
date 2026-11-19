@@ -133,24 +133,48 @@ baseline and none is authorized by this brief.
 
 3. **Verified technical facts:** `SecurityConfig.java:122-127` assigns
    `TWIN_READ` to deterministic GETs including impact and risk;
-   `:132-138` assigns `TWIN_ANALYZE` to simulation/policy POSTs and proposal
-   authoring; `:139-140` assigns approve/reject to `TWIN_APPROVER`;
-   `JwtGrantedAuthoritiesConverter.java:28-35` enforces an allowlist and
-   `TWIN_ADMIN` inheritance of READ/ANALYZE/OPERATOR but not APPROVER.
+   `:132-133` assigns `TWIN_ANALYZE` to simulation and policy POSTs.
+   `:135-138` additionally assigns `TWIN_ANALYZE` to proposal creation
+   (`POST /api/v1/twin/proposals`) and to withdrawal, assessment and submission
+   (`POST /api/v1/twin/proposals/*/withdraw`, `.../assess`, `.../submit`);
+   `:141` assigns `TWIN_ANALYZE` to proposal modification
+   (`PATCH /api/v1/twin/proposals/*`). `:139-140` assigns approve/reject to
+   `TWIN_APPROVER`. `JwtGrantedAuthoritiesConverter.java:28-35` enforces an
+   allowlist and `TWIN_ADMIN` inheritance of READ/ANALYZE/OPERATOR but not
+   APPROVER.
 
-4. **Consequences:** `TWIN_READ` widens reachability to model-authored prose and
-   to the compute/contention surface; `TWIN_ANALYZE` limits both but creates an
-   asymmetry for read-only operators. Neither choice creates acceptance
-   authority or satisfies D29 separation of duties, because no review outcome
-   is recorded.
+4. **Consequences and trade-off:**
+   - `TWIN_READ` makes inference reachable to a broader read-only audience,
+     including every holder of the least-privileged read role, widening both
+     exposure to model-authored prose and the compute/contention surface.
+   - `TWIN_ANALYZE` narrows inference access, but combines it with the existing
+     proposal-authoring capabilities listed above: creation, withdrawal,
+     assessment, submission and modification. A reviewer granted access through
+     this role would also hold those permissions.
+   - Neither role is dedicated exclusively to candidate generation.
+     `TWIN_READ` covers ordinary deterministic reads; `TWIN_ANALYZE` covers
+     simulation, policy and proposal authoring as well.
+   - Neither option provides human-review acceptance or approval authority.
+     Approval remains solely with `TWIN_APPROVER`, and the proposed surface
+     records no review outcome, so D29 separation of duties is neither engaged
+     nor satisfied by this choice.
+   - `TWIN_ANALYZE` also creates an asymmetry for `TWIN_READ`-only console
+     operators.
 
 5. **Dependencies:** AD-1; AD-3 if the principal is used for rate control.
 
-6. **Recommendation — NON-BINDING:** `TWIN_ANALYZE`. *Justification:* the
-   proposed operation constructs a derived artifact from caller parameters and
-   would be the only surface invoking an untrusted local model, which is
-   categorically different from deterministic analysis; the verified role
-   mapping already reserves `TWIN_ANALYZE` for constructed derived artifacts.
+6. **Recommendation — NON-BINDING:** `TWIN_ANALYZE` remains the non-binding
+   preference, on a narrower rationale than the proposal's original wording:
+   the proposed operation constructs a derived artifact from caller parameters
+   and would be the only surface invoking an untrusted local model, so limiting
+   inference reachability to the smaller analysis-role population is preferable
+   to exposing it to every read-only token holder. This is a preference about
+   the breadth of inference access, **not** a claim that `TWIN_ANALYZE` is
+   reserved exclusively for derived artifacts — the verified mapping shows it
+   also carries proposal creation, withdrawal, assessment, submission and
+   modification permissions. The owner must weigh that bundle against the
+   wider exposure under `TWIN_READ`; this brief does not select or adopt either
+   role.
 
 7. **What remains for the owner to approve:** the chosen role, the reasoning,
    and acceptance of the resulting compute-exposure consequence. No role
