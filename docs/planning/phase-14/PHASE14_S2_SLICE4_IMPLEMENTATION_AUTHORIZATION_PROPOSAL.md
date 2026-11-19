@@ -59,8 +59,13 @@ Authorization, if granted, would cover only the following:
 7. **S-C and S-D remain unrepresentable.** No field, control, or label may
    express a human-reviewed claim (S-C) or human acceptance/rejection (S-D).
    These states do not exist in the data contract or the view.
-8. **No accept/reject/approve/review/submit controls.** No action control of
-   any kind appears. Human review remains a process outside this surface.
+ 8. **No candidate-decision controls.** No accept, reject, approve, dismiss,
+    edit, submit, promote, or execute control appears. No control or state may
+    represent human review, acceptance, or rejection. Harmless navigation
+    controls may select one local fixture set or move focus to its referenced
+    evidence, consistent with D44. Such navigation must not mutate candidate
+    content, record a decision, or create persistent state. Human review remains
+    a process outside this surface.
 9. **No rejected candidate statement text.** Synthetic fixtures may show
    counts and fixed explanatory labels by failure class; the statement text,
    evidence references, and validator detail of a rejected candidate are never
@@ -112,9 +117,14 @@ is satisfied by prose or by intent alone.
    switched, and when the view is closed.
 5. **Four states.** Tests assert S-A and S-B are illustrated with synthetic
    labels and that no text, control, field, or attribute expresses S-C or S-D.
-6. **No acceptance or review action.** Tests assert the absence of
-   accept/reject/approve/dismiss/review/submit controls and that no acceptance,
-   review, or approval state can be produced.
+ 6. **No candidate-decision controls and no S-C/S-D state.** Tests assert the
+    absence of every prohibited candidate-decision control: accept, reject,
+    approve, dismiss, edit, submit, promote, and execute. Tests assert that no
+    control or state can represent human review, acceptance, or rejection, and
+    that S-C and S-D cannot be produced. Tests confirm that permitted
+    navigation - selecting a local fixture set or moving focus to referenced
+    evidence - only changes the displayed fixture selection or focus, and does
+    not mutate candidate data or record a human decision.
 7. **Rejected statements.** A test asserts fixture counts and fixed
    failure-class labels may appear, while no rejected statement text, evidence
    reference, or validator detail is rendered.
