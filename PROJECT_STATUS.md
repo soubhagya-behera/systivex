@@ -1,9 +1,16 @@
 # Systivex Project Status
 
-Last verified: **2026-11-11** (Asia/Kolkata); post-merge synchronization of
-PR #27 completed 2026-11-11. Phase 13 S5 automated and local live
-verification completed 2026-11-03. Phase 14 S2 Slice 2 merged via PR #27 on
-2026-11-09/2026-11-10 (merge commit
+Last verified: **2026-11-19** (Asia/Kolkata) for governance and documentation
+state only; no new tests, build, or live verification were performed for this
+update. Current main: `ca2428cbae39f4a6847016e684de1d90a7155655`. The prior
+integration queue is complete: all changes from that queue have been merged.
+This governance-remediation work is tracked separately. Phase 14 S2 Slice 3
+authorization traceability is
+recorded under D47: it cannot currently be verified from the recorded
+governance history. Historical verification remains as recorded below:
+post-merge synchronization of PR #27 completed 2026-11-11. Phase 13 S5
+automated and local live verification completed 2026-11-03. Phase 14 S2 Slice 2
+merged via PR #27 on 2026-11-09/2026-11-10 (merge commit
 `c6ae7265339c2aeebec58db0f0b22be79dcf2e09`); 63/63 focused and 622/622
 full backend tests passed. This document must be updated whenever the
 implemented state changes. Planned items are not claimed as done; live
@@ -12,12 +19,17 @@ verification is recorded separately and is not inferred from automated tests.
 ## Current phase
 
 **Phase 14 S2 Slice 3 — Evidence-Grounded Generation
-(implementation present in the repository; not authorized by D42 or D43;
-authorization traceability unresolved because no subsequent implementation-
-authorization decision has been identified; 6 tracked production classes and
-6 tracked test classes; 39 focused tests in tracked sources).** Phase 14 S2
-Slice 2 remains complete and unchanged (PR #27).
+(implementation present in the repository; its authorization cannot be
+substantiated from the recorded governance history under D47, which records
+that authorization traceability cannot currently be verified; 6 tracked
+production classes and 6 tracked test classes; 39 focused tests in tracked
+sources).** Phase 14 S2 Slice 2 remains complete and unchanged (PR #27).
 Phase 13 S5 remains complete and unchanged (PR #20).
+
+Phase 14 S2 Slice 4 is blocked pending governance and proposal-gate
+resolution. No D44 design adoption, endpoint exposure, presentation surface,
+or Slice 4 implementation is authorized. See
+`docs/planning/phase-14/PHASE14_S2_SLICE4_GATE_ASSESSMENT.md`.
 
 Phase 13 S5 adds a live-only **Simulation & Policy** view to the existing
 React + Vite + JavaScript console under D37, which was adopted in commit
@@ -404,10 +416,12 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   evaluation). Design adoption authorizes no implementation.
 - [x] **D43 adopted** (`DECISIONS.md`, 2026-11-11): adopts the bounded
   Slice 3 implementation scope and acceptance criteria. D43 authorizes no
-  implementation. No subsequent implementation-authorization decision has
-  been identified, so authorization traceability for the implementation below
-  remains unresolved; this status line neither grants nor implies it.
-- [x] **S2 Slice 3: implementation present; authorization unresolved.**
+  implementation. D47 records that no subsequent implementation-authorization
+  decision is recorded in the canonical governance documents reviewed and
+  that authorization traceability cannot currently be verified; this status
+  line neither grants nor implies authorization.
+- [x] **S2 Slice 3: implementation present; authorization traceability cannot
+  be verified (D47).**
   The evidence-grounded generation implementation exists in the
   `generation` package: 6 tracked production classes and 6 tracked test
   classes, with 39 `@Test` methods in those tracked sources (the untracked
@@ -421,7 +435,8 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   run artifact or independent implementation-audit artifact was identified
   during the 2026-11-16 audit, so the former "audit PASS" claim is withdrawn
   rather than asserted. This records implementation only and does not
-  authorize it. Boundaries:
+  authorize it; D47 records that authorization cannot be substantiated from
+  the recorded governance history and imposes an interim hold. Boundaries:
   32,768-byte UTF-8 prompt ceiling; 25-claim generation cap separate from
   D40's 100-record parser limit; 45-second monotonic orchestration budget;
   unchanged D41 35-second inference contract; strict Jackson 3.1.5 parsing;
@@ -441,6 +456,12 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   persistence, migration, role, frontend, execution or model authority was
   added. Provenance validation does not prove semantic entailment; human
   review remains authoritative.
+- [ ] **Phase 14 S2 Slice 4: BLOCKED.** Governance and proposal-gate
+  resolution are outstanding under D47 and the Slice 4 gate assessment.
+  D44 remains reserved and is not adopted; no endpoint, presentation surface,
+  or Slice 4 implementation is authorized. See
+  `docs/planning/phase-14/PHASE14_S2_SLICE4_GATE_ASSESSMENT.md`.
+
 ## Gated, not scheduled — controlled execution
 
 **Execution implementation — gated by the D31 feasibility gate.** No
