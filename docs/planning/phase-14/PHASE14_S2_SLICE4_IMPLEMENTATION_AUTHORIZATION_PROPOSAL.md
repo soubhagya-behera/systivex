@@ -1,19 +1,22 @@
 # D48 Proposal — Phase 14 S2 Slice 4 Fixture-Only Implementation Authorization
 
-**Status: PROPOSED — NOT ADOPTED — NO IMPLEMENTATION AUTHORIZATION.**
+**Status: ADOPTED IMPLEMENTATION AUTHORIZATION — LIMITED TO D44 OPTION 1F
+FIXTURE-ONLY FRONTEND IMPLEMENTATION.**
 
-This is a proposed governance document only. It is not an entry in canonical
-`DECISIONS.md`, does not adopt D48, and does not authorize any code, test,
-dependency, configuration, endpoint, role, provider, or runtime change.
-No implementation may begin on the strength of this document.
+D48 was adopted on 2026-11-19 by the repository owner's approval statement,
+recorded verbatim in canonical `DECISIONS.md` D48 §B. This document is the
+adopted proposal of record. Authorization is limited exactly to the D44 Option
+1F fixture-only frontend implementation and the 14 gating acceptance criteria;
+none of the excluded capabilities in §3 is authorized. Adoption is not an
+implementation-completion claim.
 
 | Field | Value |
 | --- | --- |
 | Date | 2026-11-19 |
-| Governance baseline | `48279bfdf1107dd5aa33b1863993eb07bd2dcb63` (PR #47 merge; D44 adopted) |
+| Governance baseline | `8a41cd87b31ebfefe193c33010801e1f1699ae27` (PR #48 merge; D48 proposal carried to main) |
 | Adopted design | D44 — Phase 14 S2 Slice 4 fixture-only design (design adoption only) |
 | Design of record | `docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md` |
-| Proposed decision | D48 — explicit authorization for D44 Option 1F fixture-only frontend implementation |
+| Decision | D48 — adopted explicit authorization for D44 Option 1F fixture-only frontend implementation |
 | Governing independent gate | D47 — Slice 3 authorization traceability and interim hold |
 | Scope | Frontend development-only presentation rehearsal using locally defined synthetic fixtures |
 
@@ -179,8 +182,10 @@ Before the implementation may be considered complete:
 ## 6. Explicit governance
 
 - D44 is an **adopted design only**; it authorizes no implementation.
-- D48 remains a **proposal** until the repository owner explicitly approves it.
-- No implementation may begin before that approval.
+- D48 was explicitly approved by the repository owner on 2026-11-19 and adopted
+  in `DECISIONS.md` D48; this document is the adopted proposal of record.
+- Implementation within the §2 scope and §4 gating criteria is authorized by
+  that approval. No excluded capability in §3 is authorized.
 - D47 remains independent and unchanged: no Slice 3 runtime invocation or
   continuation, no provider activation for this feature, no generation service
   usage, no backend API call, and no retrospective authorization. Any future
@@ -191,10 +196,10 @@ Before the implementation may be considered complete:
 - No live endpoint, role, numeric threshold, model identity, or API contract is
   authorized or created by this proposal.
 
-## 7. Exact approval statement for the repository owner
+## 7. Owner approval statement (recorded in D48 §B)
 
-The repository owner may authorize only this fixture-only scope by recording
-the following statement verbatim in the governance record:
+The repository owner approved only this fixture-only scope by recording the
+following statement verbatim in the governance record:
 
 > **D48 — Phase 14 S2 Slice 4 Fixture-Only Implementation Authorization.** I
 > authorize implementation of only the D44 Option 1F fixture-only frontend
@@ -216,5 +221,6 @@ the following statement verbatim in the governance record:
 > identity. D47 remains independently binding; any future live use of Slice 3
 > requires separate prospective authorization before use.
 
-Until such a statement is recorded, D48 is not adopted and implementation is
-not authorized. This document must not be treated as that statement.
+The statement was recorded and D48 adopted on 2026-11-19; see `DECISIONS.md`
+D48. The authorization is limited to the fixture-only scope stated above and
+does not grant any excluded capability. No implementation is claimed complete.

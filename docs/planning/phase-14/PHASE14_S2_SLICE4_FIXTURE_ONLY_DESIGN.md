@@ -1,11 +1,14 @@
 # D44 Design — Phase 14 S2 Slice 4 Fixture-Only Presentation
 
-**Status: ADOPTED DESIGN — IMPLEMENTATION NOT AUTHORIZED.**
+**Status: ADOPTED DESIGN — IMPLEMENTATION AUTHORIZED SEPARATELY UNDER D48; NOT
+YET PERFORMED.**
 
 D44 design adoption became effective on 2026-11-19 through PR #47, merged as
 commit `48279bfdf1107dd5aa33b1863993eb07bd2dcb63`. This document is the adopted
-design of record. It authorizes no implementation, code, test, endpoint,
-provider, or runtime change.
+design of record and itself grants no implementation authority. D48 was adopted
+on 2026-11-19 to authorize only the D44 Option 1F fixture-only frontend
+implementation, subject to all 14 criteria below. No implementation is claimed
+complete.
 
 | Field | Value |
 | --- | --- |
@@ -250,8 +253,10 @@ proposal for a live endpoint or for implementation.
 
 ## 6. Acceptance criteria for a separately authorized implementation
 
-These are future implementation requirements, not claims that tests or code
-exist. No implementation is authorized by this document or by D44.
+These are implementation requirements, not claims that tests or code exist.
+This document and D44 grant no implementation authority; D48 separately
+authorizes implementation of this adopted design, with these criteria as gating
+tests. No implementation is claimed complete.
 
 1. **Synthetic data:** all displayed candidates and evidence are defined in a
    local development fixture module; a test asserts that no production module
@@ -296,9 +301,9 @@ exist. No implementation is authorized by this document or by D44.
 - **D44 design adoption** became effective on 2026-11-19 when PR #47 was merged
   into main (`48279bfdf1107dd5aa33b1863993eb07bd2dcb63`). It is documentation
   only and grants no implementation authority.
-- **Implementation** requires a separate explicit user authorization now that
-  D44 is adopted, with the §6 criteria as gating tests. No such authorization
-  exists in D44.
+- **Implementation** was authorized separately under D48 on 2026-11-19, with the
+  §6 criteria as gating tests. D44 itself grants no implementation authority,
+  and no implementation is claimed complete.
 - **D47** requires a separate prospective authorization before any future use
   or continuation of Slice 3; this design does not provide it.
 - **Any future live endpoint** requires a new decision resolving AD-2, AD-3,
