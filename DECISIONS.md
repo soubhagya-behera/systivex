@@ -2162,7 +2162,107 @@ Stop for review and explicit approval before modifying `DECISIONS.md`.
 
 - **O. Scope restriction.** D43 adopts implementation scope only. It does not authorize public or external endpoints; persistence, schema changes, or migrations; frontend or presentation surface; new roles; agent execution or mutation; external providers or cloud fallback; RAG, vector databases, MCP, or second-LLM authority; new dependencies outside the reviewed proposal; token-limit policy changes; or automatic acceptance of generated claims. Preserve all D38-D42 decisions.
 
+## D44 — Phase 14 S2 Slice 4: Fixture-Only Presentation Design Adoption (design-only)
 
+- **Status:** PROPOSED — NOT ADOPTED ON MAIN. This text is proposed on branch
+  `docs/phase14-d44-fixture-only-adoption`; it becomes an adopted decision only
+  when the adopting PR is merged into main. Design adoption only; no
+  implementation authorization.
+- **Date:** Proposed 2026-11-19. The effective adoption date is the merge date
+  of the adopting PR; no earlier effective date is claimed.
+- **Depends on:** D38–D43 (Phase 14 evidence foundation through Slice 3 design
+  and scope) and D47 (Slice 3 authorization traceability and interim hold).
+  D44 amends no prior decision. D38–D43 and D45–D47 are unchanged; D45 and D46
+  remain adopted as written and D47 remains binding.
+- **Purpose:** Adopt, as a design only, the verified Option 1F fixture-only
+  presentation design from `docs/planning/phase-14/PHASE14_S2_SLICE4_PROPOSAL.md`
+  §10.3, as specified in
+  `docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`. Option 1F
+  was verified to operate entirely on locally defined synthetic frontend
+  fixtures through the existing development-only preview pattern, with no
+  endpoint, no backend request, no Slice 3 invocation, no provider activation,
+  no real evidence, and no new authority.
+
+- **A. Adopted design boundary.** The adopted scope is the presentation rules
+  only: synthetic locally defined fixture data; persistent and item-level
+  synthetic-data labelling; the proposal's four-state boundary (S-A generated
+  candidate and S-B deterministic validation verdict illustrated with synthetic
+  labels only; S-C human-reviewed claim and S-D human acceptance/rejection not
+  representable); no automatic claim acceptance; no human-review outcome or
+  approval control; no rejected candidate statement display; no network access
+  to the backend or model provider; no persistence, review-decision storage, or
+  durable evidence identity; safe text-only rendering; development-only preview
+  gating using the repository's existing pattern; and accessibility, loading,
+  empty, and error presentation where applicable. Original evidence semantics
+  are preserved: synthetic fixtures are never presented as real evidence or as
+  a live model result.
+
+- **B. Recorded owner dispositions.** The nine adoption decisions are disposed
+  of as follows, with no numeric threshold, model identity, API contract, or
+  role change created:
+  1. **AD-1:** Option 1F only. No live endpoint in this Slice 4.
+  2. **AD-2:** Deferred / not applicable without an endpoint. `TWIN_ANALYZE`
+     remains a future non-binding preference, not an adopted role.
+  3. **AD-3:** R-E for this slice: no live inference endpoint. R-B/R-D are not
+     adopted.
+  4. **AD-4:** Deferred: no HTTP generation response exists in fixture-only
+     scope. A numeric serialized-response ceiling is mandatory before any
+     future live endpoint design can be adopted.
+  5. **AD-5:** Option 1F constitutes the entire current Slice 4 scope. A live
+     surface requires a separate future decision.
+  6. **AD-6:** Do not display rejected candidate statement text. Synthetic
+     fixtures may show counts and fixed explanatory labels.
+  7. **AD-7:** No durable evidence identity or persisted review record. Retain
+     only clearly labelled synthetic fixture references.
+  8. **AD-8:** Defer live endpoint, backend package and transport class naming.
+     Preserve the no-"review" machine-side naming constraint.
+  9. **AD-9:** No model/version disclosure in fixture-only scope. Model pinning
+     remains deferred under D40 §I.
+
+- **C. Design acceptance criteria.** The fixture-only design must satisfy the
+  criteria in `PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md` §6: locally defined
+  fixtures; explicit synthetic labelling; no Slice 3 or provider path; zero
+  network requests; four-state separation; no acceptance or review controls; no
+  rejected statement text; no persistence or durable identity; text-only
+  rendering; DEV-only gating with no production exposure; accessibility and
+  explicit loading/empty/error states; one fixture set at a time; no new
+  backend, endpoint, security, role, schema, dependency, or configuration
+  surface; and existing frontend regression tests unchanged.
+
+- **D. D47 remains an independent gate.** D47 is not modified, satisfied, or
+  circumvented by D44. This decision authorizes no Slice 3 runtime invocation
+  or continuation, no `LocalModelAdapter` activation for this feature, no
+  generation service usage, no backend API call, and no retrospective
+  authorization. Any future live use of Slice 3 requires a separate explicit
+  prospective authorization decision before that use begins.
+
+- **E. Scope restriction.** D44 authorizes no endpoint, controller, internal
+  service, evidence projection contract, transport DTO, exception mapping,
+  role, security matcher, backend change, provider activation, model download
+  or identity, real evidence packet, persistence, table, migration, dependency,
+  configuration, proposal mutation, approval, execution, second model, tool,
+  RAG, MCP, numeric response-size ceiling, or numeric threshold. It creates no
+  execution, approval, proposal-lifecycle, authentication, or provider
+  authority. Human review remains mandatory and is not simulated or recorded by
+  this design.
+
+- **F. Implementation gate.** D44 is design adoption only and does not
+  authorize implementation. No source, test, dependency, configuration,
+  endpoint, frontend, role, persistence, or execution change may begin until the
+  user separately and explicitly authorizes fixture-only implementation after
+  D44 is adopted on main. Design adoption, implementation authorization, and
+  implementation completion remain distinct states.
+
+- **G. Future live endpoint.** Any future live endpoint requires a new decision
+  resolving AD-2, AD-3, AD-4, AD-8, and AD-9 as applicable, together with a
+  recorded security review and the D47 prospective authorization where Slice 3
+  would be used. No such decision is made here, and no live endpoint is
+  authorized by D44.
+
+- **H. Compatibility.** D44 depends on D38–D43 and D47. It preserves D8 and
+  D28–D43 unchanged, leaves D45 and D46 unchanged, and leaves D47 binding. It
+  does not amend, renumber, or supersede any decision and creates no execution,
+  approval, proposal-lifecycle, authentication, or provider authority.
 
 ## D45 — Checkout Idempotency Contract: Optional Idempotency-Key on Checkout and Orders
 
