@@ -2,9 +2,10 @@
 
 Last verified: **2026-11-19** (Asia/Kolkata) for governance and documentation
 state only; no new tests, build, or live verification were performed for this
-update. Current main: `ca2428cbae39f4a6847016e684de1d90a7155655`. The
-integration queue is complete: all queued changes have been merged and there
-are no open pull requests. Phase 14 S2 Slice 3 authorization traceability is
+update. Current main: `ca2428cbae39f4a6847016e684de1d90a7155655`. The prior
+integration queue is complete: all changes from that queue have been merged.
+This governance-remediation work is tracked separately. Phase 14 S2 Slice 3
+authorization traceability is
 recorded under D47: it cannot currently be verified from the recorded
 governance history. Historical verification remains as recorded below:
 post-merge synchronization of PR #27 completed 2026-11-11. Phase 13 S5
