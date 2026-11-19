@@ -6,15 +6,43 @@ not an implementation authorization, and not an answer to any owner decision.
 | Field | Value |
 | --- | --- |
 | Date | 2026-11-19 |
-| Governance review baseline | `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge; current main at review time, not a claim about future main) |
+| Governance baseline | `868eeef8b92cdf28e885752feed713df4c2cc5a0` (PR #46 merge; current main at the time of this proposal). Earlier governance review baseline: `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge). Neither is a claim about future main. |
+| Branch status | Proposed design-only D44 for Option 1F on `docs/phase14-d44-fixture-only-adoption`; not adopted on main until the adopting PR is merged |
 | Assessed proposal | `docs/planning/phase-14/PHASE14_S2_SLICE4_PROPOSAL.md` (protected; read-only; unchanged) |
 | Proposal status | `DRAFT — NOT ADOPTED — DESIGN ONLY` |
 | Governing decision | D47 — Phase 14 S2 Slice 3 Authorization Traceability and Interim Disposition |
-| Verdict | Slice 4 is blocked pending governance and proposal-gate resolution |
+| Verdict | On main: Slice 4 is blocked pending governance and proposal-gate resolution. On the review branch: design-only D44 proposed for fixture-only Option 1F; no implementation authorized |
 
 This document reviews the protected local proposal without modifying it. It
 records objective facts and the questions that remain for the repository owner.
-It does not choose among the options the proposal presents.
+On main it does not choose among the options the proposal presents. On the
+review branch, proposed D44 records owner dispositions for independent review;
+they are not effective on main until the adopting PR is merged.
+
+## Proposed D44 disposition on the review branch
+
+Branch `docs/phase14-d44-fixture-only-adoption` proposes a **design-only** D44
+adopting only verified Option 1F. The design is
+`docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`. The proposed
+dispositions, recorded in draft D44 §B, are:
+
+| AD | Proposed disposition (branch only) |
+| --- | --- |
+| AD-1 | Option 1F only; no live endpoint in this Slice 4. |
+| AD-2 | Deferred / not applicable without an endpoint; `TWIN_ANALYZE` remains a future non-binding preference, not an adopted role. |
+| AD-3 | R-E for this slice; R-B/R-D not adopted. |
+| AD-4 | Deferred; no HTTP generation response in fixture scope, and a numeric serialized-response ceiling is mandatory before any future live endpoint design. |
+| AD-5 | Option 1F is the entire current Slice 4 scope; live surface needs a separate decision. |
+| AD-6 | No rejected candidate statement text; synthetic fixtures may show counts and fixed labels. |
+| AD-7 | No durable evidence identity or persisted review record; only clearly labelled synthetic fixture references. |
+| AD-8 | Defer live endpoint, backend package and transport class naming; keep the no-"review" machine-side constraint. |
+| AD-9 | No model/version disclosure; model pinning remains deferred under D40 §I. |
+
+D47 remains an independent gate: no Slice 3 invocation, no provider activation,
+no generation service use, no backend API call, and no retrospective
+authorization. Any future live use of Slice 3 requires a separate prospective
+authorization decision. These dispositions are proposed, not adopted, until
+merge.
 
 ## 1. Baseline and current-main difference
 

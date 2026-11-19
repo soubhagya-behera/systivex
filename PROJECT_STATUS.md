@@ -2,9 +2,10 @@
 
 Last verified: **2026-11-19** (Asia/Kolkata) for governance and documentation
 state only; no new tests, build, or live verification were performed for this
-update. Governance review baseline (current main at the time of this review):
-`619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6`, the merge commit of PR #45.
-This is the reviewed baseline, not a claim about any future main SHA. The prior
+update. Current governance baseline: `868eeef8b92cdf28e885752feed713df4c2cc5a0`,
+the merge commit of PR #46. The earlier governance review baseline was
+`619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge). These SHAs record
+reviewed baselines, not claims about any future main SHA. The prior
 integration queue is complete: all changes from that queue have been merged.
 This governance-remediation work is tracked separately. Phase 14 S2 Slice 3
 authorization traceability is recorded under D47: it cannot currently be
@@ -28,9 +29,15 @@ production classes and 6 tracked test classes; 39 focused tests in tracked
 sources).** Phase 14 S2 Slice 2 remains complete and unchanged (PR #27).
 Phase 13 S5 remains complete and unchanged (PR #20).
 
-Phase 14 S2 Slice 4 is blocked pending governance and proposal-gate
-resolution. No D44 design adoption, endpoint exposure, presentation surface,
-or Slice 4 implementation is authorized. See
+Phase 14 S2 Slice 4: on main, D44 remains unadopted and no endpoint,
+presentation surface, or Slice 4 implementation is authorized. On branch
+`docs/phase14-d44-fixture-only-adoption`, a **design-only** D44 is proposed for
+Option 1F (fixture-only presentation) as the entire current Slice 4 scope. It
+is not effective on main until the adopting PR is merged. The proposal records
+the nine AD dispositions in draft D44 §B; no implementation is authorized by
+the proposal. The design is at
+`docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`; the gate
+assessment is at
 `docs/planning/phase-14/PHASE14_S2_SLICE4_GATE_ASSESSMENT.md`.
 
 Phase 13 S5 adds a live-only **Simulation & Policy** view to the existing
@@ -458,13 +465,17 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   persistence, migration, role, frontend, execution or model authority was
   added. Provenance validation does not prove semantic entailment; human
   review remains authoritative.
-- [ ] **Phase 14 S2 Slice 4: BLOCKED.** Governance and proposal-gate
-  resolution are outstanding under D47 and the Slice 4 gate assessment.
-  D44 remains reserved and is not adopted; no endpoint, presentation surface,
-  or Slice 4 implementation is authorized. The nine owner decisions are
-  prepared, with non-binding recommendations, in
-  `docs/planning/phase-14/PHASE14_S2_SLICE4_OWNER_DECISION_BRIEF.md`; the
-  gate assessment is at
+- [ ] **Phase 14 S2 Slice 4: design-only D44 proposed on branch; not adopted on
+  main.** On main, D44 remains unadopted, D47 remains binding, and no endpoint,
+  presentation surface, or Slice 4 implementation is authorized. On
+  `docs/phase14-d44-fixture-only-adoption`, the proposed D44 adopts only the
+  verified Option 1F presentation design: locally defined synthetic fixtures,
+  development-only preview gating, no endpoint, no backend API call, no Slice 3
+  invocation, no provider activation, no persistence, and no review or approval
+  control. All nine AD dispositions are recorded in draft D44 §B, effective only
+  on merge. Implementation requires a separate explicit user authorization.
+  References: `docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`,
+  `docs/planning/phase-14/PHASE14_S2_SLICE4_OWNER_DECISION_BRIEF.md`, and
   `docs/planning/phase-14/PHASE14_S2_SLICE4_GATE_ASSESSMENT.md`.
 
 ## Gated, not scheduled — controlled execution
