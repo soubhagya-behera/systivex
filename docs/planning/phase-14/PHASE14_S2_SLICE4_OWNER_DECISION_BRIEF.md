@@ -3,21 +3,21 @@
 **Status: NON-BINDING DECISION PREPARATION. NOT A DECISION, NOT AN ADOPTION,
 NOT AN IMPLEMENTATION AUTHORIZATION.**
 
-Every recommendation in this document is labelled **NON-BINDING**. On main, no
-option is selected, adopted, or authorized by this document, and all nine items
-remain unresolved. On review branch `docs/phase14-d44-fixture-only-adoption`, a
-design-only D44 proposes owner dispositions for independent review; they become
-effective only if the adopting PR is merged. The repository owner retains
-decision authority over all nine items (AD-1 through AD-9).
+The recommendations in this document were labelled **NON-BINDING** during
+preparation. D44 has since been adopted on main through PR #47, recording the
+nine AD outcomes in D44 §B. This brief remains decision-preparation history; it
+does not itself authorize implementation or any capability beyond the adopted
+fixture-only design. D44 adoption and the still-closed implementation gate are
+distinct states.
 
 | Field | Value |
 | --- | --- |
 | Date | 2026-11-19 |
-| Governance baseline | `868eeef8b92cdf28e885752feed713df4c2cc5a0` (PR #46 merge; current main at time of this proposal). Earlier review baseline: `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge). Neither is a claim about future main. |
+| Governance baseline | `48279bfdf1107dd5aa33b1863993eb07bd2dcb63` (PR #47 merge, which adopted D44). Earlier reviewed baselines: `868eeef8b92cdf28e885752feed713df4c2cc5a0` (PR #46 merge) and `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge). Neither is a claim about future main. |
 | Original proposal baseline | `9df5721b5f0df9a3556b4f32a58fd48f18230b9b` (merge of PR #28) |
 | Assessed proposal | `docs/planning/phase-14/PHASE14_S2_SLICE4_PROPOSAL.md` (protected; read-only; unchanged) |
-| Governing decision | D47 — Phase 14 S2 Slice 3 Authorization Traceability and Interim Disposition |
-| Target decision | D44 design-only proposed on branch; not adopted on main until the adopting PR merges |
+| Governing decision | D47 — Phase 14 S2 Slice 3 Authorization Traceability and Interim Disposition (independent and binding) |
+| Decision outcome | D44 adopted on main through PR #47 as design only; fixture-only implementation remains unauthorized |
 | Scope | Documentation and architecture analysis only; no implementation |
 
 ## 0. Governance frame
@@ -36,10 +36,9 @@ decision authority over all nine items (AD-1 through AD-9).
   as selecting any AD option, or as authorizing any code, endpoint, frontend,
   role, persistence, migration, dependency, configuration, or provider
   activation.
-- On review branch `docs/phase14-d44-fixture-only-adoption`, proposed D44
-  records owner dispositions for all nine ADs with Option 1F as the entire
-  current Slice 4 scope (§5). That proposal is not an adoption on main and is
-  effective only if the adopting PR is merged.
+- D44 was adopted on main through PR #47, recording the nine owner outcomes in
+  D44 §B with Option 1F as the entire current Slice 4 scope (§5). Design
+  adoption is complete; the implementation gate remains closed.
 
 ## 1. Verified facts at the review baseline
 
@@ -488,12 +487,12 @@ completion verification and a recorded security review. D47's prospective
 authorization requirement applies independently to any future use or
 continuation of Slice 3. This brief authorizes none of those things.
 
-## 5. Proposed D44 dispositions on the review branch (not adopted on main)
+## 5. Adopted D44 outcomes (PR #47)
 
-Branch `docs/phase14-d44-fixture-only-adoption` proposes a design-only D44 that
-adopts only verified Option 1F. The proposed dispositions are:
+D44 is adopted on main as a design-only decision through PR #47, adopting only
+verified Option 1F. The nine outcomes recorded in D44 §B are:
 
-| AD | Proposed disposition |
+| AD | Adopted disposition under D44 |
 | --- | --- |
 | AD-1 | Option 1F only; no live endpoint in this Slice 4. |
 | AD-2 | Deferred / not applicable without an endpoint; `TWIN_ANALYZE` remains a future non-binding preference, not an adopted role. |
@@ -505,12 +504,15 @@ adopts only verified Option 1F. The proposed dispositions are:
 | AD-8 | Defer live endpoint, backend package and transport class naming; keep the no-"review" machine-side constraint. |
 | AD-9 | No model/version disclosure; model pinning remains deferred under D40 §I. |
 
-These are proposed owner-approved direction recorded in draft D44 §B for
-independent review, not selections made by this brief. They are not effective
-on main until the adopting PR is merged. D47 remains an independent gate: no
-Slice 3 invocation, no provider activation, no generation service use, no
-backend API call, and no retrospective authorization. Any future live use of
-Slice 3 requires a separate prospective authorization decision.
+These outcomes were adopted under D44 by PR #47. They are design dispositions
+only. The deferrals under AD-2, AD-4, AD-8, and AD-9 do not authorize a future
+live endpoint, a role, a numeric response ceiling, naming, or model disclosure;
+AD-5 requires a separate decision for any live surface. D47 remains an
+independent gate: no Slice 3 invocation, no provider activation, no generation
+service use, no backend API call, and no retrospective authorization. Any
+future live use of Slice 3 requires a separate prospective authorization
+decision.
 
-On main, all nine AD items remain **UNRESOLVED** pending explicit owner
-decisions. No owner decision is resolved by this brief.
+D44 design adoption is complete; the fixture-only implementation gate remains
+closed pending a separate explicit authorization. This brief does not authorize
+implementation and does not resolve any further owner decision.

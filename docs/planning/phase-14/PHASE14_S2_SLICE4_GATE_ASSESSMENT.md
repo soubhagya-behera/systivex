@@ -6,27 +6,26 @@ not an implementation authorization, and not an answer to any owner decision.
 | Field | Value |
 | --- | --- |
 | Date | 2026-11-19 |
-| Governance baseline | `868eeef8b92cdf28e885752feed713df4c2cc5a0` (PR #46 merge; current main at the time of this proposal). Earlier governance review baseline: `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge). Neither is a claim about future main. |
-| Branch status | Proposed design-only D44 for Option 1F on `docs/phase14-d44-fixture-only-adoption`; not adopted on main until the adopting PR is merged |
+| Governance baseline | `48279bfdf1107dd5aa33b1863993eb07bd2dcb63` (PR #47 merge, which adopted D44). Earlier reviewed baselines: `868eeef8b92cdf28e885752feed713df4c2cc5a0` (PR #46 merge) and `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge). Neither is a claim about future main. |
+| D44 status | Design adopted on main through PR #47 (2026-11-19); design-only, no implementation authority |
 | Assessed proposal | `docs/planning/phase-14/PHASE14_S2_SLICE4_PROPOSAL.md` (protected; read-only; unchanged) |
-| Proposal status | `DRAFT — NOT ADOPTED — DESIGN ONLY` |
-| Governing decision | D47 — Phase 14 S2 Slice 3 Authorization Traceability and Interim Disposition |
-| Verdict | On main: Slice 4 is blocked pending governance and proposal-gate resolution. On the review branch: design-only D44 proposed for fixture-only Option 1F; no implementation authorized |
+| Proposal status | `DRAFT — NOT ADOPTED — DESIGN ONLY` (original Slice 4 proposal; unchanged) |
+| Governing decision | D47 — Phase 14 S2 Slice 3 Authorization Traceability and Interim Disposition (independent and binding) |
+| Verdict | D44 design adoption is complete. The fixture-only implementation gate remains closed pending a separate explicit authorization. D47 still requires prospective authorization for any Slice 3 use. |
 
 This document reviews the protected local proposal without modifying it. It
 records objective facts and the questions that remain for the repository owner.
-On main it does not choose among the options the proposal presents. On the
-review branch, proposed D44 records owner dispositions for independent review;
-they are not effective on main until the adopting PR is merged.
+D44 has since been adopted on main through PR #47; the nine AD outcomes below
+are adopted under D44, not proposals on a branch. The original Slice 4 proposal
+remains a draft and is not adopted by D44.
 
-## Proposed D44 disposition on the review branch
+## Adopted D44 dispositions (PR #47)
 
-Branch `docs/phase14-d44-fixture-only-adoption` proposes a **design-only** D44
-adopting only verified Option 1F. The design is
-`docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`. The proposed
-dispositions, recorded in draft D44 §B, are:
+D44 is a **design-only** decision adopting only verified Option 1F. The adopted
+design is `docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`. The
+nine outcomes recorded in D44 §B are:
 
-| AD | Proposed disposition (branch only) |
+| AD | Adopted disposition under D44 |
 | --- | --- |
 | AD-1 | Option 1F only; no live endpoint in this Slice 4. |
 | AD-2 | Deferred / not applicable without an endpoint; `TWIN_ANALYZE` remains a future non-binding preference, not an adopted role. |
@@ -38,11 +37,14 @@ dispositions, recorded in draft D44 §B, are:
 | AD-8 | Defer live endpoint, backend package and transport class naming; keep the no-"review" machine-side constraint. |
 | AD-9 | No model/version disclosure; model pinning remains deferred under D40 §I. |
 
-D47 remains an independent gate: no Slice 3 invocation, no provider activation,
-no generation service use, no backend API call, and no retrospective
-authorization. Any future live use of Slice 3 requires a separate prospective
-authorization decision. These dispositions are proposed, not adopted, until
-merge.
+These dispositions were adopted under D44 by PR #47. They do not authorize a
+live endpoint, a role, a numeric response ceiling, component naming, model
+disclosure, or any Slice 4 implementation. In particular, the deferrals under
+AD-2, AD-4, AD-8, and AD-9 leave those questions open for a future decision;
+they do not authorize a future live endpoint. D47 remains an independent gate:
+no Slice 3 invocation, no provider activation, no generation service use, no
+backend API call, and no retrospective authorization. Any future live use of
+Slice 3 requires a separate prospective authorization decision.
 
 ## 1. Baseline and current-main difference
 
