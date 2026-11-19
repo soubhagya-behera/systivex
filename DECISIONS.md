@@ -2252,6 +2252,31 @@ Stop for review and explicit approval before modifying `DECISIONS.md`.
 
 - **K. Risks and rollback.** Residual risks are the accepted one-interval advisory detection delay and the need for correct fail-closed detection. Rollback restores the previous single-job workflow without changing dependency versions, security threshold, production code, or backend CI. A known advisory may still make an executed audit fail; D46 does not hide or bypass that failure.
 
+## D47 — Phase 14 S2 Slice 3 Authorization Traceability and Interim Disposition
+
+- **Status:** DECIDED AND ADOPTED 2026-11-19. Governance-only finding and interim hold. No retrospective authorization, no implementation authorization, and no new capability is granted.
+- **Date:** 2026-11-19.
+- **Depends on:** D42 (Phase 14 S2 Slice 3 design adoption only) and D43 (Phase 14 S2 Slice 3 bounded implementation scope and acceptance criteria). D47 amends neither. D44 remains reserved for Phase 14 S2 Slice 4; D45 and D46 remain unchanged.
+- **Purpose:** Record the state of Slice 3 implementation-authorization traceability in the canonical governance record and impose an interim hold pending a separate, prospective authorization decision.
+
+- **A. Finding.** D42 adopted the Slice 3 design only; D42 §L states that implementation requires a separate subsequent architectural decision and explicit user authorization. D43 adopted the bounded implementation scope and acceptance criteria, but D43 §M expressly withheld implementation authorization: no source-code, test, dependency, configuration, endpoint, persistence, frontend, role, or execution-capability change may begin until the user separately and explicitly authorizes Slice 3 implementation after D43 adoption. A Slice 3 implementation is present in the current repository. In the canonical governance documents reviewed, no subsequent authorization decision is recorded. Authorization traceability for that implementation therefore cannot currently be verified from the recorded governance history.
+
+- **B. Evidentiary limits.** This finding does not infer historical authorization from commits, tests, implementation artifacts, pull-request merges, or the mere presence of code. It equally does not assert that no approval ever occurred: the available record cannot establish that negative. The only supported statement is that Slice 3 authorization traceability cannot currently be verified from the recorded governance history.
+
+- **C. No retrospective authorization.** D47 does not authorize, ratify, confirm, or backdate any prior implementation. No historical authorization is invented or created by this decision. D42 and D43 remain unchanged.
+
+- **D. Interim disposition of existing code.** The existing Slice 3 implementation is preserved unchanged in the repository. Its presence does not establish authorization. This decision neither removes nor alters that implementation, and neither endorses nor condemns it.
+
+- **E. No new capability.** D47 authorizes no new runtime invocation, no provider activation for generation, no endpoint, no presentation surface, no persistence, no role, and no proposal mutation. The existing default-off provider configuration (`systivex.local.enabled=false`) remains unchanged. No source code or test change is authorized by D47.
+
+- **F. Human review.** Human review remains mandatory. Generated claims remain untrusted candidates; passing deterministic validation does not mean acceptance (D40 §F, D42 §A, D43 §G).
+
+- **G. Future use.** Any future use or continuation of the Slice 3 implementation requires a separate, explicit, prospective authorization decision recorded in this governance record before that use begins. D47 is not that authorization.
+
+- **H. Scope boundaries.** D47 does not adopt D44 and does not authorize Slice 4, any Slice 4 endpoint, presentation surface, or implementation. It leaves the D42 §I.4 and D43 §L deferral of future endpoint exposure unresolved for a future decision. It creates no execution, approval, proposal-lifecycle, authentication, or provider authority.
+
+- **I. Compatibility.** D47 depends on D42 and D43 and preserves D8 and D28–D46 unchanged. It does not renumber, amend, or supersede any decision. D44 remains reserved for Phase 14 S2 Slice 4; D45 and D46 remain unchanged.
+
 
 ## Supersession rule
 
