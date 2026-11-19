@@ -2375,6 +2375,35 @@ Stop for review and explicit approval before modifying `DECISIONS.md`.
 
 - **I. Compatibility.** D47 depends on D42 and D43 and preserves D8 and D28–D46 unchanged. It does not renumber, amend, or supersede any decision. D44 remains reserved for Phase 14 S2 Slice 4; D45 and D46 remain unchanged.
 
+## D48 — Phase 14 S2 Slice 4 Fixture-Only Implementation Authorization
+
+- **Status:** DECIDED AND ADOPTED 2026-11-19. Implementation authorization for the D44 Option 1F fixture-only frontend implementation only. No backend, endpoint, role, provider, persistence, live-endpoint, or Slice 3 authorization is granted.
+- **Date:** 2026-11-19.
+- **Depends on:** D44 (adopted fixture-only design) and D47 (independent interim hold). D48 amends no prior decision. D38–D47 are unchanged; D47 remains independently binding. The historical reservation wording in D47 §I is preserved as history and is superseded only as to D44 by D44's adoption.
+- **Purpose:** Record the repository owner's explicit approval of the D48 proposal and authorize only the bounded fixture-only implementation described there, subject to all 14 acceptance criteria and the verification and review requirements of the adopted design.
+
+- **A. Authorized scope.** Only the D44 Option 1F fixture-only frontend implementation is authorized: locally defined synthetic fixture data; the existing React + Vite + JavaScript frontend; the existing development-only preview pattern with DEV-only gating and production-build exclusion; a persistent synthetic-data banner; visible synthetic labels on each candidate and evidence item; only illustrative S-A and S-B states with S-C and S-D unrepresentable; no candidate-decision controls (accept, reject, approve, dismiss, edit, submit, promote, execute) and no human-review, acceptance, or rejection state; harmless fixture-set selection and reference-focus movement that do not mutate candidate data, record a decision, or create persistent state; no rejected candidate statement text; and no persistence or durable evidence identity.
+
+- **B. Owner approval statement.** The repository owner recorded the following approval verbatim; it is the authorization of D48:
+
+> **D48 — Phase 14 S2 Slice 4 Fixture-Only Implementation Authorization.**
+>
+> I authorize implementation of only the D44 Option 1F fixture-only frontend design, as specified in `docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md` and proposed in `docs/planning/phase-14/PHASE14_S2_SLICE4_IMPLEMENTATION_AUTHORIZATION_PROPOSAL.md`, subject to all 14 acceptance criteria and the verification and review requirements in that proposal.
+>
+> This authorization covers locally defined synthetic fixtures, the existing development-only preview pattern, synthetic labelling, and presentation rules only. It does not authorize any backend Java change; any endpoint, controller, DTO, service, security matcher, or role change; any Slice 3 invocation or continuation; any use of `EvidencePacketAssembler`, `EvidenceGenerationService`, prompt builder, parser, `LocalModelAdapter`, or provider; any provider activation or model download; any backend or provider network request; any browser storage, URL persistence, migration, dependency, or schema change; any proposal mutation, approval, execution, tool, RAG, or MCP capability; any live endpoint; any numeric threshold or model identity; or any persistence or durable evidence identity.
+>
+> D47 remains independently binding; any future live use of Slice 3 requires separate prospective authorization before use.
+
+- **C. Scope restrictions.** D48 grants none of the capabilities excluded in the approval statement. In particular it authorizes no Java change, no endpoint or controller, no transport DTO, no internal service, no security matcher or role change, no Slice 3 use, no provider activation, no model download, no network request, no storage or migration, no dependency or configuration change, no proposal mutation or approval, no execution, no tool/RAG/MCP capability, no live endpoint, no numeric threshold, no model identity, and no persistence or durable evidence identity.
+
+- **D. Acceptance criteria and verification.** All 14 criteria in `PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md` §6, as restated testably in the D48 proposal §4, are gating. Implementation is complete only after the full test suite and production build pass, static dependency-boundary checks show no prohibited import or network path, the complete diff review confirms no backend or governance boundary was crossed, and an independent security review is recorded. D48 itself makes no claim that any implementation, test, build, or review has occurred.
+
+- **E. D47 remains independently binding.** D48 does not modify, satisfy, or circumvent D47. No Slice 3 runtime invocation or continuation, no provider activation, no generation service usage, and no retrospective authorization is granted by D48. Any future live use of Slice 3 requires a separate prospective authorization decision before that use begins.
+
+- **F. Future live endpoint.** A live endpoint requires a new decision resolving AD-2, AD-3, AD-4, AD-8, and AD-9 as applicable, together with a recorded security review and, where Slice 3 would be used, the prospective authorization required by D47. D48 authorizes no live endpoint.
+
+- **G. Compatibility.** D48 depends on D44 and D47. It preserves D38–D47 unchanged, does not renumber or supersede any decision, and creates no execution, approval outside the authorized fixture-only presentation, proposal-lifecycle, authentication, or provider authority. Design adoption (D44) and implementation authorization (D48) are complete; implementation completion remains a separate, unclaimed state.
+
 
 ## Supersession rule
 

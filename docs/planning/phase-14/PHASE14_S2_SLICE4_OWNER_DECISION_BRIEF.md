@@ -7,17 +7,18 @@ The recommendations in this document were labelled **NON-BINDING** during
 preparation. D44 has since been adopted on main through PR #47, recording the
 nine AD outcomes in D44 §B. This brief remains decision-preparation history; it
 does not itself authorize implementation or any capability beyond the adopted
-fixture-only design. D44 adoption and the still-closed implementation gate are
-distinct states.
+fixture-only design. D44 design adoption and D48 implementation authorization
+are distinct states; implementation is authorized under D48 and has not been
+performed.
 
 | Field | Value |
 | --- | --- |
 | Date | 2026-11-19 |
-| Governance baseline | `48279bfdf1107dd5aa33b1863993eb07bd2dcb63` (PR #47 merge, which adopted D44). Earlier reviewed baselines: `868eeef8b92cdf28e885752feed713df4c2cc5a0` (PR #46 merge) and `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge). Neither is a claim about future main. |
+| Governance baseline | `8a41cd87b31ebfefe193c33010801e1f1699ae27` (PR #48 merge). Earlier baselines: `48279bfdf1107dd5aa33b1863993eb07bd2dcb63` (PR #47 merge, D44 adopted), `868eeef8b92cdf28e885752feed713df4c2cc5a0` (PR #46 merge) and `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge). Neither is a claim about future main. |
 | Original proposal baseline | `9df5721b5f0df9a3556b4f32a58fd48f18230b9b` (merge of PR #28) |
 | Assessed proposal | `docs/planning/phase-14/PHASE14_S2_SLICE4_PROPOSAL.md` (protected; read-only; unchanged) |
 | Governing decision | D47 — Phase 14 S2 Slice 3 Authorization Traceability and Interim Disposition (independent and binding) |
-| Decision outcome | D44 adopted on main through PR #47 as design only; fixture-only implementation remains unauthorized |
+| Decision outcome | D44 adopted as design only (PR #47); D48 adopted as fixture-only implementation authorization; implementation not yet performed |
 | Scope | Documentation and architecture analysis only; no implementation |
 
 ## 0. Governance frame
@@ -37,8 +38,9 @@ distinct states.
   role, persistence, migration, dependency, configuration, or provider
   activation.
 - D44 was adopted on main through PR #47, recording the nine owner outcomes in
-  D44 §B with Option 1F as the entire current Slice 4 scope (§5). Design
-  adoption is complete; the implementation gate remains closed.
+  D44 §B with Option 1F as the entire current Slice 4 scope (§5). D48 was
+  subsequently adopted, authorizing only the fixture-only frontend
+  implementation; no implementation has been performed.
 
 ## 1. Verified facts at the review baseline
 
@@ -513,6 +515,8 @@ service use, no backend API call, and no retrospective authorization. Any
 future live use of Slice 3 requires a separate prospective authorization
 decision.
 
-D44 design adoption is complete; the fixture-only implementation gate remains
-closed pending a separate explicit authorization. This brief does not authorize
-implementation and does not resolve any further owner decision.
+D44 design adoption and D48 fixture-only implementation authorization are both
+complete; implementation has not been performed. D48 is limited to the D44
+Option 1F fixture-only frontend and all 14 criteria are gating. This brief does
+not itself authorize implementation and does not resolve any further owner
+decision.
