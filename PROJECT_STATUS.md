@@ -2,12 +2,14 @@
 
 Last verified: **2026-11-19** (Asia/Kolkata) for governance and documentation
 state only; no new tests, build, or live verification were performed for this
-update. Current main: `ca2428cbae39f4a6847016e684de1d90a7155655`. The prior
+update. Governance review baseline (current main at the time of this review):
+`619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6`, the merge commit of PR #45.
+This is the reviewed baseline, not a claim about any future main SHA. The prior
 integration queue is complete: all changes from that queue have been merged.
 This governance-remediation work is tracked separately. Phase 14 S2 Slice 3
-authorization traceability is
-recorded under D47: it cannot currently be verified from the recorded
-governance history. Historical verification remains as recorded below:
+authorization traceability is recorded under D47: it cannot currently be
+verified from the recorded governance history. Historical verification remains
+as recorded below:
 post-merge synchronization of PR #27 completed 2026-11-11. Phase 13 S5
 automated and local live verification completed 2026-11-03. Phase 14 S2 Slice 2
 merged via PR #27 on 2026-11-09/2026-11-10 (merge commit
@@ -459,7 +461,10 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
 - [ ] **Phase 14 S2 Slice 4: BLOCKED.** Governance and proposal-gate
   resolution are outstanding under D47 and the Slice 4 gate assessment.
   D44 remains reserved and is not adopted; no endpoint, presentation surface,
-  or Slice 4 implementation is authorized. See
+  or Slice 4 implementation is authorized. The nine owner decisions are
+  prepared, with non-binding recommendations, in
+  `docs/planning/phase-14/PHASE14_S2_SLICE4_OWNER_DECISION_BRIEF.md`; the
+  gate assessment is at
   `docs/planning/phase-14/PHASE14_S2_SLICE4_GATE_ASSESSMENT.md`.
 
 ## Gated, not scheduled — controlled execution

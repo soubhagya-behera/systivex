@@ -6,7 +6,7 @@ not an implementation authorization, and not an answer to any owner decision.
 | Field | Value |
 | --- | --- |
 | Date | 2026-11-19 |
-| Current main | `ca2428cbae39f4a6847016e684de1d90a7155655` |
+| Governance review baseline | `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge; current main at review time, not a claim about future main) |
 | Assessed proposal | `docs/planning/phase-14/PHASE14_S2_SLICE4_PROPOSAL.md` (protected; read-only; unchanged) |
 | Proposal status | `DRAFT — NOT ADOPTED — DESIGN ONLY` |
 | Governing decision | D47 — Phase 14 S2 Slice 3 Authorization Traceability and Interim Disposition |
@@ -19,14 +19,17 @@ It does not choose among the options the proposal presents.
 ## 1. Baseline and current-main difference
 
 The proposal declares its design base as `origin/main` at
-`9df5721b5f0df9a3556b4f32a58fd48f18230b9b` (merge of PR #28). Current main is
-`ca2428cbae39f4a6847016e684de1d90a7155655`.
+`9df5721b5f0df9a3556b4f32a58fd48f18230b9b` (merge of PR #28). The governance
+review baseline is `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6`, the merge commit
+of PR #45 and current main at the time of this review. That SHA records the
+reviewed baseline; it is not a claim that main will remain at that commit.
 
-- Current main is **22 commits ahead** of the proposal's declared base.
-- The difference is **79 changed files** (5,609 insertions, 240 deletions).
-- Decisions added after the base include D45 (checkout idempotency) and D46
-  (frontend CI separation); `PROJECT_STATUS.md` was corrected by PR #37 to
-  record the Slice 3 authorization-traceability finding.
+- The review baseline is **23 commits ahead** of the proposal's declared base.
+- The difference is **81 changed files** (5,928 insertions, 245 deletions).
+- Decisions added after the base include D45 (checkout idempotency), D46
+  (frontend CI separation), and D47 (Slice 3 authorization traceability and
+  interim hold); `PROJECT_STATUS.md` was corrected by PR #37 to record the
+  Slice 3 authorization-traceability finding.
 - Source files the proposal marks `[ADOPTED-VERIFIED]` changed after the base,
   including `EvidencePacketAssembler`, `EvidenceLimits`,
   `SimulationProposalValidator`, `SimulationRequest`, `SimulationService`,
@@ -37,9 +40,10 @@ The proposal declares its design base as `origin/main` at
   `EvidenceGenerationService` remains `@ConditionalOnBean(LocalModelAdapter.class)`;
   `RestExceptionHandler` still has no `EvidenceAssemblyException` mapping and
   still returns `ex.getMessage()` for several exception types.
-- The `[ADOPTED-VERIFIED]` annotations nonetheless need a full re-verification
-  against `ca2428cb` in a revised proposal. This assessment does not certify
-  them as current.
+- The `[ADOPTED-VERIFIED]` annotations were re-verified against the review
+  baseline for this assessment; the results are recorded in
+  `PHASE14_S2_SLICE4_OWNER_DECISION_BRIEF.md` §1. That re-verification is
+  documentation analysis, not test or live verification.
 
 ## 2. Inaccurate D42/D43 implementation-authorization attribution
 
@@ -63,7 +67,11 @@ The adopted record says otherwise:
 A pull-request merge establishes that code entered the repository. It does not
 establish the governance authorization that D42 and D43 require. The proposal
 must be revised so that it does not present D42/D43 as the authorization for
-the implementation it relies on.
+the implementation it relies on. D47 adds the interim disposition: the existing
+implementation is preserved unchanged, its presence does not establish
+authorization, authorization traceability cannot currently be verified, and
+any future use or continuation requires a separate explicit prospective
+authorization decision.
 
 ## 3. Current governance status under D47
 
