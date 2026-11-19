@@ -2,8 +2,9 @@
 
 Last verified: **2026-11-19** (Asia/Kolkata) for governance and documentation
 state only; no new tests, build, or live verification were performed for this
-update. Current governance baseline: `868eeef8b92cdf28e885752feed713df4c2cc5a0`,
-the merge commit of PR #46. The earlier governance review baseline was
+update. Current governance baseline: `48279bfdf1107dd5aa33b1863993eb07bd2dcb63`,
+the merge commit of PR #47, which adopted D44. Earlier reviewed baselines were
+`868eeef8b92cdf28e885752feed713df4c2cc5a0` (PR #46 merge) and
 `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge). These SHAs record
 reviewed baselines, not claims about any future main SHA. The prior
 integration queue is complete: all changes from that queue have been merged.
@@ -29,16 +30,17 @@ production classes and 6 tracked test classes; 39 focused tests in tracked
 sources).** Phase 14 S2 Slice 2 remains complete and unchanged (PR #27).
 Phase 13 S5 remains complete and unchanged (PR #20).
 
-Phase 14 S2 Slice 4: on main, D44 remains unadopted and no endpoint,
-presentation surface, or Slice 4 implementation is authorized. On branch
-`docs/phase14-d44-fixture-only-adoption`, a **design-only** D44 is proposed for
-Option 1F (fixture-only presentation) as the entire current Slice 4 scope. It
-is not effective on main until the adopting PR is merged. The proposal records
-the nine AD dispositions in draft D44 §B; no implementation is authorized by
-the proposal. The design is at
+Phase 14 S2 Slice 4: D44 is **adopted** through PR #47 as a **fixture-only
+design** for Option 1F, with all nine AD outcomes recorded in D44 §B. The
+adopted design is at
 `docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`; the gate
 assessment is at
-`docs/planning/phase-14/PHASE14_S2_SLICE4_GATE_ASSESSMENT.md`.
+`docs/planning/phase-14/PHASE14_S2_SLICE4_GATE_ASSESSMENT.md`. Fixture-only
+implementation is **NOT authorized yet**: D44 is design-only and a separate
+explicit implementation-authorization decision is required. No new frontend
+code or tests exist as a result of D44, and no endpoint, backend change,
+provider activation, or persistence is authorized. Slice 3 authorization
+traceability remains unresolved under D47, which is independent and binding.
 
 Phase 13 S5 adds a live-only **Simulation & Policy** view to the existing
 React + Vite + JavaScript console under D37, which was adopted in commit
@@ -465,16 +467,17 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   persistence, migration, role, frontend, execution or model authority was
   added. Provenance validation does not prove semantic entailment; human
   review remains authoritative.
-- [ ] **Phase 14 S2 Slice 4: design-only D44 proposed on branch; not adopted on
-  main.** On main, D44 remains unadopted, D47 remains binding, and no endpoint,
-  presentation surface, or Slice 4 implementation is authorized. On
-  `docs/phase14-d44-fixture-only-adoption`, the proposed D44 adopts only the
-  verified Option 1F presentation design: locally defined synthetic fixtures,
-  development-only preview gating, no endpoint, no backend API call, no Slice 3
-  invocation, no provider activation, no persistence, and no review or approval
-  control. All nine AD dispositions are recorded in draft D44 §B, effective only
-  on merge. Implementation requires a separate explicit user authorization.
-  References: `docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`,
+- [x] **D44 adopted as design only (PR #47; 2026-11-19).** All nine AD outcomes
+  are recorded in D44 §B. The adopted design is fixture-only Option 1F:
+  locally defined synthetic fixtures, development-only preview gating, no
+  endpoint, no backend API call, no Slice 3 invocation, no provider activation,
+  no persistence, and no review or approval control. D44 grants no
+  implementation authority.
+- [ ] **Phase 14 S2 Slice 4 fixture-only implementation: NOT AUTHORIZED.** No
+  frontend code or tests have been added for it. A separate explicit
+  implementation-authorization decision is required before any code is written.
+  D47 remains binding and independent. References:
+  `docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`,
   `docs/planning/phase-14/PHASE14_S2_SLICE4_OWNER_DECISION_BRIEF.md`, and
   `docs/planning/phase-14/PHASE14_S2_SLICE4_GATE_ASSESSMENT.md`.
 

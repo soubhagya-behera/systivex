@@ -1,14 +1,19 @@
 # D44 Design — Phase 14 S2 Slice 4 Fixture-Only Presentation
 
-**Status: PROPOSED DESIGN FOR D44. NOT ADOPTED UNTIL THE ADOPTING PR IS MERGED
-INTO MAIN. DESIGN ONLY — NO IMPLEMENTATION AUTHORIZATION.**
+**Status: ADOPTED DESIGN — IMPLEMENTATION NOT AUTHORIZED.**
+
+D44 design adoption became effective on 2026-11-19 through PR #47, merged as
+commit `48279bfdf1107dd5aa33b1863993eb07bd2dcb63`. This document is the adopted
+design of record. It authorizes no implementation, code, test, endpoint,
+provider, or runtime change.
 
 | Field | Value |
 | --- | --- |
-| Governance baseline | `868eeef8b92cdf28e885752feed713df4c2cc5a0` (merge of PR #46) |
+| Governance baseline | `48279bfdf1107dd5aa33b1863993eb07bd2dcb63` (merge of PR #47, which adopted D44) |
+| Adopted via | PR #47, merged 2026-11-19 |
 | Source design | `docs/planning/phase-14/PHASE14_S2_SLICE4_PROPOSAL.md` (protected; read-only; unchanged) |
 | Adopted option | **Option 1F only** — fixture-only presentation, no endpoint (proposal §10.3) |
-| Target decision | D44 (design adoption only) |
+| Decision | D44 (adopted design only; no implementation authorization) |
 | Governing independent gate | D47 — Slice 3 authorization traceability and interim hold |
 | Scope | Frontend development-only presentation rehearsal using synthetic fixtures |
 
@@ -239,9 +244,9 @@ internal backend service, an evidence projection contract, a transport DTO, an
 exception mapping, a role or security matcher, a backend change, a model
 provider, a model download or identity, a real evidence packet, persistence, a
 migration, a dependency, configuration, proposal mutation, approval, execution,
-a second model, tools, RAG, MCP, or a numeric response-size ceiling. It does
-not add D44 to `DECISIONS.md` on any branch before the adopting PR is merged;
-the D44 text on this branch is proposed wording only.
+a second model, tools, RAG, MCP, or a numeric response-size ceiling. D44 was
+adopted on main through PR #47; this document is that adopted design, not a
+proposal for a live endpoint or for implementation.
 
 ## 6. Acceptance criteria for a separately authorized implementation
 
@@ -288,11 +293,12 @@ exist. No implementation is authorized by this document or by D44.
 
 ## 7. Governance gates
 
-- **D44 design adoption** is documentation only and becomes effective only when
-  the adopting PR is merged into main. On this branch D44 is proposed, not
-  adopted.
-- **Implementation** requires a separate explicit user authorization after D44
-  adoption, with the §6 criteria as gating tests.
+- **D44 design adoption** became effective on 2026-11-19 when PR #47 was merged
+  into main (`48279bfdf1107dd5aa33b1863993eb07bd2dcb63`). It is documentation
+  only and grants no implementation authority.
+- **Implementation** requires a separate explicit user authorization now that
+  D44 is adopted, with the §6 criteria as gating tests. No such authorization
+  exists in D44.
 - **D47** requires a separate prospective authorization before any future use
   or continuation of Slice 3; this design does not provide it.
 - **Any future live endpoint** requires a new decision resolving AD-2, AD-3,

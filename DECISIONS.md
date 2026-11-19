@@ -2164,12 +2164,10 @@ Stop for review and explicit approval before modifying `DECISIONS.md`.
 
 ## D44 — Phase 14 S2 Slice 4: Fixture-Only Presentation Design Adoption (design-only)
 
-- **Status:** PROPOSED — NOT ADOPTED ON MAIN. This text is proposed on branch
-  `docs/phase14-d44-fixture-only-adoption`; it becomes an adopted decision only
-  when the adopting PR is merged into main. Design adoption only; no
-  implementation authorization.
-- **Date:** Proposed 2026-11-19. The effective adoption date is the merge date
-  of the adopting PR; no earlier effective date is claimed.
+- **Status:** DECIDED AND ADOPTED 2026-11-19. Design adoption only; no
+  implementation authorization. Adopted through PR #47, merged into main as
+  commit `48279bfdf1107dd5aa33b1863993eb07bd2dcb63`.
+- **Date:** 2026-11-19 (PR #47 merge date).
 - **Depends on:** D38–D43 (Phase 14 evidence foundation through Slice 3 design
   and scope) and D47 (Slice 3 authorization traceability and interim hold).
   D44 amends no prior decision. D38–D43 and D45–D47 are unchanged; D45 and D46
