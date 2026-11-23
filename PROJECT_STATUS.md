@@ -2,11 +2,12 @@
 
 Last verified: **2026-11-19** (Asia/Kolkata) for governance and documentation
 state only; no new tests, build, or live verification were performed for this
-update. Current governance baseline: `48279bfdf1107dd5aa33b1863993eb07bd2dcb63`,
-the merge commit of PR #47, which adopted D44. Earlier reviewed baselines were
-`868eeef8b92cdf28e885752feed713df4c2cc5a0` (PR #46 merge) and
-`619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge). These SHAs record
-reviewed baselines, not claims about any future main SHA. The prior
+update. Current governance baseline: `8a41cd87b31ebfefe193c33010801e1f1699ae27`,
+the merge commit of PR #48, which carried the D48 implementation-authorization
+proposal. Earlier reviewed baselines were `48279bfdf1107dd5aa33b1863993eb07bd2dcb63`
+(PR #47 merge, D44 adopted), `868eeef8b92cdf28e885752feed713df4c2cc5a0`
+(PR #46 merge) and `619030a7ecc927ff9e7d787ee2b0143f2fc3f7b6` (PR #45 merge).
+These SHAs record reviewed baselines, not claims about any future main SHA. The prior
 integration queue is complete: all changes from that queue have been merged.
 This governance-remediation work is tracked separately. Phase 14 S2 Slice 3
 authorization traceability is recorded under D47: it cannot currently be
@@ -36,11 +37,14 @@ adopted design is at
 `docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`; the gate
 assessment is at
 `docs/planning/phase-14/PHASE14_S2_SLICE4_GATE_ASSESSMENT.md`. Fixture-only
-implementation is **NOT authorized yet**: D44 is design-only and a separate
-explicit implementation-authorization decision is required. No new frontend
-code or tests exist as a result of D44, and no endpoint, backend change,
-provider activation, or persistence is authorized. Slice 3 authorization
-traceability remains unresolved under D47, which is independent and binding.
+implementation is **authorized under D48**, a separate explicit implementation
+authorization recorded in `DECISIONS.md`, subject to all 14 acceptance criteria
+and the verification and review requirements of the adopted design. D44 itself
+remains design-only. No fixture-only frontend code or tests have been added yet;
+this status makes no implementation or verification claim. No endpoint, backend
+change, provider activation, or persistence is authorized by D48. Slice 3
+authorization traceability remains unresolved under D47, which is independent
+and binding.
 
 Phase 13 S5 adds a live-only **Simulation & Policy** view to the existing
 React + Vite + JavaScript console under D37, which was adopted in commit
@@ -473,10 +477,13 @@ controlled execution stays gated. Phases 0–12 below are kept as history.
   endpoint, no backend API call, no Slice 3 invocation, no provider activation,
   no persistence, and no review or approval control. D44 grants no
   implementation authority.
-- [ ] **Phase 14 S2 Slice 4 fixture-only implementation: NOT AUTHORIZED.** No
-  frontend code or tests have been added for it. A separate explicit
-  implementation-authorization decision is required before any code is written.
-  D47 remains binding and independent. References:
+- [ ] **Phase 14 S2 Slice 4 fixture-only implementation: AUTHORIZED UNDER D48,
+  NOT YET IMPLEMENTED.** D48 records the owner's explicit authorization for the
+  D44 Option 1F fixture-only frontend implementation only, with all 14
+  acceptance criteria as gating. No frontend code or tests have been added for
+  it, and no implementation claim is made. D47 remains binding and independent.
+  References:
+  `docs/planning/phase-14/PHASE14_S2_SLICE4_IMPLEMENTATION_AUTHORIZATION_PROPOSAL.md`,
   `docs/planning/phase-14/PHASE14_S2_SLICE4_FIXTURE_ONLY_DESIGN.md`,
   `docs/planning/phase-14/PHASE14_S2_SLICE4_OWNER_DECISION_BRIEF.md`, and
   `docs/planning/phase-14/PHASE14_S2_SLICE4_GATE_ASSESSMENT.md`.
