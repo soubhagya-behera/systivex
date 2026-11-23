@@ -2402,7 +2402,7 @@ Stop for review and explicit approval before modifying `DECISIONS.md`.
 
 - **F. Future live endpoint.** A live endpoint requires a new decision resolving AD-2, AD-3, AD-4, AD-8, and AD-9 as applicable, together with a recorded security review and, where Slice 3 would be used, the prospective authorization required by D47. D48 authorizes no live endpoint.
 
-- **G. Compatibility.** D48 depends on D44 and D47. It preserves D38–D47 unchanged, does not renumber or supersede any decision, and creates no execution, approval outside the authorized fixture-only presentation, proposal-lifecycle, authentication, or provider authority. Design adoption (D44) and implementation authorization (D48) are complete; implementation completion remains a separate, unclaimed state.
+- **G. Compatibility.** D48 depends on D44 and D47. It preserves D38–D47 unchanged, does not renumber or supersede any decision, and creates no execution, approval, proposal-lifecycle, authentication, or provider authority. Design adoption (D44) and implementation authorization (D48) are complete; implementation completion remains a separate, unclaimed state.
 
 
 ## Supersession rule
