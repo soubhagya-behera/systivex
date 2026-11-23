@@ -31,7 +31,7 @@ The backend control plane lives in `backend/` (packages under
 | **Maven wrapper** | Bundled at `backend/mvnw` (`backend/mvnw.cmd` on Windows). No separate Maven install. |
 | **Docker** | Required to run the test suite: integration tests use Testcontainers PostgreSQL. Your Docker daemon must be running. |
 | **PostgreSQL 18** | Required only to *run* the application locally (not for tests). |
-| **Node 24 LTS** | Required only for the `frontend/` console (Phase 13 S1). Not needed for backend work. |
+| **Node 24 LTS** | Required only for the `frontend/` console (Phase 13 S1-S5). Not needed for backend work. |
 
 The frontend is a self-contained, local-development-only tool; backend work needs no Node
 toolchain, and no cache/AI runtime is required today.
@@ -39,19 +39,28 @@ toolchain, and no cache/AI runtime is required today.
 > The wrapper scripts are committed without the executable bit on some checkouts. On
 > Linux/macOS run `chmod +x mvnw` once from `backend/` if `./mvnw` is not executable.
 
-## Build and test
+## Contributor quick start
 
-Run all commands from `backend/` (the Maven wrapper is there). Use `mvnw` on
-Linux/macOS and `mvnw.cmd` on Windows.
+Full setup, configuration, and verification instructions are in
+[`DEVELOPMENT.md`](DEVELOPMENT.md). The short version:
+
+### Backend
+
+Requires **JDK 21**. The test suite uses Testcontainers PostgreSQL, so **Docker
+must be running** before you run the tests. Run all commands from `backend/`
+using the Maven wrapper (`mvnw` on Linux/macOS, `mvnw.cmd` on Windows):
 
 ```bash
 cd backend
+./mvnw clean test              # full verification used by CI; requires Docker
+./mvnw package -DskipTests     # build a runnable jar without running tests
+```
 
-# Full verification used by CI (requires Docker for Testcontainers)
-./mvnw clean test
+On Windows PowerShell, use the bundled wrapper script instead:
 
-# Build a runnable jar without running tests
-./mvnw package -DskipTests
+```powershell
+cd backend
+.\mvnw.cmd -B clean test
 ```
 
 The individual sample target services each have their own wrapper and tests, e.g.:
@@ -63,6 +72,25 @@ cd backend/target-services/order-service && ./mvnw test
 **Do not weaken, skip, or delete tests to make a build pass.** If a test suite cannot run
 in your environment, describe the precise blocker in your pull request instead of masking
 it.
+
+### Frontend
+
+Requires **Node 24 LTS** (see `frontend/.nvmrc`). From `frontend/`:
+
+```bash
+cd frontend
+npm ci
+npm test
+npm run build
+```
+
+The console is local-development only; see the frontend convention below and
+[`DEVELOPMENT.md`](DEVELOPMENT.md) §18 for the full instructions and boundaries.
+
+### Documentation
+
+Keep documentation changes focused and accurate. Verify every link and command
+against the current repository before submitting.
 
 ## Branch and pull-request expectations
 
@@ -110,34 +138,34 @@ Execution-related proposals must respect the recorded decisions: controlled exec
 simulation must remain clearly distinct from real execution (see
 [`DECISIONS.md`](DECISIONS.md) D29–D31).
 
-## Frontend convention (authorized, not yet implemented)
+## Frontend convention
 
-A scoped, read-only operator console is **authorized** by `DECISIONS.md` D33
-(Phase 13 S1), but it is **not implemented** — no frontend files, Node toolchain, or CI
-job exist yet. When frontend work lands, the convention is **React with Vite in
-JavaScript — not TypeScript** — unless a future recorded decision explicitly changes it
-(see `.gitignore` and `PROJECT_STATUS.md`). The console is read-only, limited to existing
-`TWIN_READ` GET endpoints, and local-development-only; do not extend it with sync,
-observation, twin-write, or proposal-mutation actions, and do not add backend CORS rules
-or a bundled identity provider without a recorded decision.
+The `frontend/` console is implemented in **React + Vite + JavaScript** (not
+TypeScript). Phase 13 S1-S5 are implemented: the System Twin explorer, Impact &
+Risk, Audit Integrity, Proposals, and Simulation & Policy views. It is a
+**local-development-only operator console**, not a production-hosted application.
+It supports the existing approved workflows; simulation and policy evaluation
+remain hypothetical, advisory, and non-executing.
 
-## Good first contributions
+For detailed usage and boundaries, see [`README.md`](README.md),
+[`DEVELOPMENT.md`](DEVELOPMENT.md) §18, and the relevant
+[`DECISIONS.md`](DECISIONS.md) entries (D33, D34, D35-D37, D44, D46, D47). Do
+not imply that frontend work can introduce new backend endpoints,
+authentication, CORS, execution, or security capabilities without an
+appropriate recorded decision. D44 adopts the fixture-only presentation design
+only; it does not authorize implementation. D47 records a Slice 3 authorization
+traceability gap and an interim hold; it does not permit Slice 3 use, which
+requires a separate, explicit, prospective authorization decision.
 
-These are bounded, low-risk starting points grounded in current gaps. They are ideas, not
-published issues — open an issue (or comment on an existing one) before starting so we can
-coordinate.
+## Finding work to do
 
-1. **Add an `.editorconfig`.** Define consistent indentation and line endings for Java,
-   Markdown, YAML, and properties files. No behavior change.
-2. **Expand the telemetry parser unit tests.** Add edge-case tests for the deterministic
-   `HealthParser` and `PrometheusCounterParser` (size and line bounds, malformed and
-   out-of-range values, timestamped samples, ignored lines). Pure test additions; no
-   production code change required.
-3. **Document a sanitized manual API walkthrough.** Add a token-based, step-by-step
-   example (sync → impact → risk → simulation → policy) to `DEVELOPMENT.md`, using
-   placeholders and no committed secrets or tokens. Include the `Authorization: Bearer`
-   header and the required role for each call (see the Phase 10 section).
-4. **Design note for twin list pagination.** The twin entity/relationship `GET` endpoints
-   currently return unpaged lists. Draft a short design note (an issue, not code) for
-   adding pagination and filtering consistently with the existing API conventions before
-   implementing it.
+We do not maintain a static list of starter tasks. Find current work through the
+repository's [open GitHub issues](https://github.com/soubhagya-behera/systivex/issues):
+
+- Check the repository's currently open GitHub issues.
+- Prefer issues with explicit scope, acceptance criteria, and suitable contribution labels.
+- Read the issue and its recent discussion before starting.
+- Comment on the issue before starting.
+- Wait for maintainer confirmation to avoid duplicate work.
+- If no suitable issue exists, ask the maintainer to help identify a bounded task.
+- Do not start obsolete, completed, closed, or unapproved tasks.
