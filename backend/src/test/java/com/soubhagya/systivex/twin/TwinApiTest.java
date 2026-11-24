@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.soubhagya.systivex.twin.api.CreateSystemEntityRequest;
 import com.soubhagya.systivex.twin.api.CreateSystemRelationshipRequest;
+import com.soubhagya.systivex.twin.api.ErrorResponse;
 import com.soubhagya.systivex.twin.api.SystemEntityResponse;
 import com.soubhagya.systivex.twin.api.SystemRelationshipResponse;
 import com.soubhagya.systivex.twin.model.SystemEntityType;
@@ -77,13 +78,21 @@ class TwinApiTest extends AbstractPostgresIntegrationTest {
 
     @Test
     void createEntityWithBlankNameReturns400() {
-        ResponseEntity<String> response =
+        ResponseEntity<ErrorResponse> response =
                 rest.postForEntity(
                         "/api/v1/twin/entities",
                         new CreateSystemEntityRequest(
                                 SystemEntityType.API, "  ", null, null, null),
-                        String.class);
+                        ErrorResponse.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ErrorResponse body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.status()).isEqualTo(400);
+        assertThat(body.error()).isEqualTo("Bad Request");
+        assertThat(body.message()).isEqualTo("Request validation failed");
+        assertThat(body.path()).isEqualTo("/api/v1/twin/entities");
+        assertThat(body.fieldErrors()).isNotNull();
+        assertThat(body.fieldErrors().get("name")).isNotBlank();
     }
 
     @Test
