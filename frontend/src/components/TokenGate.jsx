@@ -14,6 +14,7 @@ export function TokenGate({
   onCandidatePreview,
   candidatePreviewLoading = false,
   candidatePreviewError = '',
+  candidateEntryRef,
 }) {
   const [value, setValue] = useState('');
 
@@ -83,6 +84,7 @@ export function TokenGate({
             className="btn"
             onClick={onCandidatePreview}
             disabled={candidatePreviewLoading}
+            ref={candidateEntryRef}
           >
             {candidatePreviewLoading
               ? 'Loading candidate presentation…'

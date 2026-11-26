@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TokenProvider, useToken } from './auth/TokenContext.jsx';
 import { TokenGate } from './components/TokenGate.jsx';
 import { TwinConsole } from './components/TwinConsole.jsx';
@@ -11,6 +11,8 @@ function Connector() {
   const [candidatePreview, setCandidatePreview] = useState(null);
   const [candidatePreviewLoading, setCandidatePreviewLoading] = useState(false);
   const [candidatePreviewError, setCandidatePreviewError] = useState('');
+  const [restoreCandidateFocus, setRestoreCandidateFocus] = useState(false);
+  const candidateEntryRef = useRef(null);
   const previewAvailable = canUsePreview(import.meta.env);
 
   const openPreview = useCallback(async () => {
@@ -54,7 +56,14 @@ function Connector() {
   const closeCandidatePreview = useCallback(() => {
     setCandidatePreview(null);
     setCandidatePreviewError('');
+    setRestoreCandidateFocus(true);
   }, []);
+
+  useEffect(() => {
+    if (!restoreCandidateFocus) return;
+    candidateEntryRef.current?.focus();
+    setRestoreCandidateFocus(false);
+  }, [restoreCandidateFocus]);
 
   const CandidateView = candidatePreview?.Component;
 
@@ -87,6 +96,7 @@ function Connector() {
           onCandidatePreview={previewAvailable ? openCandidatePreview : undefined}
           candidatePreviewLoading={candidatePreviewLoading}
           candidatePreviewError={candidatePreviewError}
+          candidateEntryRef={candidateEntryRef}
         />
       </main>
     );

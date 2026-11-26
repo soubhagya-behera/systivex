@@ -13,8 +13,13 @@ export function CandidatePresentation({ fixtureSets = [], onExit }) {
   const [selectedRef, setSelectedRef] = useState(null);
   const [announcement, setAnnouncement] = useState('');
   const evidenceNodes = useRef({});
+  const headingRef = useRef(null);
 
   const current = fixtureSets[selectedSetIndex] ?? null;
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (!selectedRef) return;
@@ -84,7 +89,9 @@ export function CandidatePresentation({ fixtureSets = [], onExit }) {
         </button>
       </div>
 
-      <h1 className="fixture-title">Synthetic candidate presentation</h1>
+      <h1 className="fixture-title" tabIndex={-1} ref={headingRef}>
+        Synthetic candidate presentation
+      </h1>
       <p className="fixture-reference-notice">{current.referenceNotice}</p>
 
       <h2 className="fixture-subhead">Synthetic fixture candidates</h2>

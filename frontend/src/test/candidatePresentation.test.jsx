@@ -277,4 +277,62 @@ describe('synthetic candidate presentation', () => {
     });
     expect(button).toBeDisabled();
   });
+
+  it('moves focus to the candidate presentation heading when opened from the token gate', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      screen.getByRole('button', { name: /open candidate presentation/i }),
+    );
+    const heading = await screen.findByRole('heading', {
+      name: /synthetic candidate presentation/i,
+      level: 1,
+    });
+    expect(heading).toHaveFocus();
+    expect(heading).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('restores focus to the candidate preview entry after exit', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      screen.getByRole('button', { name: /open candidate presentation/i }),
+    );
+    const heading = await screen.findByRole('heading', {
+      name: /synthetic candidate presentation/i,
+      level: 1,
+    });
+    expect(heading).toHaveFocus();
+
+    await user.click(screen.getByRole('button', { name: /exit candidate preview/i }));
+
+    expect(
+      await screen.findByRole('heading', { name: /connect to the control plane/i }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: /open candidate presentation/i }),
+    ).toHaveFocus();
+  });
+
+  it('keeps fixture selection and evidence-reference focus working with heading focus', async () => {
+    const user = userEvent.setup();
+    renderPresentation();
+
+    expect(
+      await screen.findByRole('heading', {
+        name: /synthetic candidate presentation/i,
+        level: 1,
+      }),
+    ).toHaveFocus();
+
+    await user.click(screen.getByRole('button', { name: /text rendering rehearsal/i }));
+    await user.click(
+      screen.getByRole('button', { name: /synthetic presentation reference E1/i }),
+    );
+    expect(
+      await screen.findByRole('heading', { name: /synthetic fixture evidence E1/i }),
+    ).toHaveFocus();
+  });
 });
