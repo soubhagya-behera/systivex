@@ -90,11 +90,9 @@ export function TokenGate({
               ? 'Loading candidate presentation…'
               : 'Open candidate presentation (synthetic data)'}
           </button>
-          {candidatePreviewLoading ? (
-            <p className="hint" role="status" aria-live="polite">
-              Loading synthetic candidate presentation.
-            </p>
-          ) : null}
+          <p className="hint" role="status" aria-live="polite">
+            {candidatePreviewLoading ? 'Loading synthetic candidate presentation.' : ''}
+          </p>
           <p className="hint">
             Development-only presentation rehearsal with synthetic fixtures. No
             backend request or bearer token is needed.

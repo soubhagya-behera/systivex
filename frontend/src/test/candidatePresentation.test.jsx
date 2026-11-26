@@ -278,32 +278,37 @@ describe('synthetic candidate presentation', () => {
     expect(button).toBeDisabled();
   });
 
-  it('announces candidate preview loading politely and clears the announcement', () => {
+  it('keeps one mounted live region and updates it for candidate preview loading', () => {
+    const props = {
+      onSubmit: vi.fn(),
+      onCandidatePreview: vi.fn(),
+    };
     const { rerender } = render(
-      <TokenGate
-        onSubmit={vi.fn()}
-        onCandidatePreview={vi.fn()}
-        candidatePreviewLoading
-      />,
+      <TokenGate {...props} candidatePreviewLoading={false} />,
     );
 
+    const region = screen.getByRole('status');
+    expect(region).toBeEmptyDOMElement();
+    expect(region).toHaveAttribute('role', 'status');
+    expect(region).toHaveAttribute('aria-live', 'polite');
+    expect(
+      screen.getByRole('button', { name: /open candidate presentation/i }),
+    ).toBeEnabled();
+
+    rerender(<TokenGate {...props} candidatePreviewLoading />);
+
+    expect(screen.getAllByRole('status')).toEqual([region]);
+    expect(region).toHaveTextContent('Loading synthetic candidate presentation.');
+    expect(region).toHaveAttribute('role', 'status');
+    expect(region).toHaveAttribute('aria-live', 'polite');
     expect(
       screen.getByRole('button', { name: /loading candidate presentation/i }),
     ).toBeDisabled();
-    const announcement = screen.getByRole('status');
-    expect(announcement).toHaveTextContent(
-      'Loading synthetic candidate presentation.',
-    );
-    expect(announcement).toHaveAttribute('aria-live', 'polite');
 
-    rerender(
-      <TokenGate
-        onSubmit={vi.fn()}
-        onCandidatePreview={vi.fn()}
-        candidatePreviewLoading={false}
-      />,
-    );
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    rerender(<TokenGate {...props} candidatePreviewLoading={false} />);
+
+    expect(screen.getAllByRole('status')).toEqual([region]);
+    expect(region).toBeEmptyDOMElement();
     expect(
       screen.getByRole('button', { name: /open candidate presentation/i }),
     ).toBeEnabled();
