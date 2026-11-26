@@ -278,6 +278,37 @@ describe('synthetic candidate presentation', () => {
     expect(button).toBeDisabled();
   });
 
+  it('announces candidate preview loading politely and clears the announcement', () => {
+    const { rerender } = render(
+      <TokenGate
+        onSubmit={vi.fn()}
+        onCandidatePreview={vi.fn()}
+        candidatePreviewLoading
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: /loading candidate presentation/i }),
+    ).toBeDisabled();
+    const announcement = screen.getByRole('status');
+    expect(announcement).toHaveTextContent(
+      'Loading synthetic candidate presentation.',
+    );
+    expect(announcement).toHaveAttribute('aria-live', 'polite');
+
+    rerender(
+      <TokenGate
+        onSubmit={vi.fn()}
+        onCandidatePreview={vi.fn()}
+        candidatePreviewLoading={false}
+      />,
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /open candidate presentation/i }),
+    ).toBeEnabled();
+  });
+
   it('moves focus to the candidate presentation heading when opened from the token gate', async () => {
     const user = userEvent.setup();
     render(<App />);
