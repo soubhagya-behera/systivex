@@ -3,7 +3,8 @@
 Scope: **control plane (Phases 0–1) + target services (Phases 2A–2B) +
 telemetry pipeline (Phase 3A) + twin observation (Phase 4) + operator console
 (Phase 13 S1–S5 merged; S5 implemented, automated-verified, merged via PR #20,
-and local live-verified 2026-11-03; local development only)**.
+and local live-verified 2026-11-03; plus the D48-authorized, fixture-only Phase
+14 S2 Slice 4 preview merged via PR #55 on 2026-11-26; local development only)**.
 §§1–7 cover the control plane in `backend/`; §8 covers the target services in
 `backend/target-services/`; §9 covers the local telemetry
 infrastructure in `observability/`; §10 covers twin synchronization; §18 covers
@@ -22,7 +23,7 @@ needed for console work.
 | Docker | Docker Desktop (daemon running) | Required for `./mvnw test` (Testcontainers spins up PG 18) and for the Phase 3A telemetry collector (`observability/`) |
 | Redis | **Not required** in this phase | Deferred, only when justified |
 | Ollama / Spring AI | **Not required** in this phase | Deferred |
-| Node / React | **24 LTS** (`frontend/.nvmrc`) | Optional — only for the Phase 13 S1–S5 console (§18); not needed for backend work |
+| Node / React | **24 LTS** (`frontend/.nvmrc`) | Optional — Phase 13 S1–S5 console and the D48-authorized Phase 14 S2 Slice 4 fixture-only preview (§18); not needed for backend work |
 | K8s / brokers | **Not required** (services run locally, not containerized) | Deferred |
 
 > Environment setup (2026-09-28, updated): the machine default `JAVA_HOME`/PATH
@@ -201,7 +202,8 @@ at the same time as the code — docs must reflect reality.
 1. Do not add dependencies unless required for the current phase (recorded in `DECISIONS.md`).
 2. Do not create placeholder packages or speculative modules.
 3. Do not add Docker Compose, Redis/AI configuration, or frontend work beyond
-   the Phase 13 S1–S5 console (see §18). S5 is limited to the two D37 advisory
+   the Phase 13 S1–S5 console and the D48-authorized Phase 14 S2 Slice 4
+   fixture-only preview (see §18). S5 is limited to the two D37 advisory
    POSTs and adds no backend or mutation surface.
 4. Do not weaken tests to make them pass.
 5. Do not claim features work unless verified by `./mvnw test` / startup / endpoint check.
@@ -932,6 +934,24 @@ approval, execution, audit append, or audit repair. The two S5 POSTs are
 advisory and non-persistent. The console adds no backend endpoint, CORS rule,
 or hosting.
 
+### Phase 14 S2 Slice 4 candidate preview (D48; merged via PR #55 on 2026-11-26)
+
+The D48-authorized, fixture-only **candidate presentation** is a
+development-only preview in `frontend/src/preview/syntheticCandidates.js` and
+`frontend/src/views/CandidatePresentation.jsx`. It is reachable only when
+`canUsePreview(import.meta.env)` is true (`DEV === true && PROD !== true`); the
+fixture and view modules load through a DEV-only dynamic import and are excluded
+from production builds. All candidate and evidence data is locally defined and
+synthetic: no bearer token, backend request, Slice 3 invocation, provider use,
+persistence, URL mutation, or network access is involved. A persistent
+synthetic-data banner, a non-entailment notice, and per-candidate/evidence
+synthetic labels are always visible. Only illustrative S-A/S-B states are
+represented; S-C human review and S-D acceptance/rejection are not
+representable, and there are no approval, rejection, execution, or other
+candidate-decision controls. Keyboard focus moves to the presentation heading
+on entry and returns to the preview button on exit. No production hosting or
+live evidence is implied.
+
 Prerequisites: **Node.js 24 LTS** (`frontend/.nvmrc`; `engines` requires
 `>=24`). The backend must be running locally (`§5`; `127.0.0.1:8080` by default,
 or `8090` with this machine's protected local configuration) for the console to
@@ -940,7 +960,7 @@ fetch data. Every command runs from `frontend/`:
 ```powershell
 cd frontend
 npm ci            # reproducible install from package-lock.json
-npm test          # Vitest + Testing Library (258 tests; 58 focused S5/409)
+npm test          # Vitest + Testing Library (303 tests across 29 files, PR #55 merge baseline; includes 58 focused S5/409)
 npm run build     # production bundle in frontend/dist/
 npm run dev       # Vite dev server at http://127.0.0.1:5173
 ```
