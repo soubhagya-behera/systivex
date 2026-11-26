@@ -8,6 +8,9 @@ function Connector() {
   const { token, setToken, clear, hasToken } = useToken();
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [candidatePreview, setCandidatePreview] = useState(null);
+  const [candidatePreviewLoading, setCandidatePreviewLoading] = useState(false);
+  const [candidatePreviewError, setCandidatePreviewError] = useState('');
   const previewAvailable = canUsePreview(import.meta.env);
 
   const openPreview = useCallback(async () => {
@@ -22,6 +25,47 @@ function Connector() {
       setPreviewLoading(false);
     }
   }, [previewAvailable]);
+
+  const openCandidatePreview = useCallback(async () => {
+    if (!previewAvailable) return;
+    setCandidatePreviewError('');
+    setCandidatePreviewLoading(true);
+    try {
+      // Vite removes this development-only branch from production builds.
+      if (!import.meta.env.DEV) return;
+      const [fixtures, presentation] = await Promise.all([
+        import('./preview/syntheticCandidates.js'),
+        import('./views/CandidatePresentation.jsx'),
+      ]);
+      setCandidatePreview({
+        fixtureSets: fixtures.loadSyntheticCandidateFixtures(),
+        Component: presentation.CandidatePresentation,
+      });
+    } catch {
+      setCandidatePreview(null);
+      setCandidatePreviewError(
+        'The synthetic candidate presentation could not be loaded. Try again.',
+      );
+    } finally {
+      setCandidatePreviewLoading(false);
+    }
+  }, [previewAvailable]);
+
+  const closeCandidatePreview = useCallback(() => {
+    setCandidatePreview(null);
+    setCandidatePreviewError('');
+  }, []);
+
+  const CandidateView = candidatePreview?.Component;
+
+  if (CandidateView && candidatePreview?.fixtureSets && previewAvailable) {
+    return (
+      <CandidateView
+        fixtureSets={candidatePreview.fixtureSets}
+        onExit={closeCandidatePreview}
+      />
+    );
+  }
 
   if (previewData && previewAvailable) {
     return (
@@ -40,6 +84,9 @@ function Connector() {
           onSubmit={setToken}
           onPreview={previewAvailable ? openPreview : undefined}
           previewLoading={previewLoading}
+          onCandidatePreview={previewAvailable ? openCandidatePreview : undefined}
+          candidatePreviewLoading={candidatePreviewLoading}
+          candidatePreviewError={candidatePreviewError}
         />
       </main>
     );
