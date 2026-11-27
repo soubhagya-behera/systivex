@@ -403,8 +403,12 @@ grounds.
 ### 4.4 Extremely large `page` values
 
 `page` is an `int`. The offset is `page * size`. A very large page can produce
-an enormous offset and an expensive database skip, and extremely large values
-can approach integer/long boundary behavior in the persistence layer.
+an enormous offset and an expensive database skip. Note that
+`AbstractPageRequest.getOffset()` returns a `long`, the page number is an `int`,
+and with the proposed maximum size of 100, the maximum offset is approximately
+214.7 billion, safely below the long limit. Therefore, the concern is not long
+overflow. The real concern is potentially expensive PostgreSQL/database work when
+skipping very large offsets.
 
 **Recommended:** if the project wants a hard ceiling, define one explicitly
 (for example a documented maximum page) and return 400 above it, rather than
@@ -714,10 +718,10 @@ benchmark evidence.
 
 | Aspect | `Page<T>` | `Slice<T>` |
 |---|---|---|
-| Count query | Executed as part of Page semantics | Not executed |
+| Count query | A Page may require an additional count query to determine the total; Spring Data can omit that query in cases where the total is inferable from the page content and Pageable. | Not executed |
 | `total` | Available | Not available |
 | `hasNext` | Derivable | Available directly |
-| Cost | Content query plus count query | Content query only (typically fetches `size + 1` rows) |
+| Cost | Content query plus (possible) count query | Content query only (typically fetches `size + 1` rows) |
 | Contract fit | Matches `ProposalListResponse` (`items`/`page`/`size`/`total`) | Requires a different response contract |
 
 **Recommended:** `Page` for the first implementation, because the project's
@@ -732,8 +736,9 @@ response shape.
 ### 7.2 Count-query cost
 
 Both list endpoints read unfiltered collections. A `Page` request therefore
-asks PostgreSQL to count every row in the table, in addition to returning the
-page.
+may require an additional count query to determine the total; Spring Data can
+omit that query in cases where the total is inferable from the page content and
+Pageable. The count is not free and grows with table size.
 
 - The count is not free and grows with table size.
 - PostgreSQL may satisfy a count with a sequential scan or an index-only scan
