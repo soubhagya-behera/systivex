@@ -1,9 +1,12 @@
 # Systivex Architecture
 
 Status: **target architecture (planned) + current implementation status**
-(documentation reviewed 2026-11-03; last automated runtime test verification
-2026-11-03, Phase 13 S5 backend regression; last live backend/frontend
-verification 2026-11-03, Phase 13 S5). Phase 13 S5 is implemented,
+(documentation reviewed 2026-11-28, documentation-only alignment with no new
+test execution or live verification; last recorded local live backend/frontend
+verification 2026-11-03, Phase 13 S5; later recorded automated verification:
+Phase 14 S2 Slice 2 backend 622/622 tests on 2026-11-09/10 and Phase 14 S2
+Slice 4 frontend 303 tests across 29 files with successful production build
+and applicable CI on 2026-11-26). Phase 13 S5 is implemented,
 automated-verified, merged via PR #20 (merge commit
 `10472f26a54fa488705fe5fbcdaf10bd18fed3cc`), and **passed local live
 verification on 2026-11-03**: 20/20 backend checks plus a headless frontend
@@ -131,7 +134,17 @@ verification passed on 2026-11-03 against standalone local Keycloak 26.8.1 on
 an independent policy result (`REVIEW`, `policy-v1`), unchanged persistence,
 and a headless browser smoke. This remains local-development verification, not
 production identity or hosting. All S2–S5 views are excluded from synthetic
-preview mode. The console adds no backend endpoint or
+preview mode.
+
+A separate D48-authorized Phase 14 S2 Slice 4 candidate preview (D44 adopted the
+fixture-only design; D48 authorized the implementation; PR #55 completed it)
+renders locally defined synthetic candidates and evidence in local development
+only. It is DEV-gated (`DEV === true && PROD !== true`) and excluded from
+production builds; it issues no backend request, invokes no Slice 3 generation,
+uses no model provider, persists nothing, and adds no live API functionality,
+approval, rejection or execution control.
+
+The console adds no backend endpoint or
 CORS rule: the Vite dev server binds to `127.0.0.1` and proxies `/api` to
 `http://127.0.0.1:8080` by default, or to the loopback port selected by
 `SYSTIVEX_BACKEND_PORT` (the protected local config here uses `8090`). It
@@ -342,9 +355,11 @@ business counters pulled from the loopback Actuator surface into a
 namespaced `runtime` metadata key (`telemetry` package,
 `POST /api/v1/twin/observations`; trace/log presence deliberately absent).
 Current packages are `twin`, `observation`, `intelligence`, `telemetry`,
-`policy`, `security`, `proposal`, and `evidence`; governed proposals,
-approvals, and the tamper-evident audit exist since Phase 11, but no
-execution or verification module exists.
+`policy`, `security`, `proposal`, `evidence`, `localmodel`, and `generation`
+(the latter two are the D41 local provider integration and the Slice 3
+implementation whose authorization traceability is unresolved under D47;
+see §6c); governed proposals, approvals, and the tamper-evident audit exist
+since Phase 11, but no execution or verification module exists.
 
 ## 6. Trust boundaries
 
@@ -375,8 +390,10 @@ See `THREAT_MODEL.md` for the principles these boundaries enforce.
 Future agent-assisted analysis is a read-only explanation layer over existing
 deterministic System Twin evidence. D38 authorized design only; D39
 authorized and Phase 14 S1 implemented the deterministic evidence packet
-assembler described below. No agent runtime, model provider, prompt, or
-narrative generation is implemented. The future trust flow is:
+assembler described below. S1 itself introduced no agent runtime, model
+provider, prompt, or narrative generation; the later, separately authorized
+local model provider integration is described under Slice 2 below and is not
+an agent runtime or an authorized generation workflow. The future trust flow is:
 
 System Twin and runtime observations
 → deterministic impact and risk
@@ -416,8 +433,11 @@ assessment is bound to stored canonical operations, assessment hash, and twin
 fingerprint; an ordered audit-event list is not proof of chain integrity. Hashes
 retain their original scope and purpose.
 
-Phase 14 S1 is not authorized by D38. Agent-generated narratives, model
-provider integration, and tool mediation remain separately gated.
+Phase 14 S1 was not authorized by D38; this preserves the historical S0
+boundary. The local provider integration was later separately authorized under
+D41 (Slice 2), as described below. It does not authorize agent-generated
+narratives or a generation workflow: those remain separately gated, and Slice 3
+use remains subject to D47.
 
 #### Phase 14 S1 implementation (D39)
 
@@ -476,8 +496,12 @@ statement — semantic entailment remains for human review, the authority of
 record. Slice 1 added no provider, model, prompt, endpoint, persistence, or
 generation capability. Slice 2 (Spring AI + local Ollama per D8) was
 separately authorized and implemented under D41 via PR #27; Slice 3
-(generation + evaluation) remains separately gated. D8's deferred status
-is unchanged. No agent runtime exists.
+(generation + evaluation) implementation is present but its authorization
+traceability cannot currently be verified under D47, so no runtime invocation
+or continuation is authorized. D8's direction is preserved unchanged. The
+Slice 3 generation implementation is present, but its runtime use and
+continuation are not authorized under D47, and no authorized production
+generation workflow is enabled. No agent runtime exists.
 
 #### Phase 14 S2 Slice 2 (implemented under D41 via PR #27)
 
@@ -491,10 +515,41 @@ inference attempt (no retry/backoff/queue), 5s/30s/35s timeouts,
 direct-only proxy with redirects disabled, `/api/tags` + `/api/show`
 installed-model digest checks with no per-request cryptographic identity
 guarantee. Verification: 63/63 focused tests and 622/622 full backend tests
-passed. Slice 3 (generation + evaluation) remains separately gated. No
-prompt construction, generated claims, endpoints, persistence, tools, RAG,
-memory, cloud fallback, mutation, approval, or execution capability is
-introduced. D8 adopted for design, unchanged in direction; D40 unweakened.
+passed. This is a local model provider integration only: no prompt
+construction, generated claims, endpoints, persistence, tools, RAG, memory,
+cloud fallback, mutation, approval, or execution capability is introduced by
+it, and it is not a production agent runtime or an authorized generation
+workflow. Slice 3 (generation + evaluation) implementation is present, but D47
+records that its authorization traceability cannot currently be verified; no
+runtime invocation, continuation or provider use is authorized. D8 adopted for
+design, unchanged in direction; D40 unweakened.
+
+#### Phase 14 S2 Slice 3 (implementation present; authorization traceability unresolved under D47)
+
+The evidence-grounded generation and evaluation implementation is present in
+the repository, but D47 records that its authorization traceability cannot
+currently be verified from the recorded governance history. D47 neither
+authorizes nor ratifies that implementation and imposes an interim hold: no
+Slice 3 runtime invocation, continuation, provider use, endpoint or
+presentation surface is authorized, and the default-off provider configuration
+(`systivex.local.enabled=false`) is unchanged. Any future use or continuation
+of the Slice 3 implementation requires a separate, explicit, prospective
+authorization decision recorded in the governance record before that use
+begins. D48 does not modify, satisfy, or circumvent D47.
+
+#### Phase 14 S2 Slice 4 (D44 design; D48 authorization; completed via PR #55)
+
+D44 adopted the Option 1F fixture-only presentation design as a design only;
+D48 separately authorized the narrowly scoped fixture-only frontend
+implementation, which PR #55 completed on 2026-11-26. The candidate preview
+uses locally defined synthetic fixtures, DEV-only gating with production-build
+exclusion, an always-visible, non-dismissible synthetic-data banner plus
+synthetic labels, and illustrative S-A/S-B states only; S-C human review and
+S-D acceptance/rejection are not representable, and there are no
+candidate-decision controls. It makes no backend request, invokes no Slice 3
+generation, uses no model provider and introduces no persistence,
+approval or execution capability. It adds no live API functionality and leaves
+D47 independently binding.
 
 ## 7. API shape (initial REST exists)
 
@@ -547,12 +602,14 @@ introduced. D8 adopted for design, unchanged in direction; D40 unweakened.
   actions and retained results, no automatic/combined request, and no
   persistence, approval, execution, or proposal mutation. No API surface is
   added and no CORS rule is configured; the Vite proxy makes it same-origin
-  during development. All S2–S5 views are live-only. No slice changes the
-  execution boundary, and S5 does not change backend security or roles.
+  during development. All S2–S5 views are live-only. The D48-authorized
+  candidate preview is fixture-only and issues no API request, so it adds no
+  live API functionality. No slice changes the execution boundary, and S5 does
+  not change backend security or roles.
 - **SSE** for streaming long-running analysis/simulation progress (planned).
 - No WebSockets at this stage (see `DECISIONS.md`).
 
-## 8. Current implementation status (documentation reviewed 2026-11-03; last automated backend verification 2026-11-03; last live backend/frontend verification 2026-11-03, Phase 13 S5; Phase 13 S1–S5 merged, S5 local live verification passed)
+## 8. Current implementation status (documentation reviewed 2026-11-28, documentation-only, no new test execution or live verification; last recorded local live backend/frontend verification 2026-11-03, Phase 13 S5; later recorded automated verification: Phase 14 S2 Slice 2 backend 622/622 tests on 2026-11-09/10 and Phase 14 S2 Slice 4 frontend 303 tests across 29 files with successful production build and applicable CI on 2026-11-26; Phase 13 S1–S5 merged, S5 local live verification passed)
 
 Implemented:
 
@@ -669,6 +726,22 @@ Implemented:
   claims, agent runtime, or execution; read-only `READ_COMMITTED` with no
   global-snapshot claim. Verified: full `./mvnw test` suite 505 tests,
   0 failures (see `PROJECT_STATUS.md` Phase 14 S1).
+- Phase 14 S2 Slice 1 (D40): provider-independent claim contract and
+  deterministic validator over S1 packets; no provider, endpoint, persistence
+  or generation capability (see §6c).
+- Phase 14 S2 Slice 2 (D41, PR #27): bounded local Spring AI + Ollama provider
+  integration, verified in that PR by 63/63 focused and 622/622 full backend
+  tests; a local inference boundary, not a production agent runtime or an
+  authorized generation workflow (see §6c).
+- Phase 14 S2 Slice 3: implementation is present, but D47 records that its
+  authorization traceability cannot currently be verified; no runtime
+  invocation or provider use is authorized (see §6c).
+- Phase 14 S2 Slice 4 (D44 design, D48 authorization, PR #55 completed
+  2026-11-26): fixture-only candidate preview in `frontend/`, DEV-gated,
+  synthetic and excluded from production builds, with no live API functionality;
+  303 frontend tests across 29 files (PR #55 merge baseline, including 58
+  focused S5/409 tests), production build and applicable CI passed as recorded
+  in `PROJECT_STATUS.md`. No new runtime or live verification is claimed here.
 - Read-only/advisory operator console (Phase 13 S1–S5 merged; S5 via PR #20,
   merge commit `10472f26a54fa488705fe5fbcdaf10bd18fed3cc`, with local live
   verification passed 2026-11-03; see §7 and
@@ -697,12 +770,15 @@ Implemented:
   has no combined action, and keeps simulation and policy results independent;
   the policy endpoint re-runs simulation server-side. The view is advisory and
   non-persistent and adds no execution, approval, or proposal-mutation control.
-  Only S1 exists in synthetic preview mode. The developer-supplied bearer token
+  Only the S1 explorer has a synthetic preview mode; the D48-authorized
+  fixture-only candidate preview is synthetic-only. S2–S5 remain live-only and
+  excluded from synthetic preview mode. The developer-supplied bearer token
   is kept in memory only (never persisted, logged, or placed in a URL). The
   console is **local-development only**: Vite binds `127.0.0.1` and proxies
   `/api` to `http://127.0.0.1:8080`, adding no backend CORS rule, endpoint, or
-  hosting. Node 24 LTS drives `npm test` (Vitest + Testing Library; **258 tests
-  across 24 files**, including 58 focused S5/409 tests) and `npm run build`;
+  hosting. Node 24 LTS drives `npm test` (Vitest + Testing Library; **303 tests
+  across 29 files**, PR #55 merge baseline, including 58 focused S5/409 tests)
+  and `npm run build`;
   the S5 build passed and `npm audit --audit-level=high` reported no
   high/critical findings (one pre-existing moderate Vite advisory). Full backend
   regression passed **398 tests** including Docker/Testcontainers integration
@@ -742,6 +818,10 @@ more than they need graph-traversal speed. Two tables with FK/unique/check
 constraints cover Phase 1; a graph store would add operational weight with no
 consumer yet (see `DECISIONS.md` D10).
 
+A local Spring AI / Ollama provider integration is **not** absent: it was
+implemented under D41 (PR #27) as a bounded local inference boundary, not a
+production agent runtime or an authorized generation workflow (see §6c).
+
 Intentionally absent (not bugs — deferred by decision):
 
 - Twin trace/log presence signals, real-world controlled execution,
@@ -752,13 +832,16 @@ Intentionally absent (not bugs — deferred by decision):
   Phase 8, above; advisory policy evaluation is Phase 9, above;
   control-plane authentication is Phase 10, above; governed proposals,
   approvals, and the tamper-evident audit are Phase 11, above).
-- Redis, Spring AI / Ollama, and target-service authentication (still
-  deferred). The frontend's Node toolchain and CI job exist, but the console is
+- Redis and target-service authentication (still deferred). The frontend's Node
+  toolchain and CI job exist, but the console is
   **local-development-only** (Phase 13 S1–S5 merged under D33/D36/D37; S5 local
-  live verification passed 2026-11-03): no production/static hosting, no
+  live verification passed 2026-11-03; Phase 14 S2 Slice 4 fixture-only preview
+  merged via PR #55): no production/static hosting, no
   deployed surface, and no live OIDC sign-in (trusted production issuer/client
   details are still missing). S5's two
-  approved POSTs are advisory and non-persistent; no later UI slice is approved.
+  approved POSTs are advisory and non-persistent; the only later UI slice is the
+  D48-authorized fixture-only preview, which is synthetic and has no live API
+  functionality; no live generation presentation surface is approved.
 - Grafana log dashboards, Tempo trace UI, unified trace/log UI, anomaly
   detection, any agent use of telemetry (later 3B slices and later).
 - Docker packaging of the Java services, Kafka / RabbitMQ / Kubernetes /

@@ -31,7 +31,7 @@ The backend control plane lives in `backend/` (packages under
 | **Maven wrapper** | Bundled at `backend/mvnw` (`backend/mvnw.cmd` on Windows). No separate Maven install. |
 | **Docker** | Required to run the test suite: integration tests use Testcontainers PostgreSQL. Your Docker daemon must be running. |
 | **PostgreSQL 18** | Required only to *run* the application locally (not for tests). |
-| **Node 24 LTS** | Required only for the `frontend/` console (Phase 13 S1-S5). Not needed for backend work. |
+| **Node 24 LTS** | Required only for the `frontend/` console (Phase 13 S1-S5 and the D48 fixture-only preview). Not needed for backend work. |
 
 The frontend is a self-contained, local-development-only tool; backend work needs no Node
 toolchain, and no cache/AI runtime is required today.
@@ -142,20 +142,28 @@ simulation must remain clearly distinct from real execution (see
 
 The `frontend/` console is implemented in **React + Vite + JavaScript** (not
 TypeScript). Phase 13 S1-S5 are implemented: the System Twin explorer, Impact &
-Risk, Audit Integrity, Proposals, and Simulation & Policy views. It is a
-**local-development-only operator console**, not a production-hosted application.
+Risk, Audit Integrity, Proposals, and Simulation & Policy views. A separate
+Phase 14 S2 Slice 4 **candidate preview** (D48; merged via PR #55) renders locally
+defined synthetic fixtures for inspection: it is DEV-gated, excluded from
+production builds, and uses no backend endpoint, model provider or persistence.
+It is a **local-development-only operator console**, not a production-hosted application.
 It supports the existing approved workflows; simulation and policy evaluation
 remain hypothetical, advisory, and non-executing.
 
 For detailed usage and boundaries, see [`README.md`](README.md),
 [`DEVELOPMENT.md`](DEVELOPMENT.md) §18, and the relevant
-[`DECISIONS.md`](DECISIONS.md) entries (D33, D34, D35-D37, D44, D46, D47). Do
+[`DECISIONS.md`](DECISIONS.md) entries (D33, D34, D35-D37, D44, D46, D47, D48). Do
 not imply that frontend work can introduce new backend endpoints,
 authentication, CORS, execution, or security capabilities without an
 appropriate recorded decision. D44 adopts the fixture-only presentation design
-only; it does not authorize implementation. D47 records a Slice 3 authorization
-traceability gap and an interim hold; it does not permit Slice 3 use, which
-requires a separate, explicit, prospective authorization decision.
+only; it does not authorize implementation. D48 is the separate explicit
+authorization for the narrowly scoped fixture-only frontend implementation of
+that design, completed via PR #55. D48 grants no Slice 3 runtime or provider
+use, no live endpoint, no backend feature, no persistence, no approval and no
+execution capability. D47 is an independent Slice 3 authorization-traceability
+hold: it records that authorization cannot currently be verified, remains
+binding despite D48, and permits no Slice 3 use without a separate, explicit,
+prospective authorization decision.
 
 ## Finding work to do
 
