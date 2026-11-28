@@ -224,7 +224,7 @@ The **Phase 14 S2 Slice 4 candidate preview** (D48; merged via PR #55 on
 local development (`DEV === true && PROD !== true`) and excluded from production
 builds. Its candidates and evidence are locally defined synthetic fixtures: the
 preview makes no backend request, invokes no Slice 3 generation, uses no model
-provider and persists nothing. A persistent synthetic-data banner and per-item
+provider and persists nothing. An always-visible, non-dismissible synthetic-data banner and per-item
 synthetic labels are always visible; only illustrative states are shown, with no
 accept, reject, approve or execute controls. It adds no live API functionality.
 
