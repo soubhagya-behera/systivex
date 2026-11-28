@@ -740,7 +740,6 @@ may require an additional count query to determine the total; Spring Data can
 omit that query in cases where the total is inferable from the page content and
 Pageable. The count is not free and grows with table size.
 
-- The count is not free and grows with table size.
 - PostgreSQL may satisfy a count with a sequential scan or an index-only scan
   depending on the planner and visibility map; this proposal makes no claim
   about which plan occurs.
@@ -993,9 +992,7 @@ Only if Option C was chosen:
 2. **Console coupling.** The console loads both full collections together and
    derives counts and relationship names from them. Pagination requires a
    coordinated frontend change.
-3. **Count cost.** `Page` adds a full-collection count per request. At small
-   data volumes this is irrelevant; at large volumes it is not free. No
-   measurement exists to quantify it.
+3. **Count cost.** A `Page` may require an additional full-collection count query to determine the total; Spring Data may omit that query when the total is inferable from the page content and `Pageable`. At small data volumes this is irrelevant; at large volumes it is not free. No measurement exists to quantify it.
 4. **Deep-page cost.** Offset pagination degrades with page depth, and page
    drift under concurrent writes is inherent.
 5. **Ordering contract drift.** If the sort fields are changed later, clients
