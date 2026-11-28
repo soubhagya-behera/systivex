@@ -108,12 +108,22 @@ Full design, trust boundaries, and the deterministic-vs-advisory distinction liv
 | JWT-protected API | ✅ Implemented and tested |
 | Runtime observation and telemetry integration | ✅ Implemented and tested |
 | Controlled execution | 🚧 Design-only — gated by D30/D31 |
-| Frontend / operator console | 🚧 Phase 13 S1–S5 merged (S4 via PR #18, S5 via PR #20); S5 passed local live verification 2026-11-03; local-development-only |
+| Frontend / operator console | 🚧 Phase 13 S1–S5 merged (S4 via PR #18, S5 via PR #20; S5 passed local live verification 2026-11-03); plus the D48-authorized Phase 14 S2 Slice 4 fixture-only candidate preview (PR #55); local-development-only |
+| Phase 14 S2 Slice 4 candidate preview | ✅ D48-authorized fixture-only presentation merged via PR #55 (2026-11-26); development-only, synthetic, excluded from production builds; no backend endpoints, model providers or persistence |
 | Agent orchestration, verification, Git integration | 📋 Planned, not implemented |
 
 Impact, risk, and simulation derive deterministically from the twin and never authorize
 change. Risk and policy evaluation are advisory; simulation is hypothetical and never
 executes. See [`PROJECT_STATUS.md`](PROJECT_STATUS.md) and [`DECISIONS.md`](DECISIONS.md).
+
+Phase 14 status: S1's deterministic evidence-packet assembler (D39) and S2 Slice 1's
+claim contract and validator (D40) are implemented. Slice 2's Spring AI + local Ollama
+provider integration (D41, PR #27) is a bounded local inference boundary, not a
+production agent runtime or an authorized generation workflow. Slice 3 implementation
+is present, but D47 records that its authorization traceability cannot currently be
+verified; no runtime invocation, continuation or provider use is authorized. Slice 4's
+fixture-only candidate presentation (D44 design, D48 implementation authorization) was
+completed via PR #55; it is the development-only synthetic preview described below.
 
 ---
 
@@ -170,7 +180,7 @@ backend surface and has no production hosting or live OIDC login.
 ```bash
 cd frontend
 npm ci
-npm test        # Vitest + Testing Library (258 tests; 58 focused S5/409 tests)
+npm test        # Vitest + Testing Library (303 tests across 29 files, PR #55 merge baseline; includes 58 focused S5/409 tests)
 npm run build   # production bundle
 npm run dev     # serve at http://127.0.0.1:5173 (start the backend first)
 ```
@@ -207,8 +217,18 @@ limit only, not an API restriction. Results are advisory and read-only: the UI
 does not execute, approve, persist, or mutate a proposal or target system, and
 it shows the server advisories exactly (`SIMULATED — NOT EXECUTED` and
 `ADVISORY POLICY EVALUATION — NOT AN AUTHORIZATION; NOT EXECUTED`). The S2–S5
-views are live-only and are excluded from synthetic preview mode. There is no
-live OIDC login flow and no bundled identity provider: the console never
+views are live-only and are excluded from synthetic preview mode.
+
+The **Phase 14 S2 Slice 4 candidate preview** (D48; merged via PR #55 on
+2026-11-26) is a separate fixture-only candidate presentation reachable only in
+local development (`DEV === true && PROD !== true`) and excluded from production
+builds. Its candidates and evidence are locally defined synthetic fixtures: the
+preview makes no backend request, invokes no Slice 3 generation, uses no model
+provider and persists nothing. An always-visible, non-dismissible synthetic-data banner and per-item
+synthetic labels are always visible; only illustrative states are shown, with no
+accept, reject, approve or execute controls. It adds no live API functionality.
+
+There is no live OIDC login flow and no bundled identity provider: the console never
 persists the token, performs read-only `GET`s, and adds only those two approved
 advisory `POST`s against the System Twin API.
 
@@ -235,7 +255,8 @@ actuator exists — report issues via [`SECURITY.md`](SECURITY.md).
 
 `backend/` holds the Java 21 control plane (with its sample `target-services/`),
 `frontend/` holds the React + Vite operator console (Phase 13 S1–S5 merged;
-S5 passed local live verification 2026-11-03; local development only), and
+S5 passed local live verification 2026-11-03; plus the D48 fixture-only Phase 14
+S2 Slice 4 candidate preview; local development only), and
 `observability/` holds a local telemetry stack (collector, Prometheus, Loki,
 Grafana).
 
@@ -244,7 +265,7 @@ Grafana).
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | System design and trust boundaries |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | Build, test, run, and configuration |
 | [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | Phase-by-phase record of what exists |
-| [`DECISIONS.md`](DECISIONS.md) | Architectural decisions (D1–D47) |
+| [`DECISIONS.md`](DECISIONS.md) | Architectural decisions (D1–D48) |
 | [`THREAT_MODEL.md`](THREAT_MODEL.md) | Security principles and threat model |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Community expectations |
