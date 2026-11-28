@@ -6,6 +6,10 @@ changes. If anything here is unclear, please open an issue so we can improve it.
 
 By participating you agree to follow the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
+New to Systivex? Start with the short
+[Contributor Quickstart](docs/CONTRIBUTOR_QUICKSTART.md) for a welcoming overview;
+this document is the detailed reference.
+
 ## Read this first
 
 Systivex has a small, deliberate architecture. Before writing code, read:
@@ -92,15 +96,114 @@ The console is local-development only; see the frontend convention below and
 Keep documentation changes focused and accurate. Verify every link and command
 against the current repository before submitting.
 
-## Branch and pull-request expectations
+## Fork-based contribution workflow
 
-- Branch from `main`; use a short descriptive name (for example `docs/contributing` or
-  `test/health-parser-edges`).
-- Keep each pull request focused on one change. Split unrelated work into separate PRs.
-- Reference the issue your change addresses in the PR description, if one exists.
-- Write a clear summary: what changed, why, and how you verified it.
-- Prefer small, reviewable commits with meaningful messages.
-- Fill in the pull-request template, including the verification and security sections.
+You do not need write access to the Systivex repository. Work from your own fork and
+open a pull request back to the original project. Replace `<your-username>` with your
+GitHub username and `<branch>` with your branch name.
+
+1. **Fork** the repository on GitHub from
+   `https://github.com/soubhagya-behera/systivex` (the **Fork** button).
+2. **Clone your fork**:
+
+   ```bash
+   git clone https://github.com/<your-username>/systivex.git
+   cd systivex
+   ```
+
+3. **Add the original repository as `upstream`**:
+
+   ```bash
+   git remote add upstream https://github.com/soubhagya-behera/systivex.git
+   ```
+
+4. **Fetch upstream** before starting work, and again before pushing if the branch has
+   been open for a while:
+
+   ```bash
+   git fetch upstream
+   ```
+
+5. **Create a branch based on `upstream/main`** (see the naming convention below):
+
+   ```bash
+   git switch -c <branch> upstream/main
+   ```
+
+6. **Implement the contribution**, following the build and test instructions above.
+7. **Run the applicable tests** — backend (`./mvnw clean test`, requires Docker), target
+   services (per-service `./mvnw test`), and/or frontend (`npm test`, `npm run build`).
+   Report exactly what you ran in the PR.
+8. **Push to your fork**:
+
+   ```bash
+   git push -u origin <branch>
+   ```
+
+9. **Open a pull request** against `soubhagya-behera/systivex`, base branch `main`, from
+   your fork's `<branch>`. Use the pull-request template and link the issue your change
+   addresses, if one exists.
+
+If you refresh an already-open PR, add commits to the same branch and push again; the PR
+updates automatically. Do not rewrite published history without maintainer agreement.
+
+## Branch naming
+
+Use a short, descriptive prefix so the purpose of a branch is obvious:
+
+| Prefix | Use for |
+| --- | --- |
+| `feat/` | New functionality |
+| `fix/` | Bug fixes |
+| `test/` | Test additions or changes |
+| `docs/` | Documentation changes |
+| `refactor/` | Internal changes with no behavior change |
+| `ci/` | Build or CI workflow changes |
+
+Examples: `docs/contributor-onboarding`, `test/health-parser-edges`,
+`fix/51-blank-entity-name`. Include the issue number when one exists; a short slug after
+it is helpful but not required. There is no mandatory commit-message format — prefer
+small, reviewable commits with meaningful messages.
+
+## What happens after you open a pull request
+
+- **CI starts automatically.** Every PR runs Backend CI (Java 21, Testcontainers, the
+  four target services, and the loopback-config check) and Frontend CI (Node 24 tests
+  and production build, with dependency audit when frontend manifests change). You can
+  see the results on the PR page.
+- **A maintainer reviews the changes** for correctness, scope, security, testing, and
+  consistency with the recorded decisions.
+- **Review comments may request changes.** Respond to feedback in the PR thread and push
+  additional commits to the same branch; the PR and CI update automatically. It is
+  normal for a first PR to go through one or more review rounds.
+- **CI must pass before merging.** If a check fails, fix the cause in your branch; do not
+  disable checks, skip tests, or weaken assertions.
+- **Changes must respect project boundaries.** Follow [`ARCHITECTURE.md`](ARCHITECTURE.md),
+  [`DECISIONS.md`](DECISIONS.md), and [`THREAT_MODEL.md`](THREAT_MODEL.md). In particular,
+  no change may weaken authentication or loopback guards, invoke Slice 3 generation
+  (D47), expose the D48 fixture-only candidate presentation outside local development,
+  or implement the proposed pagination design (PR #54) without a separate maintainer
+  decision.
+- **The maintainer decides the merge method and performs the merge.** Contributors
+  should not merge their own PRs. No specific review turnaround time is promised.
+
+## Contribution etiquette
+
+- Keep each pull request focused on one logical change. Split unrelated work into
+  separate PRs.
+- Avoid unrelated formatting or cleanup changes inside a focused PR; propose them
+  separately.
+- Add a regression test for every bug fix, and tests for new behavior.
+- Never weaken, skip, or delete tests to make CI pass. If a test cannot run in your
+  environment, describe the precise blocker in the PR instead of masking it.
+- Do not introduce new dependencies without justification; adding one requires a
+  recorded decision (see [`DEVELOPMENT.md`](DEVELOPMENT.md) §2).
+- Discuss architecture-sensitive changes — execution, authentication, security, new
+  infrastructure, or new API surface — in an issue **before** implementing them, as
+  described under [Reporting a bug, requesting a feature, or proposing architecture
+  changes](#reporting-a-bug-requesting-a-feature-or-proposing-architecture-changes).
+- Fill in the pull-request template, including the verification and security sections,
+  and reference the issue your change addresses, if one exists.
 
 ## What we look for in a change
 
@@ -167,13 +270,26 @@ prospective authorization decision.
 
 ## Finding work to do
 
-We do not maintain a static list of starter tasks. Find current work through the
-repository's [open GitHub issues](https://github.com/soubhagya-behera/systivex/issues):
+GitHub Issues are the source of truth for available work:
+`https://github.com/soubhagya-behera/systivex/issues`. There is no static starter-task
+list; the issue tracker is updated as work is planned and completed.
 
-- Check the repository's currently open GitHub issues.
-- Prefer issues with explicit scope, acceptance criteria, and suitable contribution labels.
-- Read the issue and its recent discussion before starting.
-- Comment on the issue before starting.
-- Wait for maintainer confirmation to avoid duplicate work.
-- If no suitable issue exists, ask the maintainer to help identify a bounded task.
-- Do not start obsolete, completed, closed, or unapproved tasks.
+- Browse **open** issues first. Filter by the `good first issue` label for small,
+  self-contained changes and by `help wanted` for issues where outside help is welcome.
+  Labels are a hint, not a guarantee — always read the issue itself.
+- An issue is available when it is **open**, has a clear problem statement and acceptance
+  criteria, is not already claimed by someone else, and has not been closed, completed,
+  superseded, or left unapproved. Check the recent comments for a claim before starting.
+- Read the full issue and its recent discussion before you begin.
+- **Comment before implementing** when the issue is architecture-sensitive, ambiguous,
+  claimed or in active discussion, or when you need a scope decision. Wait for a response
+  in those cases to avoid duplicate work. For a small, clearly scoped, unassigned issue,
+  a short "I'd like to work on this" comment is enough to signal intent and you can
+  proceed without waiting.
+- If no existing issue matches what you want to do, open a new issue using the bug report
+  or feature request form. Describe the problem, your proposed approach, and the scope.
+  That is the normal public way to propose work and make it visible and claimable — you
+  do not need a private introduction to contribute. Significant architectural changes
+  must be discussed in an issue before implementation.
+- Do not start obsolete, completed, closed, or unapproved tasks, and do not implement
+  proposals that are explicitly marked as documentation-only or not adopted.
