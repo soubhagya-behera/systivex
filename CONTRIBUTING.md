@@ -103,7 +103,7 @@ open a pull request back to the original project. Replace `<your-username>` with
 GitHub username and `<branch>` with your branch name.
 
 1. **Fork** the repository on GitHub from
-   `https://github.com/soubhagya-behera/systivex` (the **Fork** button).
+   `https://github.com/soubhagya-behera/Systivex` (the **Fork** button).
 2. **Clone your fork**:
 
    ```bash
@@ -114,7 +114,7 @@ GitHub username and `<branch>` with your branch name.
 3. **Add the original repository as `upstream`**:
 
    ```bash
-   git remote add upstream https://github.com/soubhagya-behera/systivex.git
+   git remote add upstream https://github.com/soubhagya-behera/Systivex.git
    ```
 
 4. **Fetch upstream** before starting work, and again before pushing if the branch has
@@ -271,7 +271,7 @@ prospective authorization decision.
 ## Finding work to do
 
 GitHub Issues are the source of truth for available work:
-`https://github.com/soubhagya-behera/systivex/issues`. There is no static starter-task
+`https://github.com/soubhagya-behera/Systivex/issues`. There is no static starter-task
 list; the issue tracker is updated as work is planned and completed.
 
 - Browse **open** issues first. Filter by the `good first issue` label for small,

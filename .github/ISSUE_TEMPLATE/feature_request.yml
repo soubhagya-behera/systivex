@@ -10,7 +10,7 @@ body:
         Thanks for proposing an improvement. For anything that changes execution,
         authentication, security-sensitive behavior, or infrastructure, please keep in
         mind that such changes must respect the recorded decisions in
-        [DECISIONS.md](https://github.com/soubhagya-behera/systivex/blob/main/DECISIONS.md).
+        [DECISIONS.md](https://github.com/soubhagya-behera/Systivex/blob/main/DECISIONS.md).
 
         Please do not include secrets, credentials, tokens, or real data below.
   - type: textarea

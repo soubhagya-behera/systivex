@@ -16,7 +16,7 @@ governed, tamper-evident ledger.
 ![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-336791?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Maven 3.9.16](https://img.shields.io/badge/Maven-3.9.16-C71A36?style=for-the-badge&logo=apachemaven&logoColor=white)
 
-[![Backend CI](https://github.com/soubhagya-behera/systivex/actions/workflows/backend-ci.yml/badge.svg?branch=main)](https://github.com/soubhagya-behera/systivex/actions/workflows/backend-ci.yml)
+[![Backend CI](https://github.com/soubhagya-behera/Systivex/actions/workflows/backend-ci.yml/badge.svg?branch=main)](https://github.com/soubhagya-behera/Systivex/actions/workflows/backend-ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square)](LICENSE)
 
 **[The Problem](#-the-problem) • [Features](#-features) • [Architecture](#-architecture-at-a-glance) • [Capabilities](#-capabilities-and-status) • [Quick Start](#-quick-start) • [Security](#-security-and-execution-boundaries) • [Contributing](docs/CONTRIBUTOR_QUICKSTART.md)**
@@ -279,7 +279,7 @@ Contributions are welcome from anyone. New contributors can start with the short
 [Contributor Quickstart](docs/CONTRIBUTOR_QUICKSTART.md) and then read the detailed
 [CONTRIBUTING.md](CONTRIBUTING.md) guide.
 
-Work is tracked in [GitHub Issues](https://github.com/soubhagya-behera/systivex/issues).
+Work is tracked in [GitHub Issues](https://github.com/soubhagya-behera/Systivex/issues).
 Look for issues labelled `good first issue` or `help wanted` — these labels are a hint,
 not a guarantee that a task is currently open or unclaimed. If nothing suitable is open,
 you can propose a bug fix or feature through the issue forms; no private introduction is

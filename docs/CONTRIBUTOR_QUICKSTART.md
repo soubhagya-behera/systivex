@@ -35,7 +35,7 @@ and check [DECISIONS.md](../DECISIONS.md). Some areas are deliberately gated (se
 ## Where to find work
 
 Use the public issue tracker:
-[github.com/soubhagya-behera/systivex/issues](https://github.com/soubhagya-behera/systivex/issues).
+[github.com/soubhagya-behera/Systivex/issues](https://github.com/soubhagya-behera/Systivex/issues).
 
 - Look for issues labelled `good first issue` (small and self-contained) or
   `help wanted` (where outside help is useful). Always read the issue and its recent
@@ -85,7 +85,7 @@ You do not need write access. Fork
 ```bash
 git clone https://github.com/<your-username>/systivex.git
 cd systivex
-git remote add upstream https://github.com/soubhagya-behera/systivex.git
+git remote add upstream https://github.com/soubhagya-behera/Systivex.git
 git fetch upstream
 git switch -c docs/my-first-change upstream/main
 # implement, run the applicable checks, then:
@@ -104,7 +104,7 @@ and [What happens after you open a pull request](../CONTRIBUTING.md#what-happens
 ## Report bugs and security issues
 
 - **Bugs and feature ideas:** open an issue using the
-  [bug report or feature request form](https://github.com/soubhagya-behera/systivex/issues/new/choose).
+  [bug report or feature request form](https://github.com/soubhagya-behera/Systivex/issues/new/choose).
   Remove tokens, credentials, and real data from anything you paste.
 - **Security vulnerabilities:** do **not** open a public issue. Use the repository's
   **Security → Report a vulnerability** flow described in [SECURITY.md](../SECURITY.md),
