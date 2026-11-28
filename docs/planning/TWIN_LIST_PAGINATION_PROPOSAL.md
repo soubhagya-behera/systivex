@@ -509,10 +509,10 @@ Why:
   `system_entity`; source/target entity loading is a separate concern
   (section 7).
 - `relationship_type` is persisted as `VARCHAR(32)` via
-  `@Enumerated(EnumType.STRING)`, so the order is database text order
-  (`CALLS`, `CONFIGURES`, `DEPENDS_ON`, `DEPLOYED_AS`, `EXPOSES`, `READS`,
-  `WRITES`), not enum declaration order. That must be documented as the
-  contract if this order is adopted.
+  `@Enumerated(EnumType.STRING)`, so the order is database text order over all
+  eight enum values (`CALLS`, `CONFIGURES`, `CONTAINS`, `DEPENDS_ON`,
+  `DEPLOYED_AS`, `EXPOSES`, `READS`, `WRITES`), not enum declaration order.
+  That must be documented as the contract if this order is adopted.
 
 Alternatives:
 
@@ -974,7 +974,7 @@ Only if Option C was chosen:
 
 | Gate | Requirement |
 |---|---|
-| Contract review | UD-1, UD-2, UD-4, UD-5 resolved and recorded |
+| Contract review | UD-1, UD-2, UD-3, UD-4, UD-5 resolved and recorded |
 | Scope | Only the files authorized for the implementation change; no schema, migration, dependency, security, or configuration change unless separately authorized |
 | Ordering | Deterministic total order proven by repeated-request and page-concatenation tests |
 | Bounds | Defaults, maximum, negative, zero, excessive, and non-numeric cases covered |
@@ -1062,7 +1062,7 @@ Only if Option C was chosen:
 | Query and index considerations | Section 7.5 |
 | Testing: page positions, empty, max, invalid, ordering, integrity, regression | Section 8 |
 | Rollout: review, stages, gates | Section 9 |
-| Verified vs recommended vs alternatives vs unresolved | Labelling in section 1, plus sections 11-12 |
+| Verified vs recommended vs alternatives vs unresolved | Labelling in Document control → How to read this document |
 | Documentation-only, no implementation authorization | Sections 1.3 and 14 |
 
 ## 14. Implementation authorization status
